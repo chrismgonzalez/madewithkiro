@@ -142,8 +142,20 @@ Provides:
 - Social link buttons (LinkedIn, GitHub, AWS Builder Center)
 - Conditional rendering of optional social links
 - List of user's applications from mock data
-- Edit button to toggle to ProfileForm
+- Edit button to toggle to ProfileForm (only shown when viewing own profile)
+- Determines if viewing own profile by comparing userId prop with current authenticated user
 - Empty state when user has no applications
+
+**Profile View Modes:**
+
+1. **My Profile** (authenticated user viewing their own profile):
+   - Shows all profile information
+   - Displays Edit Profile button
+   - Shows both public and private applications
+2. **Public Profile** (viewing another user's profile):
+   - Shows profile information (name, social links)
+   - No Edit Profile button
+   - Shows only public applications (if unauthenticated) or all applications (if authenticated)
 
 #### 4. Application Components
 
@@ -486,37 +498,49 @@ _For any_ user profile, the profile page should display all and only the applica
 
 **Validates: Requirements 6.4**
 
-### Property 22: Mock data contains required user fields
+### Property 22: Edit button shown only on own profile
+
+_For any_ authenticated user viewing their own profile, the profile page should display an edit button.
+
+**Validates: Requirements 6.7**
+
+### Property 23: Edit button hidden on other profiles
+
+_For any_ user viewing another user's profile, the profile page should NOT display an edit button.
+
+**Validates: Requirements 6.8**
+
+### Property 24: Mock data contains required user fields
 
 _For any_ user in the mock data, the user object should contain all required fields (userId, firstName, lastName, awsBuilderHandle, createdAt).
 
 **Validates: Requirements 7.1**
 
-### Property 23: Mock data contains required application fields
+### Property 25: Mock data contains required application fields
 
 _For any_ application in the mock data, the application object should contain all required fields (appId, userId, userName, name, description, appUrl, tags, createdAt).
 
 **Validates: Requirements 7.2**
 
-### Property 24: Validation error specificity
+### Property 26: Validation error specificity
 
 _For any_ invalid data submission, the system should return error messages that specifically identify which fields are invalid and why.
 
 **Validates: Requirements 9.1**
 
-### Property 25: Error state preservation
+### Property 27: Error state preservation
 
 _For any_ error that occurs during form submission, the form state should remain intact and allow the user to retry the operation.
 
 **Validates: Requirements 9.3**
 
-### Property 26: Missing field highlighting
+### Property 28: Missing field highlighting
 
 _For any_ form submission with missing required fields, the system should highlight exactly those fields that are missing or invalid.
 
 **Validates: Requirements 9.4**
 
-### Property 27: Error message clearing
+### Property 29: Error message clearing
 
 _For any_ form field with a validation error, when the user corrects the error, the error message for that field should be cleared.
 

@@ -91,6 +91,8 @@ MadeWithKiro MVP is a showcase platform UI that displays applications built with
 4. WHEN an unauthenticated visitor views a user profile THEN the System SHALL display only public application cards created by that user
 5. WHEN an authenticated user views a user profile THEN the System SHALL display both public and private application cards created by that user
 6. WHEN a user has no visible applications in mock data THEN the System SHALL display an appropriate message on their profile
+7. WHEN an authenticated user views their own profile THEN the System SHALL display an edit button
+8. WHEN an authenticated user views another user's profile THEN the System SHALL NOT display an edit button
 
 ### Requirement 7
 

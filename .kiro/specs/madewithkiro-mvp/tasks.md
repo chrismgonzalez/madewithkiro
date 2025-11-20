@@ -119,7 +119,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - Test tag filtering logic
   - _Requirements: 4.1, 4.2, 5.1_
 
-- [ ] 4.3 Implement mockDataService (RED → GREEN → REFACTOR)
+- [x] 4.3 Implement mockDataService (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Implement getProfile(userId) returning Promise
@@ -131,7 +131,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 4.1, 4.2, 5.1, 6.4, 6.5_
 
-- [ ] 4.4 Create Tanstack Query hooks (RED → GREEN → REFACTOR)
+- [x] 4.4 Create Tanstack Query hooks (RED → GREEN → REFACTOR)
 
   - **RED**: Write tests for hooks behavior
   - **GREEN**: Create useApplications hook with authentication-aware query key
@@ -142,7 +142,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - _Requirements: 4.1, 6.1, 6.4_
 
 - [ ] 5. Implement ProfileForm component (BDD/TDD)
-- [ ] 5.1 Write acceptance tests for ProfileForm
+- [x] 5.1 Write acceptance tests for ProfileForm
 
   - **GIVEN** I view the profile form
   - **WHEN** the form renders
@@ -186,7 +186,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **Property 27: Error message clearing**
   - **Validates: Requirements 9.5**
 
-- [ ] 5.7 Implement ProfileForm component (RED → GREEN → REFACTOR)
+- [x] 5.7 Implement ProfileForm component (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Add input fields for all profile attributes
@@ -199,7 +199,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.2, 2.3, 2.4, 2.5, 9.1, 9.4, 9.5_
 
 - [ ] 6. Implement ProfileView component (BDD/TDD)
-- [ ] 6.1 Write acceptance tests for ProfileView
+- [x] 6.1 Write acceptance tests for ProfileView
 
   - **GIVEN** I view a user profile
   - **WHEN** the profile renders
@@ -241,7 +241,17 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **Property 21: User profile displays user's applications**
   - **Validates: Requirements 6.4**
 
-- [ ] 6.6 Implement ProfileView component (RED → GREEN → REFACTOR)
+- [ ]\* 6.6 Write property test for edit button shown only on own profile
+
+  - **Property 22: Edit button shown only on own profile**
+  - **Validates: Requirements 6.7**
+
+- [ ]\* 6.7 Write property test for edit button hidden on other profiles
+
+  - **Property 23: Edit button hidden on other profiles**
+  - **Validates: Requirements 6.8**
+
+- [x] 6.8 Implement ProfileView component (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Display user information from mock data
@@ -253,12 +263,27 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 2.1, 2.2, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
-- [ ] 7. Checkpoint - Ensure all tests pass
+- [x] 6.9 Update ProfileView to distinguish between own and other profiles (BDD/TDD)
+
+  - **RED**: Write acceptance tests for profile view distinction
+  - **GIVEN** I am authenticated and viewing my own profile
+  - **WHEN** the profile renders
+  - **THEN** I should see an Edit Profile button
+  - **GIVEN** I am authenticated and viewing another user's profile
+  - **WHEN** the profile renders
+  - **THEN** I should NOT see an Edit Profile button
+  - **GREEN**: Get current authenticated user ID from MockAuthContext
+  - **GREEN**: Compare userId prop with authenticated user ID
+  - **GREEN**: Conditionally render Edit button only when viewing own profile
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 6.7, 6.8_
+
+- [x] 7. Checkpoint - Ensure all tests pass
 
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Implement ApplicationCard component (BDD/TDD)
-- [ ] 8.1 Write acceptance tests for ApplicationCard
+- [x] 8. Implement ApplicationCard component (BDD/TDD)
+- [x] 8.1 Write acceptance tests for ApplicationCard
 
   - **GIVEN** an application card is rendered
   - **WHEN** I view the card
@@ -287,7 +312,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **Property 13: Application card contains valid links**
   - **Validates: Requirements 4.4**
 
-- [ ] 8.4 Implement ApplicationCard component (RED → GREEN → REFACTOR)
+- [x] 8.4 Implement ApplicationCard component (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Display app name, description, tags
@@ -299,8 +324,8 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 4.2, 4.3, 4.4_
 
-- [ ] 9. Implement ApplicationForm component (BDD/TDD)
-- [ ] 9.1 Write acceptance tests for ApplicationForm
+- [x] 9. Implement ApplicationForm component (BDD/TDD)
+- [x] 9.1 Write acceptance tests for ApplicationForm
 
   - **GIVEN** I view the application form
   - **WHEN** the form renders
@@ -344,7 +369,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **Property 25: Error state preservation**
   - **Validates: Requirements 9.3**
 
-- [ ] 9.7 Implement ApplicationForm component (RED → GREEN → REFACTOR)
+- [x] 9.7 Implement ApplicationForm component (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Add input fields for app details
@@ -358,8 +383,8 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 9.1, 9.4, 9.5_
 
-- [ ] 10. Implement ApplicationGallery component (BDD/TDD)
-- [ ] 10.1 Write acceptance tests for ApplicationGallery
+- [x] 10. Implement ApplicationGallery component (BDD/TDD)
+- [x] 10.1 Write acceptance tests for ApplicationGallery
 
   - **GIVEN** I am unauthenticated
   - **WHEN** I view the gallery
@@ -409,7 +434,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **Property 17: Tag filter clearing**
   - **Validates: Requirements 5.4**
 
-- [ ] 10.7 Implement ApplicationGallery component (RED → GREEN → REFACTOR)
+- [x] 10.7 Implement ApplicationGallery component (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Fetch applications using useApplications hook (respects authentication)
@@ -423,11 +448,11 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 4.1, 4.2, 4.6, 5.1, 5.2, 5.3, 5.4, 5.5, 8.3_
 
-- [ ] 11. Checkpoint - Ensure all tests pass
+- [x] 11. Checkpoint - Ensure all tests pass
 
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 12. Install shadcn/ui components
+- [x] 12. Install shadcn/ui components
 
   - Install Button component
   - Install Card component
@@ -439,8 +464,8 @@ Each task follows this pattern to ensure proper SDLC practices.
   - Install Checkbox component (for tag filters)
   - _Requirements: 8.2_
 
-- [ ] 13. Implement Navigation component (BDD/TDD)
-- [ ] 13.1 Write acceptance tests for Navigation
+- [x] 13. Implement Navigation component (BDD/TDD)
+- [x] 13.1 Write acceptance tests for Navigation
 
   - **GIVEN** I view the navigation
   - **WHEN** the component renders
@@ -459,7 +484,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** the active route should be highlighted
   - _Requirements: 8.2, 8.4, 11.1_
 
-- [ ] 13.2 Implement Navigation component (RED → GREEN → REFACTOR)
+- [x] 13.2 Implement Navigation component (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Add logo and app name
@@ -471,8 +496,8 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 8.2, 8.4, 11.1_
 
-- [ ] 14. Implement Layout and Routing (BDD/TDD)
-- [ ] 14.1 Write acceptance tests for Layout and Routing
+- [x] 14. Implement Layout and Routing (BDD/TDD)
+- [x] 14.1 Write acceptance tests for Layout and Routing
 
   - **GIVEN** I navigate to any page
   - **WHEN** the page renders
@@ -491,7 +516,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** the correct page should render
   - _Requirements: 8.1, 8.4, 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 14.2 Implement Layout component (RED → GREEN → REFACTOR)
+- [x] 14.2 Implement Layout component (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Add consistent header with Navigation
@@ -501,7 +526,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 8.1, 8.4_
 
-- [ ] 14.3 Set up routing with Tanstack Router (RED → GREEN → REFACTOR)
+- [x] 14.3 Set up routing with Tanstack Router (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Create route tree
@@ -514,8 +539,8 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 15. Implement error handling and empty states (BDD/TDD)
-- [ ] 15.1 Write acceptance tests for error handling
+- [x] 15. Implement error handling and empty states (BDD/TDD)
+- [x] 15.1 Write acceptance tests for error handling
 
   - **GIVEN** a React component throws an error
   - **WHEN** the error occurs
@@ -531,7 +556,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** I should see an empty state message
   - _Requirements: 4.6, 5.5, 6.6, 9.2, 9.3_
 
-- [ ] 15.2 Implement ErrorBoundary component (RED → GREEN → REFACTOR)
+- [x] 15.2 Implement ErrorBoundary component (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Catch React component errors
@@ -541,7 +566,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 9.2, 9.3_
 
-- [ ] 15.3 Implement empty state components (RED → GREEN → REFACTOR)
+- [x] 15.3 Implement empty state components (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Create EmptyGallery component (no applications)
@@ -551,15 +576,15 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 4.6, 5.5, 6.6_
 
-- [ ] 15.4 Add loading states to data-fetching components
+- [x] 15.4 Add loading states to data-fetching components
 
   - Show loading spinners during query fetches
   - Disable form submissions during processing
   - Use Tanstack Query's isLoading state
   - _Requirements: 9.3_
 
-- [ ] 16. Add mobile responsiveness and styling (BDD/TDD)
-- [ ] 16.1 Write acceptance tests for mobile responsiveness
+- [x] 16. Add mobile responsiveness and styling (BDD/TDD)
+- [x] 16.1 Write acceptance tests for mobile responsiveness
 
   - **GIVEN** I view the app on a 320px viewport
   - **WHEN** the page renders
@@ -575,7 +600,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** all fields should be easily tappable and readable
   - _Requirements: 8.1, 8.2, 8.3, 8.5_
 
-- [ ] 16.2 Implement mobile-first responsive design (RED → GREEN → REFACTOR)
+- [x] 16.2 Implement mobile-first responsive design (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Use Tailwind responsive prefixes (sm:, md:, lg:, xl:)
@@ -586,7 +611,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 8.1, 8.2, 8.3, 8.5_
 
-- [ ] 16.3 Style all components with Tailwind CSS
+- [x] 16.3 Style all components with Tailwind CSS
 
   - Apply consistent spacing and typography
   - Use shadcn/ui design tokens
@@ -595,5 +620,5 @@ Each task follows this pattern to ensure proper SDLC practices.
   - Style validation errors (red border, error text)
   - _Requirements: 8.1, 9.1_
 
-- [ ] 17. Final checkpoint - Ensure all tests pass
+- [x] 17. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.

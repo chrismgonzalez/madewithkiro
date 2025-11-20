@@ -13,6 +13,8 @@ export interface UserProfile {
   updatedAt: string;
 }
 
+export type ApplicationVisibility = "public" | "private";
+
 export interface Application {
   appId: string;
   userId: string;
@@ -22,6 +24,7 @@ export interface Application {
   appUrl: string;
   githubUrl?: string;
   tags: string[];
+  visibility: ApplicationVisibility;
   createdAt: string;
 }
 
@@ -43,6 +46,7 @@ export interface CreateApplicationRequest {
   appUrl: string;
   githubUrl?: string;
   tags: string[];
+  visibility: ApplicationVisibility;
 }
 
 export interface ApiError {
