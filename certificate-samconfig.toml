@@ -1,0 +1,15 @@
+version = 0.1
+
+[default]
+[default.global.parameters]
+stack_name = "madewithkiro-certificate"
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+region = "us-east-1"
+parameter_overrides = [
+  "DomainName=madewithkiro.com",
+  "HostedZoneId=Z00541582Q16QTXW4013F",
+]

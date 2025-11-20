@@ -2,15 +2,15 @@
 
 ## Overview
 
-MadeWithKiro is a serverless showcase platform built on AWS that enables users to display applications they've created with Kiro. The system leverages AWS Cognito for authentication, DynamoDB for data persistence, Lambda for business logic, and a React frontend with TypeScript. The architecture prioritizes rapid development, mobile-first design, and zero-configuration deployment through AWS SAM and Makefile automation.
+MadeWithKiro MVP is a showcase platform UI built with React and TypeScript that displays applications created with Kiro. This design focuses on building all frontend components, interactions, and layouts using mock data, without backend integration or authentication. The architecture prioritizes rapid UI development, mobile-first design, and component reusability using shadcn/ui.
 
 ### Key Design Principles
 
-1. **Speed to Market**: Minimal viable features with shadcn/ui components
-2. **Serverless Architecture**: AWS Lambda + DynamoDB for automatic scaling
+1. **UI-First Development**: Build and test all components with mock data before backend integration
+2. **Component Reusability**: Leverage shadcn/ui for consistent, accessible components
 3. **Mobile-First**: Responsive design starting at 320px viewport
-4. **Single-Table Design**: Simplified DynamoDB schema for POC efficiency
-5. **Zero Manual Configuration**: Complete infrastructure as code via AWS SAM
+4. **Client-Side State**: All data management happens in-memory with mock data
+5. **Separation of Concerns**: Prepare service layer interfaces for future backend integration
 
 ## Architecture
 
@@ -19,46 +19,41 @@ MadeWithKiro is a serverless showcase platform built on AWS that enables users t
 ```mermaid
 graph TB
     User[User Browser]
-    CF[CloudFront CDN]
-    S3[S3 Static Hosting]
-    APIGW[API Gateway]
-    Cognito[Cognito User Pool]
 
-    subgraph "Lambda Functions"
-        ProfileLambda[Profile Handler]
-        AppLambda[Application Handler]
+    subgraph "React Application"
+        Router[Tanstack Router]
+        Components[UI Components]
+        MockData[Mock Data Layer]
+        Services[Service Layer<br/>Future API Integration]
     end
 
-    DDB[(DynamoDB<br/>Single Table)]
+    User -->|Interacts| Router
+    Router -->|Renders| Components
+    Components -->|Reads| MockData
+    Components -->|Calls| Services
+    Services -.->|Returns Mock Data| MockData
 
-    User -->|HTTPS| CF
-    CF -->|Static Assets| S3
-    CF -->|API Calls| APIGW
-    User -.->|Auth| Cognito
-    APIGW -->|Validate Token| Cognito
-    APIGW -->|Invoke| ProfileLambda
-    APIGW -->|Invoke| AppLambda
-    ProfileLambda -->|Read/Write| DDB
-    AppLambda -->|Read/Write| DDB
+    style MockData fill:#ffd700
+    style Services fill:#87ceeb
 ```
 
-### Request Flow
+### Data Flow
 
-**Authentication Flow:**
+**Component Rendering Flow:**
 
-1. User clicks "Sign In" → Redirected to Cognito Hosted UI
-2. User authenticates → Cognito returns JWT tokens (ID, Access, Refresh)
-3. React app stores tokens in memory and localStorage
-4. AuthContext provides authentication state to all components
+1. User navigates to a page → Router matches route
+2. Page component mounts → Tanstack Query hook fetches data
+3. Query returns cached data (instant) or fetches from mock service
+4. Component renders with data
+5. User interactions update local component state
 
-**API Request Flow:**
+**Form Submission Flow:**
 
-1. React component triggers API call via service layer
-2. Service layer attaches JWT token to Authorization header
-3. API Gateway validates token with Cognito authorizer
-4. Lambda function receives validated user context
-5. Lambda executes business logic and queries DynamoDB
-6. Response flows back through API Gateway to React app
+1. User fills out form → Client-side validation runs
+2. User submits form → Validation passes
+3. Success message displayed → Form state cleared
+4. No data persistence (mock data remains unchanged)
+5. Future: Form submission will trigger mutation and invalidate queries
 
 ### Technology Stack
 
@@ -69,268 +64,232 @@ graph TB
 - Tailwind CSS for styling
 - shadcn/ui for UI components
 - lucide-react for icons
-- Tanstack Router
-- Tanstack Query
+- Tanstack Router for client-side routing
+- Tanstack Query for data fetching and caching
 - zod for schema validation
 - Bun as package manager
 
-**Backend:**
+**Development Tools:**
 
-- AWS Lambda (Python 3.13 runtime)
-- API Gateway (REST API with Cognito authorizer)
-- DynamoDB (single-table design with GSI)
-- Cognito User Pools (authentication)
-- boto3 for AWS SDK
-- Pydantic for data validation
-- uv for Python package management
-
-**Infrastructure:**
-
-- AWS SAM for infrastructure as code
-- CloudFormation for resource provisioning
-- Makefile for deployment automation
-- Lambda functions bundled as zip files
+- Vitest for unit testing
+- fast-check for property-based testing
+- TypeScript strict mode
+- ESLint for code quality
 
 ## Components and Interfaces
 
 ### Frontend Components
 
-#### 1. Authentication Components
+#### 1. Mock Authentication Context
 
-**AuthProvider (Context)**
+**MockAuthContext**
 
 ```typescript
-interface AuthContextType {
-  user: CognitoUser | null;
+interface MockAuthContextType {
   isAuthenticated: boolean;
-  isLoading: boolean;
-  signIn: () => Promise<void>;
-  signOut: () => Promise<void>;
-  getAccessToken: () => Promise<string>;
+  toggleAuth: () => void;
 }
 ```
 
-**ProtectedRoute**
+Provides:
 
-- Wraps routes requiring authentication
-- Redirects to sign-in if not authenticated
-- Shows loading state during auth check
+- Simple boolean authentication state
+- Toggle function to simulate login/logout
+- State persisted in localStorage
+- No actual authentication logic
+- Used to filter applications by visibility
 
-#### 2. Profile Components
+#### 2. Mock Data Layer
+
+**mockData.ts**
+
+```typescript
+interface MockDataStore {
+  users: UserProfile[];
+  applications: Application[];
+  getUserById: (userId: string) => UserProfile | undefined;
+  getApplicationsByUserId: (
+    userId: string,
+    isAuthenticated: boolean
+  ) => Application[];
+  getAllApplications: (isAuthenticated: boolean) => Application[];
+  getAllTags: () => string[];
+}
+```
+
+Provides:
+
+- At least 3 mock user profiles
+- At least 10 mock applications (mix of public and private)
+- Helper functions for data access
+- Visibility filtering based on authentication state
+- Realistic data with various tags and URLs
+
+#### 3. Profile Components
 
 **ProfileForm**
 
 - Input fields for all profile attributes
-- Client-side validation for required fields
+- Client-side validation for required fields using zod
 - URL format validation for social links
 - Submit and cancel actions
+- Success message on valid submission
+- Error messages for validation failures
 
 **ProfileView**
 
-- Display user information
+- Display user information from mock data
 - Social link buttons (LinkedIn, GitHub, AWS Builder Center)
-- List of user's applications
-- Edit button (only for own profile)
+- Conditional rendering of optional social links
+- List of user's applications from mock data
+- Edit button to toggle to ProfileForm
+- Empty state when user has no applications
 
-#### 3. Application Components
+#### 4. Application Components
 
 **ApplicationCard**
 
 - Display app name, description, tags
+- Visibility badge (Public/Private)
 - Creator information with profile link
-- Links to live app and GitHub repo
-- Responsive card layout
+- Links to live app and GitHub repo (opens in new tab)
+- Responsive card layout using shadcn/ui Card
+- Hover effects for interactivity
 
 **ApplicationForm**
 
-- Input fields for app details
-- Tag input with multi-select
-- URL validation
+- Input fields for app details (name, description, URLs, tags)
+- Visibility selector (radio buttons or select: Public/Private)
+- Tag input with multi-select or comma-separated input
+- URL validation using zod
 - Submit and cancel actions
+- Success message on valid submission
+- Error messages for validation failures
 
 **ApplicationGallery**
 
-- Grid layout of application cards
-- Tag filter sidebar (client-side filtering)
-- Empty state when no apps
+- Grid layout of application cards from mock data
+- Filters applications based on authentication state
+- Tag filter sidebar with checkboxes
+- Client-side filtering by selected tags (OR logic)
+- Empty state when no apps match filters
 - Responsive grid (1 col mobile, 2-3 cols desktop)
-- Filters applications by selected tags in-memory after fetching all apps
-- Extracts unique tags from all applications for filter options
+- Extracts unique tags from visible applications
+- Clear filters button
 
-#### 4. Layout Components
+#### 5. Layout Components
 
 **Navigation**
 
 - Logo and app name
 - Links to Gallery, Profile, Add App
-- Sign In/Sign Out button
-- Mobile hamburger menu
+- Mock authentication toggle button (for testing)
+- Mobile hamburger menu using shadcn/ui Sheet
+- Responsive navigation bar
+- Active route highlighting
 
 **Layout**
 
-- Consistent header and footer
-- Main content area
+- Consistent header with Navigation
+- Main content area with max-width container
+- Footer with links
 - Mobile-responsive structure
-
-### Backend Components
-
-#### 1. Lambda Functions
-
-**Profile Handler (`/profile`)**
-
-Endpoints:
-
-- `GET /profile/{userId}` - Get user profile
-- `POST /profile` - Create profile (authenticated)
-- `PUT /profile` - Update profile (authenticated)
-
-Responsibilities:
-
-- Validate profile data
-- Enforce required fields
-- Store/retrieve from DynamoDB
-- Return user profile with applications count
-
-**Application Handler (`/applications`)**
-
-Endpoints:
-
-- `GET /applications` - List all applications (public)
-- `GET /applications?userId={userId}` - List user's applications
-- `POST /applications` - Create application (authenticated)
-
-Responsibilities:
-
-- Validate application data using Pydantic models
-- URL format validation
-- Associate app with authenticated user
-- Query DynamoDB for all applications or user-specific applications
-- Return all results (tag filtering performed client-side in React)
-
-#### 2. API Gateway Configuration
-
-**Cognito Authorizer:**
-
-- Validates JWT tokens from Authorization header
-- Extracts user identity (sub claim)
-- Passes user context to Lambda
-
-**CORS Configuration:**
-
-- Allow origins: CloudFront distribution URL
-- Allow methods: GET, POST, PUT, OPTIONS
-- Allow headers: Authorization, Content-Type
-- Expose headers: Content-Length
-
-**Request Validation:**
-
-- Validate request body schemas
-- Validate query parameters
-- Return 400 for invalid requests
 
 ### Service Layer (Frontend)
 
-**ProfileService**
+The service layer provides an abstraction for data access, currently using mock data but designed for easy backend integration later. Tanstack Query handles caching and state management.
+
+**mockDataService.ts**
 
 ```typescript
-interface ProfileService {
-  getProfile(userId: string): Promise<UserProfile>;
-  createProfile(profile: CreateProfileRequest): Promise<UserProfile>;
-  updateProfile(profile: UpdateProfileRequest): Promise<UserProfile>;
-}
-```
+interface DataService {
+  // Profile operations
+  getProfile(userId: string): Promise<UserProfile | undefined>;
+  getAllProfiles(): Promise<UserProfile[]>;
 
-**ApplicationService**
+  // Application operations
+  getAllApplications(isAuthenticated: boolean): Promise<Application[]>;
+  getApplicationsByUserId(
+    userId: string,
+    isAuthenticated: boolean
+  ): Promise<Application[]>;
 
-```typescript
-interface ApplicationService {
-  listApplications(): Promise<Application[]>;
-  createApplication(app: CreateApplicationRequest): Promise<Application>;
-  getApplicationsByUser(userId: string): Promise<Application[]>;
+  // Utility operations
+  getAllTags(isAuthenticated: boolean): Promise<string[]>;
   filterApplicationsByTags(
     applications: Application[],
     tags: string[]
-  ): Application[]; // Client-side filtering
-  extractUniqueTags(applications: Application[]): string[]; // Client-side tag extraction
+  ): Application[];
 }
+```
+
+**Tanstack Query Integration**
+
+```typescript
+// Custom hooks using Tanstack Query
+export const useApplications = () => {
+  const { isAuthenticated } = useMockAuth();
+
+  return useQuery({
+    queryKey: ["applications", isAuthenticated],
+    queryFn: () => mockDataService.getAllApplications(isAuthenticated),
+    staleTime: Infinity, // Mock data never stales
+  });
+};
+
+export const useProfile = (userId: string) => {
+  return useQuery({
+    queryKey: ["profile", userId],
+    queryFn: () => mockDataService.getProfile(userId),
+    staleTime: Infinity,
+  });
+};
+
+export const useUserApplications = (userId: string) => {
+  const { isAuthenticated } = useMockAuth();
+
+  return useQuery({
+    queryKey: ["applications", "user", userId, isAuthenticated],
+    queryFn: () =>
+      mockDataService.getApplicationsByUserId(userId, isAuthenticated),
+    staleTime: Infinity,
+  });
+};
+```
+
+**Future API Service Interface (for reference)**
+
+```typescript
+interface ApiService {
+  getProfile(userId: string): Promise<UserProfile>;
+  createProfile(profile: CreateProfileRequest): Promise<UserProfile>;
+  updateProfile(profile: UpdateProfileRequest): Promise<UserProfile>;
+
+  listApplications(): Promise<Application[]>;
+  createApplication(app: CreateApplicationRequest): Promise<Application>;
+  getApplicationsByUser(userId: string): Promise<Application[]>;
+}
+
+// Future mutations with Tanstack Query
+export const useCreateApplication = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (app: CreateApplicationRequest) =>
+      apiService.createApplication(app),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+    },
+  });
+};
 ```
 
 ## Data Models
 
-### DynamoDB Single-Table Design
-
-**Table Name:** `MadeWithKiro`
-
-**Primary Key:**
-
-- Partition Key (PK): String
-- Sort Key (SK): String
-
-**Global Secondary Index (GSI1):**
-
-- GSI1PK: String
-- GSI1SK: String
-
-### Entity Patterns
-
-#### User Profile Entity
-
-```typescript
-interface UserProfileEntity {
-  PK: string; // "USER#<userId>"
-  SK: string; // "PROFILE"
-  GSI1PK: string; // "PROFILE"
-  GSI1SK: string; // "USER#<userId>"
-  entityType: "PROFILE";
-  userId: string;
-  firstName: string;
-  lastName: string;
-  awsBuilderHandle: string;
-  linkedInUsername?: string;
-  githubUsername?: string;
-  createdAt: string; // ISO 8601 timestamp
-  updatedAt: string; // ISO 8601 timestamp
-}
-```
-
-**Access Patterns:**
-
-- Get profile by userId: Query where PK = "USER#<userId>" AND SK = "PROFILE"
-- List all profiles: Query GSI1 where GSI1PK = "PROFILE"
-
-#### Application Entity
-
-```typescript
-interface ApplicationEntity {
-  PK: string; // "APP#<appId>"
-  SK: string; // "METADATA"
-  GSI1PK: string; // "USER#<userId>"
-  GSI1SK: string; // "APP#<createdAt>#<appId>"
-  entityType: "APPLICATION";
-  appId: string;
-  userId: string;
-  name: string;
-  description: string;
-  appUrl: string;
-  githubUrl?: string;
-  tags: string[];
-  createdAt: string; // ISO 8601 timestamp
-  updatedAt: string; // ISO 8601 timestamp
-}
-```
-
-**Access Patterns:**
-
-- Get application by appId: Query where PK = "APP#<appId>" AND SK = "METADATA"
-- List all applications: Scan with filter entityType = "APPLICATION"
-- List user's applications: Query GSI1 where GSI1PK = "USER#<userId>" AND GSI1SK begins_with "APP#"
-
-**Note:** Tag filtering is performed client-side in the React application after fetching all applications.
-
 ### TypeScript Type Definitions
 
 ```typescript
-// Frontend types
+// Core domain types
 interface UserProfile {
   userId: string;
   firstName: string;
@@ -339,8 +298,9 @@ interface UserProfile {
   linkedInUsername?: string;
   githubUsername?: string;
   createdAt: string;
-  updatedAt: string;
 }
+
+type ApplicationVisibility = "public" | "private";
 
 interface Application {
   appId: string;
@@ -351,10 +311,12 @@ interface Application {
   appUrl: string;
   githubUrl?: string;
   tags: string[];
+  visibility: ApplicationVisibility;
   createdAt: string;
 }
 
-interface CreateProfileRequest {
+// Form input types
+interface ProfileFormData {
   firstName: string;
   lastName: string;
   awsBuilderHandle: string;
@@ -362,76 +324,34 @@ interface CreateProfileRequest {
   githubUsername?: string;
 }
 
-interface UpdateProfileRequest extends CreateProfileRequest {
-  userId: string;
-}
-
-interface CreateApplicationRequest {
+interface ApplicationFormData {
   name: string;
   description: string;
   appUrl: string;
   githubUrl?: string;
   tags: string[];
+  visibility: ApplicationVisibility;
 }
 
-interface ApplicationFilters {
-  userId?: string;
-  tags?: string[];
-}
-```
+// Validation schemas using zod
+import { z } from "zod";
 
-### Python Data Models (Backend)
+const profileSchema = z.object({
+  firstName: z.string().min(1, "First name is required").max(50),
+  lastName: z.string().min(1, "Last name is required").max(50),
+  awsBuilderHandle: z.string().min(1, "AWS Builder handle is required").max(50),
+  linkedInUsername: z.string().max(50).optional(),
+  githubUsername: z.string().max(50).optional(),
+});
 
-**Pydantic Models for Validation:**
-
-```python
-from pydantic import BaseModel, HttpUrl, Field, validator
-from typing import Optional, List
-from datetime import datetime
-
-class CreateProfileRequest(BaseModel):
-    firstName: str = Field(..., min_length=1, max_length=50)
-    lastName: str = Field(..., min_length=1, max_length=50)
-    awsBuilderHandle: str = Field(..., min_length=1, max_length=50)
-    linkedInUsername: Optional[str] = Field(None, max_length=50)
-    githubUsername: Optional[str] = Field(None, max_length=50)
-
-class UpdateProfileRequest(CreateProfileRequest):
-    userId: str
-
-class UserProfile(BaseModel):
-    userId: str
-    firstName: str
-    lastName: str
-    awsBuilderHandle: str
-    linkedInUsername: Optional[str] = None
-    githubUsername: Optional[str] = None
-    createdAt: str
-    updatedAt: str
-
-class CreateApplicationRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
-    description: str = Field(..., min_length=1, max_length=500)
-    appUrl: HttpUrl
-    githubUrl: Optional[HttpUrl] = None
-    tags: List[str] = Field(..., min_items=1, max_items=10)
-
-    @validator('tags')
-    def validate_tags(cls, v):
-        if not v:
-            raise ValueError('At least one tag is required')
-        return [tag.strip() for tag in v if tag.strip()]
-
-class Application(BaseModel):
-    appId: str
-    userId: str
-    userName: str
-    name: str
-    description: str
-    appUrl: str
-    githubUrl: Optional[str] = None
-    tags: List[str]
-    createdAt: str
+const applicationSchema = z.object({
+  name: z.string().min(1, "Application name is required").max(100),
+  description: z.string().min(1, "Description is required").max(500),
+  appUrl: z.string().url("Must be a valid URL"),
+  githubUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  tags: z.array(z.string()).min(1, "At least one tag is required").max(10),
+  visibility: z.enum(["public", "private"]),
+});
 ```
 
 ##
@@ -566,104 +486,94 @@ _For any_ user profile, the profile page should display all and only the applica
 
 **Validates: Requirements 6.4**
 
-### Property 22: Timestamp presence on entity creation
+### Property 22: Mock data contains required user fields
 
-_For any_ entity (profile or application) created in the system, the entity should have valid createdAt and updatedAt timestamps in ISO 8601 format.
+_For any_ user in the mock data, the user object should contain all required fields (userId, firstName, lastName, awsBuilderHandle, createdAt).
 
-**Validates: Requirements 8.4**
+**Validates: Requirements 7.1**
 
-### Property 23: Consistent response format
+### Property 23: Mock data contains required application fields
 
-_For any_ API endpoint response, the response should follow a consistent structure with data, error, and status fields.
+_For any_ application in the mock data, the application object should contain all required fields (appId, userId, userName, name, description, appUrl, tags, createdAt).
 
-**Validates: Requirements 8.5**
+**Validates: Requirements 7.2**
 
 ### Property 24: Validation error specificity
 
 _For any_ invalid data submission, the system should return error messages that specifically identify which fields are invalid and why.
 
-**Validates: Requirements 10.1**
+**Validates: Requirements 9.1**
 
 ### Property 25: Error state preservation
 
-_For any_ error that occurs during an operation, the application state should remain intact and allow the user to retry the operation.
+_For any_ error that occurs during form submission, the form state should remain intact and allow the user to retry the operation.
 
-**Validates: Requirements 10.4**
+**Validates: Requirements 9.3**
 
 ### Property 26: Missing field highlighting
 
 _For any_ form submission with missing required fields, the system should highlight exactly those fields that are missing or invalid.
 
-**Validates: Requirements 10.5**
+**Validates: Requirements 9.4**
+
+### Property 27: Error message clearing
+
+_For any_ form field with a validation error, when the user corrects the error, the error message for that field should be cleared.
+
+**Validates: Requirements 9.5**
 
 ## Error Handling
 
-### Frontend Error Handling
+### Form Validation
 
-**Network Errors:**
+**Validation Strategy:**
 
-- Catch all API call failures
-- Display user-friendly error messages
-- Maintain form state for retry
-- Log errors to console for debugging
+- Use zod schemas for all form validation
+- Validate on blur for individual fields
+- Validate on submit for entire form
+- Display inline error messages below fields
+- Highlight invalid fields with red border
+- Prevent form submission until all validation passes
 
-**Validation Errors:**
+**Validation Error Display:**
 
-- Display inline validation messages
-- Highlight invalid fields
-- Prevent form submission until valid
-- Show specific error messages per field
+```typescript
+interface FieldError {
+  field: string;
+  message: string;
+}
 
-**Authentication Errors:**
+interface FormState {
+  values: Record<string, any>;
+  errors: FieldError[];
+  touched: Record<string, boolean>;
+  isSubmitting: boolean;
+}
+```
 
-- Redirect to sign-in on 401 Unauthorized
-- Refresh tokens automatically on 403 Forbidden
-- Display authentication error messages
-- Clear invalid tokens from storage
+**Error Message Examples:**
+
+- "First name is required"
+- "Must be a valid URL"
+- "At least one tag is required"
+- "Maximum 50 characters allowed"
+
+### Component Error Handling
 
 **Error Boundary:**
 
 - Catch React component errors
-- Display fallback UI
-- Log errors for monitoring
-- Provide "Try Again" action
+- Display fallback UI with error message
+- Log errors to console for debugging
+- Provide "Try Again" button to reset error boundary
+- Prevent entire app from crashing
 
-### Backend Error Handling
+**Empty States:**
 
-**Lambda Error Responses:**
-
-```typescript
-interface ErrorResponse {
-  error: {
-    code: string;
-    message: string;
-    details?: Record<string, string>;
-  };
-  statusCode: number;
-}
-```
-
-**Error Types:**
-
-- `VALIDATION_ERROR` (400): Invalid input data
-- `UNAUTHORIZED` (401): Missing or invalid token
-- `FORBIDDEN` (403): Insufficient permissions
-- `NOT_FOUND` (404): Resource doesn't exist
-- `INTERNAL_ERROR` (500): Unexpected server error
-
-**DynamoDB Error Handling:**
-
-- Catch `ConditionalCheckFailedException` for conflicts
-- Retry transient errors with exponential backoff
-- Log all database errors to CloudWatch
-- Return generic error messages to client
-
-**Validation Strategy:**
-
-- Validate all inputs at Lambda entry point using Pydantic models
-- Use Pydantic's built-in validation for type checking and constraints
-- Return specific field-level errors from Pydantic ValidationError
-- Sanitize error messages before returning to client
+- Gallery with no applications
+- Profile with no applications
+- No applications matching selected tags
+- Each empty state has descriptive message and optional action
 
 ## Testing Strategy
 
@@ -671,30 +581,23 @@ interface ErrorResponse {
 
 **Frontend Unit Tests:**
 
-- Test utility functions (URL validation, date formatting)
-- Test custom hooks (useAuth, useProfile, useApplications)
-- Test service layer functions
-- Test form validation logic
+- Test utility functions (URL validation, date formatting, tag extraction)
+- Test mock data service functions
+- Test form validation logic with zod schemas
+- Test filtering functions (tag filtering, user filtering)
 - Use Vitest as test runner
-- Mock API calls with MSW (Mock Service Worker)
-
-**Backend Unit Tests:**
-
-- Test Lambda handler functions (Python)
-- Test Pydantic validation models
-- Test DynamoDB query builders
-- Test error handling paths
-- Use pytest as test runner
-- Mock boto3 DynamoDB client with moto
+- Test React components with React Testing Library
 
 **Example Unit Tests:**
 
-- Valid profile creation with all fields
-- Profile creation with only required fields
-- URL validation with various formats
+- Valid profile form submission with all fields
+- Profile form submission with only required fields
+- URL validation with various formats (valid and invalid)
 - Tag filtering with single tag
-- Empty gallery state
-- Authentication error handling
+- Tag filtering with multiple tags
+- Empty gallery state rendering
+- Profile with no applications rendering
+- Navigation link rendering and routing
 
 ### Property-Based Testing
 
@@ -762,275 +665,196 @@ fc.assert(
 );
 ```
 
-_Property 8: Application persistence round-trip_
+_Property 8: Application form validation round-trip_
 
 ```typescript
-// Feature: madewithkiro-mvp, Property 8: Application persistence round-trip
+// Feature: madewithkiro-mvp, Property 8: Application form validation round-trip
 fc.assert(
-  fc.asyncProperty(applicationArbitrary, async (app) => {
-    const created = await createApplication(app);
-    const retrieved = await getApplication(created.appId);
-    return deepEqual(created, retrieved);
+  fc.property(applicationArbitrary, (app) => {
+    const validationResult = applicationSchema.safeParse(app);
+    return validationResult.success === true;
   }),
   { numRuns: 100 }
 );
 ```
 
-### Integration Testing
+### Component Testing
 
-**API Integration Tests:**
+**Component Tests:**
 
-- Test complete request/response cycles
-- Use actual DynamoDB Local for testing
-- Test authentication flow with Cognito
-- Verify CORS headers
-- Test error responses
+- Test component rendering with mock data
+- Test user interactions (clicks, form inputs)
+- Test conditional rendering (optional fields, empty states)
+- Test responsive behavior
+- Use React Testing Library
+- Use Vitest as test runner
 
-**End-to-End Tests:**
+**Example Component Tests:**
 
-- Test critical user flows (sign up, create app, view gallery)
-- Use Playwright or Cypress
-- Run against deployed test environment
-- Test mobile and desktop viewports
+- ApplicationCard renders all required information
+- ProfileView displays social links conditionally
+- ApplicationGallery filters by tags correctly
+- ProfileForm validates required fields
+- Navigation highlights active route
 
 ### Test Organization
 
 ```
-tests/
-  unit/
-    frontend/
-      hooks/
-      services/
-      utils/
-    backend/
-      handlers/
-      validation/
-  property/
-    profile.property.test.ts
-    application.property.test.ts
-    filtering.property.test.ts
-  integration/
-    api/
-      profile.integration.test.ts
-      application.integration.test.ts
-  e2e/
-    user-flows.e2e.test.ts
+src/
+  components/
+    __tests__/
+      ApplicationCard.test.tsx
+      ApplicationForm.test.tsx
+      ApplicationGallery.test.tsx
+      ProfileForm.test.tsx
+      ProfileView.test.tsx
+      Navigation.test.tsx
+  services/
+    __tests__/
+      mockDataService.test.ts
+  utils/
+    __tests__/
+      validation.test.ts
+      filtering.test.ts
+  __tests__/
+    property/
+      profile.property.test.ts
+      application.property.test.ts
+      filtering.property.test.ts
 ```
 
-## Deployment and Infrastructure
+## Development Workflow
 
-### AWS SAM Template Structure
+### Local Development
 
-**Resources:**
+**Setup:**
 
-1. Cognito User Pool
-2. Cognito User Pool Client
-3. DynamoDB Table with GSI
-4. Lambda Functions (Profile Handler, Application Handler)
-5. API Gateway REST API
-6. API Gateway Cognito Authorizer
-7. S3 Bucket for static hosting
-8. CloudFront Distribution
-9. IAM Roles and Policies
+```bash
+# Install dependencies
+bun install
 
-**Lambda Packaging:**
-
-- Each Lambda function bundled as a zip file
-- SAM builds dependencies into the package
-- Use `CodeUri` to specify function directory
-- Dependencies installed via `uv` during build
-- Python runtime: 3.13
-
-**Parameters:**
-
-- Environment (dev, prod)
-- DomainName (optional)
-- CognitoCallbackURL
-
-**Outputs:**
-
-- API Gateway URL
-- CloudFront Distribution URL
-- Cognito User Pool ID
-- Cognito Client ID
-
-### Makefile Commands
-
-```makefile
-.PHONY: install dev build deploy-dev deploy-prod logs clean test
-
-install:
-	bun install
-	cd backend && uv pip sync
-
-dev:
-	bun run dev
-
-build:
-	bun run build
-
-test:
-	cd backend && uv run pytest
-	bun run test
-
-deploy-dev:
-	sam build
-	sam deploy --config-env dev --no-confirm-changeset
-
-deploy-prod:
-	sam build
-	sam deploy --config-env prod --no-confirm-changeset
-
-logs:
-	sam logs --stack-name madewithkiro-dev --tail
-
-clean:
-	rm -rf dist/
-	rm -rf .aws-sam/
-	find backend -type d -name __pycache__ -exec rm -rf {} +
-	find backend -type d -name .pytest_cache -exec rm -rf {} +
-	find backend -type d -name .venv -exec rm -rf {} +
+# Start development server
+bun run dev
 ```
 
-### Environment Configuration
+**Development Server:**
 
-**Development Environment:**
+- Vite dev server with hot module replacement
+- Runs on http://localhost:5173
+- Fast refresh for React components
+- TypeScript type checking in IDE
 
-- DynamoDB: On-demand billing
-- Lambda: 128MB memory, 10s timeout
-- API Gateway: No caching
-- CloudFront: Disabled (direct S3 access)
+### Build Process
 
-**Production Environment:**
+**Production Build:**
 
-- DynamoDB: On-demand billing with auto-scaling
-- Lambda: 256MB memory, 30s timeout
-- API Gateway: Caching enabled (5 minutes)
-- CloudFront: Enabled with edge caching
+```bash
+# Build for production
+bun run build
 
-### Deployment Process
+# Preview production build locally
+bun run preview
+```
 
-1. Developer runs `make deploy-dev`
-2. SAM builds Lambda functions
-3. SAM packages artifacts to S3
-4. CloudFormation creates/updates stack
-5. Frontend build artifacts uploaded to S3
-6. CloudFront cache invalidated
-7. Deployment complete (< 5 minutes)
+**Build Output:**
 
-### Monitoring and Logging
+- Optimized JavaScript bundles
+- CSS extracted and minified
+- Assets hashed for cache busting
+- Source maps for debugging
 
-**CloudWatch Logs:**
+### Testing Workflow
 
-- Lambda function logs (automatic)
-- API Gateway access logs
-- Error logs with stack traces
+**Run Tests:**
 
-**CloudWatch Metrics:**
+```bash
+# Run all tests
+bun run test
 
-- Lambda invocation count and duration
-- API Gateway request count and latency
-- DynamoDB read/write capacity
-- Error rates by endpoint
+# Run tests in watch mode
+bun run test:watch
 
-**Alarms:**
-
-- Lambda error rate > 5%
-- API Gateway 5xx errors > 10
-- DynamoDB throttling events
-
-## Security Considerations
-
-### Authentication and Authorization
-
-- All API endpoints (except public reads) require Cognito JWT token
-- API Gateway validates tokens before invoking Lambda
-- Lambda functions receive validated user context
-- User can only modify their own profile and applications
-
-### Data Security
-
-- DynamoDB encryption at rest enabled
-- All traffic over HTTPS/TLS
-- Cognito password policies enforced
-- No sensitive data in logs
-
-### Input Validation
-
-- Client-side validation for UX
-- Server-side validation for security
-- URL validation to prevent XSS
-- SQL injection not applicable (NoSQL database)
-- Sanitize all user inputs before storage
-
-### CORS Configuration
-
-- Restrict origins to CloudFront distribution
-- Allow only necessary HTTP methods
-- Limit allowed headers
-- No credentials in CORS requests
+# Run tests with coverage
+bun run test:coverage
+```
 
 ## Performance Considerations
 
 ### Frontend Performance
 
-- Code splitting by route
+- Code splitting by route using Tanstack Router
 - Lazy loading of components
-- Memoization of expensive computations
-- Debouncing of search/filter inputs
-- Image optimization (if added later)
+- Memoization of expensive computations (tag extraction, filtering)
+- Debouncing of filter inputs
+- Optimized re-renders with React.memo
 
-### Backend Performance
+### Mock Data Performance
 
-- DynamoDB single-table design for efficient queries
-- GSI for user-specific queries
-- Lambda cold start mitigation (keep functions warm)
-- API Gateway caching for public endpoints
-- Pagination for large result sets
+- Mock data loaded once at app initialization
+- Tanstack Query caches all data with `staleTime: Infinity`
+- Filtering and searching performed in-memory
+- No network latency
+- Instant UI updates
+- Query deduplication prevents redundant fetches
 
-### Caching Strategy
+### Responsive Design
 
-- CloudFront caching for static assets (1 year)
-- API Gateway caching for public gallery (5 minutes)
-- Browser caching for API responses
-- No caching for authenticated endpoints
+- Mobile-first CSS with Tailwind
+- Touch-friendly interactive elements (44x44px minimum)
+- Optimized layouts for different screen sizes
+- Fast rendering on mobile devices
 
-## Future Enhancements
+## Future Backend Integration
 
-### Post-POC Features
+### API Integration Preparation
 
-1. **Application Management:**
+The service layer is designed for easy backend integration:
 
-   - Edit existing applications
-   - Delete applications
-   - Upload application screenshots
+**Current (Mock Data):**
 
-2. **Enhanced Discovery:**
+```typescript
+// mockDataService.ts
+export const getAllApplications = (): Application[] => {
+  return mockApplications;
+};
+```
 
-   - Search by application name
-   - Advanced filtering (multiple criteria)
-   - Sorting options (newest, popular)
+**Future (API Integration):**
 
-3. **Social Features:**
+```typescript
+// apiService.ts
+export const getAllApplications = async (): Promise<Application[]> => {
+  const response = await fetch("/api/applications");
+  return response.json();
+};
+```
 
-   - Like/favorite applications
-   - Comments on applications
-   - User following
+**Migration Path:**
 
-4. **Analytics:**
+1. Create new `apiService.ts` with same interface as `mockDataService.ts`
+2. Update query functions in custom hooks to use `apiService`
+3. Adjust `staleTime` and `cacheTime` for real API data
+4. Add loading states and error handling in components
+5. Add authentication headers when auth is implemented
+6. Add mutations for create/update operations
 
-   - View counts for applications
-   - Profile visit tracking
-   - Popular tags dashboard
+### Authentication Integration
 
-5. **Administration:**
-   - Admin dashboard
-   - Content moderation
-   - Featured applications
+When authentication is added in a separate spec:
 
-### Scalability Improvements
+1. Add AuthContext and AuthProvider
+2. Wrap protected routes with authentication check
+3. Add user context to application creation
+4. Show/hide edit buttons based on ownership
+5. Add sign in/sign out buttons to navigation
 
-- DynamoDB DAX for caching
-- Lambda provisioned concurrency
-- ElastiCache for session management
-- CloudFront edge functions for personalization
+### Data Persistence
+
+When backend is added:
+
+1. Replace mock data service with API service in query functions
+2. Add mutations for create/update/delete operations
+3. Implement optimistic updates for better UX
+4. Configure appropriate `staleTime` and `cacheTime` for real data
+5. Add error handling for network failures
+6. Use query invalidation to refresh data after mutations

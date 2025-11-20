@@ -161,3 +161,9 @@ src/
 - Validate all user inputs
 - Use Cognito for authentication, not custom solutions
 - Follow AWS security best practices
+
+
+## Extra
+
+- No need for abundant comments
+- No need for summary documentation unless asked

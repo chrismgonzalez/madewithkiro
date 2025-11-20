@@ -59,6 +59,28 @@ sam-validate: ## Validate SAM template
 	sam validate --lint
 	@echo "$(GREEN)✓ SAM template is valid$(NC)"
 
+deploy-certificate: ## Deploy ACM certificate in us-east-1 (required for prod custom domain)
+	@echo "$(BLUE)Deploying ACM certificate to us-east-1...$(NC)"
+	@echo "$(YELLOW)This must be done before deploying prod with custom domain$(NC)"
+	sam deploy \
+		--template-file certificate-template.yaml \
+		--config-file certificate-samconfig.toml \
+		--stack-name madewithkiro-certificate \
+		--region us-east-1 \
+		--no-confirm-changeset
+	@echo ""
+	@echo "$(GREEN)✓ Certificate deployed$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Certificate ARN:$(NC)"
+	@aws cloudformation describe-stacks \
+		--stack-name madewithkiro-certificate \
+		--region us-east-1 \
+		--query 'Stacks[0].Outputs[?OutputKey==`CertificateArn`].OutputValue' \
+		--output text
+	@echo ""
+	@echo "$(YELLOW)Add this ARN to samconfig.toml prod parameters:$(NC)"
+	@echo "  CertificateArn=<ARN_FROM_ABOVE>"
+
 deploy-dev: sam-build ## Deploy to development environment
 	@echo "$(BLUE)Deploying to development environment...$(NC)"
 	sam deploy --config-env dev --no-confirm-changeset

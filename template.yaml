@@ -26,14 +26,21 @@ Parameters:
     Description: Route 53 Hosted Zone ID for the domain. Leave empty to create a new hosted zone.
     Default: ""
 
+  CertificateArn:
+    Type: String
+    Description: ARN of ACM Certificate in us-east-1 (required for custom domain with CloudFront). Leave empty if no custom domain.
+    Default: ""
+
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref DomainName, ""]]
+  HasCertificate: !Not [!Equals [!Ref CertificateArn, ""]]
   CreateHostedZone: !And
     - !Condition HasCustomDomain
     - !Equals [!Ref HostedZoneId, ""]
-  UseExistingHostedZone: !And
-    - !Condition HasCustomDomain
-    - !Not [!Equals [!Ref HostedZoneId, ""]]
+  # Always create CloudFront for both dev and prod
+  CreateCloudFront: !Or
+    - !Equals [!Ref Environment, "dev"]
+    - !Equals [!Ref Environment, "prod"]
 
 Globals:
   Function:
@@ -130,11 +137,9 @@ Resources:
       UserAttributeUpdateSettings:
         AttributesRequireVerificationBeforeUpdate:
           - email
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Application
-          Value: MadeWithKiro
+      UserPoolTags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
 
   # Cognito User Pool Client
   CognitoUserPoolClient:
@@ -201,8 +206,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-Profile-${Environment}
-      CodeUri: backend/profile/
-      Handler: handler.lambda_handler
+      CodeUri: backend/
+      Handler: profile.handler.lambda_handler
       Description: Handle profile operations (create, read, update)
       Policies:
         - DynamoDBCrudPolicy:
@@ -241,8 +246,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-Application-${Environment}
-      CodeUri: backend/application/
-      Handler: handler.lambda_handler
+      CodeUri: backend/
+      Handler: application.handler.lambda_handler
       Description: Handle application operations (create, list, query)
       Policies:
         - DynamoDBCrudPolicy:
@@ -268,37 +273,39 @@ Resources:
         Environment: !Ref Environment
         Application: MadeWithKiro
 
-  # S3 Bucket for Frontend Hosting
+  # S3 Bucket for Frontend Hosting (Private - CloudFront only access)
   FrontendBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub madewithkiro-frontend-${Environment}-${AWS::AccountId}
       PublicAccessBlockConfiguration:
-        BlockPublicAcls: false
-        BlockPublicPolicy: false
-        IgnorePublicAcls: false
-        RestrictPublicBuckets: false
-      WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: index.html
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
       Tags:
         - Key: Environment
           Value: !Ref Environment
         - Key: Application
           Value: MadeWithKiro
 
-  # S3 Bucket Policy for Public Read
+  # S3 Bucket Policy - CloudFront Only Access (Private Bucket)
   FrontendBucketPolicy:
     Type: AWS::S3::BucketPolicy
+    Condition: CreateCloudFront
     Properties:
       Bucket: !Ref FrontendBucket
       PolicyDocument:
         Statement:
-          - Sid: PublicReadGetObject
+          - Sid: AllowCloudFrontServicePrincipal
             Effect: Allow
-            Principal: "*"
+            Principal:
+              Service: cloudfront.amazonaws.com
             Action: s3:GetObject
             Resource: !Sub ${FrontendBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
 
   # Route 53 Hosted Zone (created if not provided)
   HostedZone:
@@ -314,42 +321,28 @@ Resources:
         - Key: Application
           Value: MadeWithKiro
 
-  # ACM Certificate for Custom Domain (must be in us-east-1 for CloudFront)
-  Certificate:
-    Type: AWS::CertificateManager::Certificate
-    Condition: HasCustomDomain
-    Properties:
-      DomainName: !Ref DomainName
-      SubjectAlternativeNames:
-        - !Sub "*.${DomainName}"
-      ValidationMethod: DNS
-      DomainValidationOptions:
-        - DomainName: !Ref DomainName
-          HostedZoneId: !If
-            - CreateHostedZone
-            - !Ref HostedZone
-            - !Ref HostedZoneId
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Application
-          Value: MadeWithKiro
+  # Note: ACM Certificate is created in separate stack in us-east-1
+  # Deploy certificate-template.yaml first, then pass the ARN via CertificateArn parameter
 
   # CloudFront Distribution for Frontend
   CloudFrontDistribution:
     Type: AWS::CloudFront::Distribution
-    Condition: HasCustomDomain
+    Condition: CreateCloudFront
     Properties:
       DistributionConfig:
         Enabled: true
         Comment: !Sub MadeWithKiro ${Environment} Distribution
         DefaultRootObject: index.html
-        Aliases:
-          - !Ref DomainName
-        ViewerCertificate:
-          AcmCertificateArn: !Ref Certificate
-          SslSupportMethod: sni-only
-          MinimumProtocolVersion: TLSv1.2_2021
+        Aliases: !If
+          - HasCustomDomain
+          - [!Ref DomainName]
+          - !Ref AWS::NoValue
+        ViewerCertificate: !If
+          - HasCertificate
+          - AcmCertificateArn: !Ref CertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
         Origins:
           - Id: S3Origin
             DomainName: !GetAtt FrontendBucket.RegionalDomainName
@@ -385,40 +378,17 @@ Resources:
             ErrorCachingMinTTL: 300
         PriceClass: PriceClass_100
         HttpVersion: http2
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Application
-          Value: MadeWithKiro
 
   # CloudFront Origin Access Control
   CloudFrontOriginAccessControl:
     Type: AWS::CloudFront::OriginAccessControl
-    Condition: HasCustomDomain
+    Condition: CreateCloudFront
     Properties:
       OriginAccessControlConfig:
         Name: !Sub MadeWithKiro-OAC-${Environment}
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
-
-  # Update S3 Bucket Policy for CloudFront
-  FrontendBucketPolicyForCloudFront:
-    Type: AWS::S3::BucketPolicy
-    Condition: HasCustomDomain
-    Properties:
-      Bucket: !Ref FrontendBucket
-      PolicyDocument:
-        Statement:
-          - Sid: AllowCloudFrontServicePrincipal
-            Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
-            Action: s3:GetObject
-            Resource: !Sub ${FrontendBucket.Arn}/*
-            Condition:
-              StringEquals:
-                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
 
   # Route 53 Record for Custom Domain
   DomainRecord:
@@ -487,18 +457,25 @@ Outputs:
       Name: !Sub ${AWS::StackName}-CustomDomainUrl
 
   CloudFrontDistributionId:
-    Condition: HasCustomDomain
+    Condition: CreateCloudFront
     Description: CloudFront Distribution ID
     Value: !Ref CloudFrontDistribution
     Export:
       Name: !Sub ${AWS::StackName}-CloudFrontDistributionId
 
   CloudFrontDomainName:
-    Condition: HasCustomDomain
+    Condition: CreateCloudFront
     Description: CloudFront Distribution Domain Name
     Value: !GetAtt CloudFrontDistribution.DomainName
     Export:
       Name: !Sub ${AWS::StackName}-CloudFrontDomainName
+
+  CloudFrontUrl:
+    Condition: CreateCloudFront
+    Description: CloudFront Distribution URL (use this for Cognito callback in dev)
+    Value: !Sub https://${CloudFrontDistribution.DomainName}
+    Export:
+      Name: !Sub ${AWS::StackName}-CloudFrontUrl
 
   HostedZoneId:
     Condition: CreateHostedZone
@@ -513,8 +490,8 @@ Outputs:
     Value: !Join [", ", !GetAtt HostedZone.NameServers]
 
   CertificateArn:
-    Condition: HasCustomDomain
-    Description: ACM Certificate ARN
-    Value: !Ref Certificate
+    Condition: HasCertificate
+    Description: ACM Certificate ARN (from separate certificate stack)
+    Value: !Ref CertificateArn
     Export:
       Name: !Sub ${AWS::StackName}-CertificateArn

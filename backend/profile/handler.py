@@ -4,14 +4,18 @@ Handles profile operations: create, read, update
 """
 import json
 import os
-import boto3
-from datetime import datetime
 from typing import Dict, Any
+from pydantic import ValidationError
 
-# Initialize DynamoDB client
-dynamodb = boto3.resource('dynamodb')
-table_name = os.environ.get('TABLE_NAME')
-table = dynamodb.Table(table_name) if table_name else None
+# Import shared modules
+from shared.models import CreateProfileRequest, UpdateProfileRequest, UserProfile
+from shared.dynamodb_utils import (
+    get_item,
+    put_item,
+    update_item,
+    get_timestamp,
+    clean_dynamodb_item
+)
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -67,18 +71,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 def get_profile(user_id: str) -> Dict[str, Any]:
     """Get user profile by ID"""
     try:
-        response = table.get_item(
-            Key={
-                'PK': f'USER#{user_id}',
-                'SK': 'PROFILE'
-            }
-        )
+        item = get_item(f'USER#{user_id}', 'PROFILE')
         
-        item = response.get('Item')
         if not item:
             return error_response(404, 'Profile not found')
         
-        return success_response(format_profile(item))
+        # Clean and return profile
+        profile_data = clean_dynamodb_item(item)
+        return success_response(profile_data)
     
     except Exception as e:
         print(f"Error getting profile: {str(e)}")
@@ -87,14 +87,92 @@ def get_profile(user_id: str) -> Dict[str, Any]:
 
 def create_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     """Create a new user profile"""
-    # Placeholder implementation
-    return error_response(501, 'Not implemented yet')
+    try:
+        # Validate request data
+        profile_request = CreateProfileRequest(**data)
+        
+        # Check if profile already exists
+        existing = get_item(f'USER#{user_id}', 'PROFILE')
+        if existing:
+            return error_response(409, 'Profile already exists')
+        
+        # Create profile item
+        timestamp = get_timestamp()
+        profile_item = {
+            'PK': f'USER#{user_id}',
+            'SK': 'PROFILE',
+            'GSI1PK': 'PROFILE',
+            'GSI1SK': f'USER#{user_id}',
+            'entityType': 'PROFILE',
+            'userId': user_id,
+            'firstName': profile_request.firstName,
+            'lastName': profile_request.lastName,
+            'awsBuilderHandle': profile_request.awsBuilderHandle,
+            'linkedInUsername': profile_request.linkedInUsername,
+            'githubUsername': profile_request.githubUsername,
+            'createdAt': timestamp,
+            'updatedAt': timestamp
+        }
+        
+        # Store in DynamoDB
+        put_item(profile_item)
+        
+        # Return cleaned profile
+        profile_data = clean_dynamodb_item(profile_item)
+        return success_response(profile_data, 201)
+    
+    except ValidationError as e:
+        print(f"Validation error: {str(e)}")
+        errors = {}
+        for error in e.errors():
+            field = '.'.join(str(loc) for loc in error['loc'])
+            errors[field] = error['msg']
+        return error_response(400, 'Validation failed', errors)
+    
+    except Exception as e:
+        print(f"Error creating profile: {str(e)}")
+        return error_response(500, 'Error creating profile')
 
 
 def update_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     """Update an existing user profile"""
-    # Placeholder implementation
-    return error_response(501, 'Not implemented yet')
+    try:
+        # Validate request data
+        profile_request = UpdateProfileRequest(**data)
+        
+        # Check if profile exists
+        existing = get_item(f'USER#{user_id}', 'PROFILE')
+        if not existing:
+            return error_response(404, 'Profile not found')
+        
+        # Update profile
+        timestamp = get_timestamp()
+        updates = {
+            'firstName': profile_request.firstName,
+            'lastName': profile_request.lastName,
+            'awsBuilderHandle': profile_request.awsBuilderHandle,
+            'linkedInUsername': profile_request.linkedInUsername,
+            'githubUsername': profile_request.githubUsername,
+            'updatedAt': timestamp
+        }
+        
+        updated_item = update_item(f'USER#{user_id}', 'PROFILE', updates)
+        
+        # Return cleaned profile
+        profile_data = clean_dynamodb_item(updated_item)
+        return success_response(profile_data)
+    
+    except ValidationError as e:
+        print(f"Validation error: {str(e)}")
+        errors = {}
+        for error in e.errors():
+            field = '.'.join(str(loc) for loc in error['loc'])
+            errors[field] = error['msg']
+        return error_response(400, 'Validation failed', errors)
+    
+    except Exception as e:
+        print(f"Error updating profile: {str(e)}")
+        return error_response(500, 'Error updating profile')
 
 
 def get_user_id_from_event(event: Dict[str, Any]) -> str:
@@ -105,18 +183,7 @@ def get_user_id_from_event(event: Dict[str, Any]) -> str:
     return claims.get('sub', '')
 
 
-def format_profile(item: Dict[str, Any]) -> Dict[str, Any]:
-    """Format DynamoDB item to profile response"""
-    return {
-        'userId': item.get('userId'),
-        'firstName': item.get('firstName'),
-        'lastName': item.get('lastName'),
-        'awsBuilderHandle': item.get('awsBuilderHandle'),
-        'linkedInUsername': item.get('linkedInUsername'),
-        'githubUsername': item.get('githubUsername'),
-        'createdAt': item.get('createdAt'),
-        'updatedAt': item.get('updatedAt')
-    }
+
 
 
 def success_response(data: Any, status_code: int = 200) -> Dict[str, Any]:

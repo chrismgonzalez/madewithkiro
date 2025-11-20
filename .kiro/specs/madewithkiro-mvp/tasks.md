@@ -1,74 +1,165 @@
 # Implementation Plan
 
-- [x] 1. Set up project infrastructure and configuration
+## BDD/TDD Approach
 
-  - Create AWS SAM template.yaml with all required resources (Cognito, DynamoDB, Lambda, API Gateway)
-  - Create Makefile with install, dev, build, deploy-dev, deploy-prod, logs, clean, and test commands
-  - Configure DynamoDB single-table design with GSI
-  - Set up Cognito User Pool with appropriate settings
-  - Configure API Gateway with Cognito authorizer and CORS
-  - Create samconfig.toml for dev and prod environments
-  - _Requirements: 7.1, 7.4, 7.5, 8.1, 8.2, 8.3_
+This implementation follows Behavior-Driven Development (BDD) and Test-Driven Development (TDD) methodology:
 
-- [x] 2. Set up frontend project structure
+1. **Write Acceptance Tests First** - Given-When-Then format describing expected behavior
+2. **Red** - Run tests and watch them fail
+3. **Green** - Write minimal code to make tests pass
+4. **Refactor** - Improve code quality while keeping tests green
 
-  - Initialize React project with TypeScript and Vite (already exists)
+Each task follows this pattern to ensure proper SDLC practices.
+
+---
+
+- [ ] 1. Set up frontend project dependencies and structure
+
   - Install dependencies: @tanstack/react-router, @tanstack/react-query, zod, lucide-react
   - Install shadcn/ui CLI and configure
-  - Set up folder structure (components, pages, hooks, contexts, services, types, utils, constants)
-  - Create environment configuration for API endpoints
-  - _Requirements: 1.1, 9.1_
+  - Set up folder structure (components, pages, hooks, contexts, services, types, utils, **tests**)
+  - Configure Vitest for testing with React Testing Library
+  - Install fast-check for property-based testing
+  - Configure test scripts in package.json
+  - _Requirements: 1.1, 8.1_
 
-- [ ] 3. Set up backend Python project structure
+- [x] 2. Create mock data layer (BDD/TDD)
+- [x] 2.1 Write acceptance tests for mock data
 
-  - Create backend directory with Lambda function structure
-  - Create pyproject.toml with boto3, pydantic, pytest, and moto dependencies
-  - Use uv for Python package management (uv pip sync for installation)
-  - Set up Python project structure (handlers, models, utils, tests)
-  - Create Pydantic models for validation (CreateProfileRequest, UpdateProfileRequest, CreateApplicationRequest)
-  - Create DynamoDB utility functions for table operations
-  - Configure SAM template to bundle Lambda functions as zip files
-  - _Requirements: 1.1, 8.1, 8.2_
+  - **GIVEN** the system initializes
+  - **WHEN** I request all users
+  - **THEN** I should receive at least 3 user profiles with all required fields
+  - **GIVEN** the system initializes
+  - **WHEN** I request all applications
+  - **THEN** I should receive at least 10 applications with mix of public/private visibility
+  - **GIVEN** a user ID exists in mock data
+  - **WHEN** I request that user's profile
+  - **THEN** I should receive the correct user profile
+  - **GIVEN** applications exist for a user
+  - **WHEN** I request applications by user ID with authentication
+  - **THEN** I should receive both public and private applications for that user
+  - **GIVEN** applications exist for a user
+  - **WHEN** I request applications by user ID without authentication
+  - **THEN** I should receive only public applications for that user
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
 
-- [ ] 4. Implement authentication context and hooks
-- [ ] 4.1 Create AuthContext with Cognito integration
+- [ ]\* 2.2 Write property test for mock data structure
 
-  - Implement AuthProvider with user state, isAuthenticated, isLoading
-  - Implement signIn function (redirect to Cognito Hosted UI)
-  - Implement signOut function
-  - Implement getAccessToken function with token refresh logic
-  - Store tokens in localStorage and memory
-  - _Requirements: 1.1, 10.3_
+  - **Property 22: Mock data contains required user fields**
+  - **Validates: Requirements 7.1**
 
-- [ ]\* 4.2 Write property test for authentication state management
+- [ ]\* 2.3 Write property test for mock data structure
 
-  - **Property 25: Error state preservation**
-  - **Validates: Requirements 10.4**
+  - **Property 23: Mock data contains required application fields**
+  - **Validates: Requirements 7.2**
 
-- [ ] 4.3 Create useAuth custom hook
+- [x] 2.4 Implement mock data utilities (RED → GREEN → REFACTOR)
 
-  - Export AuthContext values
-  - Provide easy access to authentication state
-  - _Requirements: 1.1_
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Create mockData.ts with at least 3 user profiles
+  - **GREEN**: Create at least 10 application entries with mix of public/private visibility
+  - **GREEN**: Include applications with and without optional GitHub URLs
+  - **GREEN**: Add helper functions (getUserById, getApplicationsByUserId, getAllApplications, getAllTags)
+  - **GREEN**: Implement visibility filtering based on authentication state
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
 
-- [ ] 4.4 Create ProtectedRoute component
+- [x] 3. Create MockAuthContext (BDD/TDD)
+- [x] 3.1 Write acceptance tests for mock authentication
 
-  - Check authentication status
-  - Redirect to sign-in if not authenticated
-  - Show loading state during auth check
-  - _Requirements: 1.1_
+  - **GIVEN** the application starts
+  - **WHEN** I check authentication state
+  - **THEN** I should see the default unauthenticated state
+  - **GIVEN** I am unauthenticated
+  - **WHEN** I toggle authentication
+  - **THEN** I should become authenticated
+  - **GIVEN** I am authenticated
+  - **WHEN** I toggle authentication
+  - **THEN** I should become unauthenticated
+  - **GIVEN** I toggle authentication state
+  - **WHEN** I refresh the page
+  - **THEN** my authentication state should persist
+  - _Requirements: 11.1, 11.2, 11.5_
 
-- [ ] 5. Implement profile backend Lambda handler
-- [ ] 5.1 Create profile handler Python function
+- [x] 3.2 Implement MockAuthContext (RED → GREEN → REFACTOR)
 
-  - Implement GET /profile/{userId} endpoint
-  - Implement POST /profile endpoint (authenticated)
-  - Implement PUT /profile endpoint (authenticated)
-  - Validate requests using Pydantic models
-  - Implement DynamoDB operations (get, put, update)
-  - Add timestamp generation (createdAt, updatedAt)
-  - Return consistent response format
-  - _Requirements: 1.2, 1.3, 1.4, 1.5, 2.2, 2.3, 2.4, 8.4, 8.5_
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Implement MockAuthProvider with isAuthenticated state
+  - **GREEN**: Implement toggleAuth function
+  - **GREEN**: Store authentication state in localStorage
+  - **GREEN**: Provide useMockAuth custom hook
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 11.1, 11.2, 11.5_
+
+- [ ] 4. Create data service layer with Tanstack Query (BDD/TDD)
+- [x] 4.1 Write acceptance tests for data service
+
+  - **GIVEN** I am authenticated
+  - **WHEN** I fetch all applications
+  - **THEN** I should receive both public and private applications
+  - **GIVEN** I am unauthenticated
+  - **WHEN** I fetch all applications
+  - **THEN** I should receive only public applications
+  - **GIVEN** applications exist with various tags
+  - **WHEN** I extract unique tags
+  - **THEN** I should receive all unique tags from visible applications
+  - **GIVEN** applications with multiple tags
+  - **WHEN** I filter by a single tag
+  - **THEN** I should receive only applications containing that tag
+  - **GIVEN** applications with multiple tags
+  - **WHEN** I filter by multiple tags
+  - **THEN** I should receive applications containing any of those tags (OR logic)
+  - _Requirements: 4.1, 4.2, 5.1, 5.2, 5.3_
+
+- [ ]\* 4.2 Write unit tests for data service
+
+  - Test visibility filtering for authenticated users
+  - Test visibility filtering for unauthenticated users
+  - Test tag extraction from applications
+  - Test tag filtering logic
+  - _Requirements: 4.1, 4.2, 5.1_
+
+- [ ] 4.3 Implement mockDataService (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Implement getProfile(userId) returning Promise
+  - **GREEN**: Implement getAllProfiles() returning Promise
+  - **GREEN**: Implement getAllApplications(isAuthenticated) with visibility filtering
+  - **GREEN**: Implement getApplicationsByUserId(userId, isAuthenticated) with visibility filtering
+  - **GREEN**: Implement getAllTags(isAuthenticated) extracting from visible apps
+  - **GREEN**: Implement filterApplicationsByTags(applications, tags) for client-side filtering
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 4.1, 4.2, 5.1, 6.4, 6.5_
+
+- [ ] 4.4 Create Tanstack Query hooks (RED → GREEN → REFACTOR)
+
+  - **RED**: Write tests for hooks behavior
+  - **GREEN**: Create useApplications hook with authentication-aware query key
+  - **GREEN**: Create useProfile hook
+  - **GREEN**: Create useUserApplications hook with authentication-aware query key
+  - **GREEN**: Configure staleTime: Infinity for mock data
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 4.1, 6.1, 6.4_
+
+- [ ] 5. Implement ProfileForm component (BDD/TDD)
+- [ ] 5.1 Write acceptance tests for ProfileForm
+
+  - **GIVEN** I view the profile form
+  - **WHEN** the form renders
+  - **THEN** I should see input fields for firstName, lastName, awsBuilderHandle, linkedInUsername, githubUsername
+  - **GIVEN** I submit the form with missing required fields
+  - **WHEN** I click submit
+  - **THEN** I should see validation errors for those specific fields
+  - **GIVEN** I submit the form with all required fields
+  - **WHEN** I click submit
+  - **THEN** I should see a success message
+  - **GIVEN** I am editing a profile and make changes
+  - **WHEN** I click cancel
+  - **THEN** the form should restore to its original state
+  - **GIVEN** I have a validation error on a field
+  - **WHEN** I correct that field
+  - **THEN** the error message for that field should clear
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.2, 2.3, 2.4, 2.5, 9.1, 9.4, 9.5_
 
 - [ ]\* 5.2 Write property test for profile required fields validation
 
@@ -80,341 +171,429 @@
   - **Property 2: Profile optional fields acceptance**
   - **Validates: Requirements 1.4**
 
-- [ ]\* 5.4 Write property test for profile persistence round-trip
-
-  - **Property 3: Profile persistence round-trip**
-  - **Validates: Requirements 1.5**
-
-- [ ]\* 5.5 Write property test for profile update persistence
-
-  - **Property 4: Profile update persistence**
-  - **Validates: Requirements 2.4**
-
-- [ ]\* 5.6 Write property test for timestamp presence
-
-  - **Property 22: Timestamp presence on entity creation**
-  - **Validates: Requirements 8.4**
-
-- [ ]\* 5.7 Write property test for consistent response format
-
-  - **Property 23: Consistent response format**
-  - **Validates: Requirements 8.5**
-
-- [ ]\* 5.8 Write unit tests for profile handler
-
-  - Test valid profile creation with all fields
-  - Test profile creation with only required fields
-  - Test profile update with valid data
-  - Test error handling for missing required fields
-  - _Requirements: 1.3, 1.4, 1.5, 2.3, 2.4_
-
-- [ ] 6. Implement profile frontend components and services
-- [ ] 6.1 Create ProfileService for API calls
-
-  - Implement getProfile(userId) function
-  - Implement createProfile(profile) function
-  - Implement updateProfile(profile) function
-  - Add Authorization header with JWT token
-  - Handle API errors and return user-friendly messages
-  - _Requirements: 1.5, 2.4, 10.1, 10.2_
-
-- [ ] 6.2 Create ProfileForm component
-
-  - Add input fields for all profile attributes
-  - Implement client-side validation using zod
-  - Show validation errors inline
-  - Highlight missing required fields
-  - Implement submit and cancel actions
-  - Preserve form state on error
-  - _Requirements: 1.3, 1.4, 2.2, 2.3, 10.1, 10.5_
-
-- [ ]\* 6.3 Write property test for profile edit cancellation
+- [ ]\* 5.4 Write property test for profile edit cancellation
 
   - **Property 5: Profile edit cancellation preserves state**
   - **Validates: Requirements 2.5**
 
-- [ ]\* 6.4 Write property test for missing field highlighting
+- [ ]\* 5.5 Write property test for missing field highlighting
 
   - **Property 26: Missing field highlighting**
-  - **Validates: Requirements 10.5**
+  - **Validates: Requirements 9.4**
 
-- [ ] 6.5 Create ProfileView component
+- [ ]\* 5.6 Write property test for error message clearing
 
-  - Display user information (firstName, lastName, awsBuilderHandle)
-  - Show social link buttons (LinkedIn, GitHub, AWS Builder Center)
-  - Conditionally render social links based on data
-  - Show edit button for own profile
-  - Display list of user's applications
-  - Show empty state when user has no applications
-  - _Requirements: 2.1, 6.1, 6.2, 6.3, 6.4, 6.5_
+  - **Property 27: Error message clearing**
+  - **Validates: Requirements 9.5**
 
-- [ ]\* 6.6 Write property test for profile page displays required information
+- [ ] 5.7 Implement ProfileForm component (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Add input fields for all profile attributes
+  - **GREEN**: Implement client-side validation using zod profileSchema
+  - **GREEN**: Show validation errors inline below fields
+  - **GREEN**: Highlight missing required fields with red border
+  - **GREEN**: Implement submit handler (shows success message, no persistence)
+  - **GREEN**: Implement cancel handler (restores original state)
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.2, 2.3, 2.4, 2.5, 9.1, 9.4, 9.5_
+
+- [ ] 6. Implement ProfileView component (BDD/TDD)
+- [ ] 6.1 Write acceptance tests for ProfileView
+
+  - **GIVEN** I view a user profile
+  - **WHEN** the profile renders
+  - **THEN** I should see firstName, lastName, and awsBuilderHandle
+  - **GIVEN** a profile has a LinkedIn username
+  - **WHEN** the profile renders
+  - **THEN** I should see a clickable LinkedIn link with correct URL
+  - **GIVEN** a profile has a GitHub username
+  - **WHEN** the profile renders
+  - **THEN** I should see a clickable GitHub link with correct URL
+  - **GIVEN** a profile has no LinkedIn username
+  - **WHEN** the profile renders
+  - **THEN** I should not see a LinkedIn link
+  - **GIVEN** a user has applications
+  - **WHEN** I view their profile
+  - **THEN** I should see all their visible applications
+  - **GIVEN** a user has no visible applications
+  - **WHEN** I view their profile
+  - **THEN** I should see an empty state message
+  - _Requirements: 2.1, 2.2, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
+
+- [ ]\* 6.2 Write property test for profile page displays required information
 
   - **Property 18: Profile page displays required information**
   - **Validates: Requirements 6.1**
 
-- [ ]\* 6.7 Write property test for LinkedIn link conditional rendering
+- [ ]\* 6.3 Write property test for LinkedIn link conditional rendering
 
   - **Property 19: LinkedIn link conditional rendering**
   - **Validates: Requirements 6.2**
 
-- [ ]\* 6.8 Write property test for GitHub link conditional rendering
+- [ ]\* 6.4 Write property test for GitHub link conditional rendering
 
   - **Property 20: GitHub link conditional rendering**
   - **Validates: Requirements 6.3**
 
-- [ ] 6.9 Create profile page route
+- [ ]\* 6.5 Write property test for user profile displays user's applications
 
-  - Set up route with Tanstack Router
-  - Fetch profile data using Tanstack Query
-  - Handle loading and error states
-  - Show ProfileView or ProfileForm based on edit mode
-  - _Requirements: 2.1, 6.1_
+  - **Property 21: User profile displays user's applications**
+  - **Validates: Requirements 6.4**
+
+- [ ] 6.6 Implement ProfileView component (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Display user information from mock data
+  - **GREEN**: Show social link buttons with proper URLs
+  - **GREEN**: Conditionally render social links only when data exists
+  - **GREEN**: Show edit button that toggles to ProfileForm
+  - **GREEN**: Display list of user's applications using useUserApplications hook
+  - **GREEN**: Show empty state when user has no visible applications
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 2.1, 2.2, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
 - [ ] 7. Checkpoint - Ensure all tests pass
 
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Implement application backend Lambda handler
-- [ ] 8.1 Create application handler Python function
+- [ ] 8. Implement ApplicationCard component (BDD/TDD)
+- [ ] 8.1 Write acceptance tests for ApplicationCard
 
-  - Implement GET /applications endpoint (public)
-  - Implement GET /applications?userId={userId} endpoint
-  - Implement POST /applications endpoint (authenticated)
-  - Validate requests using Pydantic models
-  - Implement DynamoDB operations (get, put, scan, query GSI)
-  - Associate application with authenticated user
-  - Add timestamp generation
-  - Return consistent response format
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 6.4, 8.4, 8.5_
+  - **GIVEN** an application card is rendered
+  - **WHEN** I view the card
+  - **THEN** I should see app name, description, and tags
+  - **GIVEN** an application card is rendered
+  - **WHEN** I view the card
+  - **THEN** I should see a visibility badge (Public or Private)
+  - **GIVEN** an application card is rendered
+  - **WHEN** I view the card
+  - **THEN** I should see creator information with a clickable profile link
+  - **GIVEN** an application has a live app URL
+  - **WHEN** I view the card
+  - **THEN** I should see a clickable link that opens in a new tab
+  - **GIVEN** an application has a GitHub URL
+  - **WHEN** I view the card
+  - **THEN** I should see a clickable GitHub link that opens in a new tab
+  - _Requirements: 4.2, 4.3, 4.4_
 
-- [ ]\* 8.2 Write property test for application required fields validation
+- [ ]\* 8.2 Write property test for application card contains required information
+
+  - **Property 12: Application card contains required information**
+  - **Validates: Requirements 4.3**
+
+- [ ]\* 8.3 Write property test for application card contains valid links
+
+  - **Property 13: Application card contains valid links**
+  - **Validates: Requirements 4.4**
+
+- [ ] 8.4 Implement ApplicationCard component (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Display app name, description, tags
+  - **GREEN**: Show visibility badge using shadcn/ui Badge
+  - **GREEN**: Show creator information with clickable profile link
+  - **GREEN**: Add clickable links to live app and GitHub repo (open in new tab)
+  - **GREEN**: Implement responsive card layout using shadcn/ui Card
+  - **GREEN**: Add hover effects for interactivity
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 4.2, 4.3, 4.4_
+
+- [ ] 9. Implement ApplicationForm component (BDD/TDD)
+- [ ] 9.1 Write acceptance tests for ApplicationForm
+
+  - **GIVEN** I view the application form
+  - **WHEN** the form renders
+  - **THEN** I should see input fields for name, description, appUrl, githubUrl, tags, and visibility
+  - **GIVEN** I submit the form with missing required fields
+  - **WHEN** I click submit
+  - **THEN** I should see validation errors for those specific fields
+  - **GIVEN** I submit the form with an invalid URL
+  - **WHEN** I click submit
+  - **THEN** I should see a URL validation error
+  - **GIVEN** I submit the form with all required fields
+  - **WHEN** I click submit
+  - **THEN** I should see a success message
+  - **GIVEN** I have a validation error
+  - **WHEN** an error occurs
+  - **THEN** the form state should be preserved for retry
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 9.1, 9.3, 9.4, 9.5_
+
+- [ ]\* 9.2 Write property test for application required fields validation
 
   - **Property 6: Application required fields validation**
-  - **Validates: Requirements 3.1**
+  - **Validates: Requirements 3.4**
 
-- [ ]\* 8.3 Write property test for application optional fields acceptance
+- [ ]\* 9.3 Write property test for application optional fields acceptance
 
   - **Property 7: Application optional fields acceptance**
   - **Validates: Requirements 3.2**
 
-- [ ]\* 8.4 Write property test for application persistence round-trip
-
-  - **Property 8: Application persistence round-trip**
-  - **Validates: Requirements 3.3**
-
-- [ ]\* 8.5 Write property test for application user association
-
-  - **Property 9: Application user association**
-  - **Validates: Requirements 3.4**
-
-- [ ]\* 8.6 Write property test for URL format validation
+- [ ]\* 9.4 Write property test for URL format validation
 
   - **Property 10: URL format validation**
   - **Validates: Requirements 3.5**
 
-- [ ]\* 8.7 Write property test for validation error specificity
+- [ ]\* 9.5 Write property test for validation error specificity
 
   - **Property 24: Validation error specificity**
-  - **Validates: Requirements 10.1**
+  - **Validates: Requirements 9.1**
 
-- [ ]\* 8.8 Write unit tests for application handler
+- [ ]\* 9.6 Write property test for error state preservation
 
-  - Test valid application creation
-  - Test application creation with optional GitHub URL
-  - Test URL validation with various formats
-  - Test user association
-  - Test error handling for missing required fields
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
+  - **Property 25: Error state preservation**
+  - **Validates: Requirements 9.3**
 
-- [ ] 9. Implement application frontend components and services
-- [ ] 9.1 Create ApplicationService for API calls
+- [ ] 9.7 Implement ApplicationForm component (RED → GREEN → REFACTOR)
 
-  - Implement listApplications() function
-  - Implement createApplication(app) function
-  - Implement getApplicationsByUser(userId) function
-  - Implement filterApplicationsByTags(applications, tags) client-side function
-  - Implement extractUniqueTags(applications) client-side function
-  - Add Authorization header for authenticated endpoints
-  - Handle API errors
-  - _Requirements: 3.3, 4.1, 5.1, 5.2, 5.3, 5.4, 6.4, 10.2_
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Add input fields for app details
+  - **GREEN**: Add visibility selector (radio buttons or select: Public/Private)
+  - **GREEN**: Implement tag input with multi-select or comma-separated input
+  - **GREEN**: Implement URL validation using zod applicationSchema
+  - **GREEN**: Show validation errors inline below fields
+  - **GREEN**: Highlight missing required fields with red border
+  - **GREEN**: Implement submit handler (shows success message, no persistence)
+  - **GREEN**: Implement cancel handler
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 9.1, 9.4, 9.5_
 
-- [ ] 9.2 Create ApplicationCard component
+- [ ] 10. Implement ApplicationGallery component (BDD/TDD)
+- [ ] 10.1 Write acceptance tests for ApplicationGallery
 
-  - Display app name, description, tags
-  - Show creator information with profile link
-  - Add clickable links to live app and GitHub repo
-  - Implement responsive card layout
-  - _Requirements: 4.2, 4.3, 4.4_
+  - **GIVEN** I am unauthenticated
+  - **WHEN** I view the gallery
+  - **THEN** I should see only public applications
+  - **GIVEN** I am authenticated
+  - **WHEN** I view the gallery
+  - **THEN** I should see both public and private applications
+  - **GIVEN** applications exist with tags
+  - **WHEN** I view the gallery
+  - **THEN** I should see all unique tags in the filter sidebar
+  - **GIVEN** I select a single tag filter
+  - **WHEN** the filter is applied
+  - **THEN** I should see only applications with that tag
+  - **GIVEN** I select multiple tag filters
+  - **WHEN** the filters are applied
+  - **THEN** I should see applications with any of those tags
+  - **GIVEN** I have active tag filters
+  - **WHEN** I click clear filters
+  - **THEN** I should see all visible applications again
+  - **GIVEN** no applications match my filters
+  - **WHEN** the gallery renders
+  - **THEN** I should see an empty state message
+  - _Requirements: 4.1, 4.2, 4.6, 5.1, 5.2, 5.3, 5.4, 5.5, 8.3_
 
-- [ ]\* 9.3 Write property test for application card contains required information
-
-  - **Property 12: Application card contains required information**
-  - **Validates: Requirements 4.2**
-
-- [ ]\* 9.4 Write property test for application card contains valid links
-
-  - **Property 13: Application card contains valid links**
-  - **Validates: Requirements 4.3**
-
-- [ ] 9.5 Create ApplicationForm component
-
-  - Add input fields for app details
-  - Implement tag input with multi-select
-  - Implement URL validation using zod
-  - Show validation errors inline
-  - Highlight missing required fields
-  - Implement submit and cancel actions
-  - _Requirements: 3.1, 3.2, 3.5, 10.1, 10.5_
-
-- [ ] 9.6 Create ApplicationGallery component
-
-  - Fetch all applications using Tanstack Query
-  - Implement grid layout (responsive: 1 col mobile, 2-3 cols desktop)
-  - Extract unique tags from all applications
-  - Implement tag filter sidebar
-  - Filter applications by selected tags (client-side)
-  - Show empty state when no apps
-  - Show empty state when no apps match filters
-  - _Requirements: 4.1, 4.5, 5.1, 5.2, 5.3, 5.4, 5.5, 9.3_
-
-- [ ]\* 9.7 Write property test for gallery displays all applications
+- [ ]\* 10.2 Write property test for gallery displays all applications
 
   - **Property 11: Gallery displays all applications**
   - **Validates: Requirements 4.1**
 
-- [ ]\* 9.8 Write property test for gallery tag extraction
+- [ ]\* 10.3 Write property test for gallery tag extraction
 
   - **Property 14: Gallery tag extraction**
   - **Validates: Requirements 5.1**
 
-- [ ]\* 9.9 Write property test for single tag filtering
+- [ ]\* 10.4 Write property test for single tag filtering
 
   - **Property 15: Single tag filtering**
   - **Validates: Requirements 5.2**
 
-- [ ]\* 9.10 Write property test for multiple tag filtering
+- [ ]\* 10.5 Write property test for multiple tag filtering
 
   - **Property 16: Multiple tag filtering (OR logic)**
   - **Validates: Requirements 5.3**
 
-- [ ]\* 9.11 Write property test for tag filter clearing
+- [ ]\* 10.6 Write property test for tag filter clearing
 
   - **Property 17: Tag filter clearing**
   - **Validates: Requirements 5.4**
 
-- [ ]\* 9.12 Write property test for user profile displays user's applications
+- [ ] 10.7 Implement ApplicationGallery component (RED → GREEN → REFACTOR)
 
-  - **Property 21: User profile displays user's applications**
-  - **Validates: Requirements 6.4**
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Fetch applications using useApplications hook (respects authentication)
+  - **GREEN**: Implement responsive grid layout (1 col mobile, 2-3 cols desktop)
+  - **GREEN**: Extract unique tags from visible applications
+  - **GREEN**: Implement tag filter sidebar with checkboxes
+  - **GREEN**: Filter applications by selected tags client-side (OR logic)
+  - **GREEN**: Add clear filters button
+  - **GREEN**: Show empty state when no apps visible
+  - **GREEN**: Show empty state when no apps match filters
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 4.1, 4.2, 4.6, 5.1, 5.2, 5.3, 5.4, 5.5, 8.3_
 
-- [ ] 9.13 Create application routes
+- [ ] 11. Checkpoint - Ensure all tests pass
 
-  - Set up gallery route (public)
-  - Set up add application route (protected)
-  - Handle loading and error states
-  - _Requirements: 4.1, 3.1_
+  - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Implement navigation and layout components
-- [ ] 10.1 Install shadcn/ui components
+- [ ] 12. Install shadcn/ui components
 
   - Install Button component
   - Install Card component
+  - Install Badge component
   - Install Input component
   - Install Label component
   - Install Select component
   - Install Sheet component (for mobile menu)
-  - _Requirements: 9.1, 9.4_
+  - Install Checkbox component (for tag filters)
+  - _Requirements: 8.2_
 
-- [ ] 10.2 Create Navigation component
+- [ ] 13. Implement Navigation component (BDD/TDD)
+- [ ] 13.1 Write acceptance tests for Navigation
 
-  - Add logo and app name
-  - Add links to Gallery, Profile, Add App
-  - Add Sign In/Sign Out button
-  - Implement mobile hamburger menu using Sheet
-  - Ensure touch targets are at least 44x44px
-  - _Requirements: 9.1, 9.2, 9.4_
+  - **GIVEN** I view the navigation
+  - **WHEN** the component renders
+  - **THEN** I should see logo, app name, and links to Gallery, Profile, Add App
+  - **GIVEN** I view the navigation
+  - **WHEN** the component renders
+  - **THEN** I should see a mock authentication toggle button showing current state
+  - **GIVEN** I am on mobile
+  - **WHEN** I view the navigation
+  - **THEN** I should see a hamburger menu button
+  - **GIVEN** I click the hamburger menu
+  - **WHEN** the menu opens
+  - **THEN** I should see all navigation links
+  - **GIVEN** I am on a specific route
+  - **WHEN** I view the navigation
+  - **THEN** the active route should be highlighted
+  - _Requirements: 8.2, 8.4, 11.1_
 
-- [ ] 10.3 Create Layout component
+- [ ] 13.2 Implement Navigation component (RED → GREEN → REFACTOR)
 
-  - Add consistent header with Navigation
-  - Add main content area
-  - Add footer
-  - Implement mobile-responsive structure
-  - _Requirements: 9.1_
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Add logo and app name
+  - **GREEN**: Add links to Gallery, Profile, Add App
+  - **GREEN**: Add mock authentication toggle button (shows current state)
+  - **GREEN**: Implement mobile hamburger menu using Sheet
+  - **GREEN**: Ensure touch targets are at least 44x44px
+  - **GREEN**: Highlight active route
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 8.2, 8.4, 11.1_
 
-- [ ] 10.4 Set up routing with Tanstack Router
+- [ ] 14. Implement Layout and Routing (BDD/TDD)
+- [ ] 14.1 Write acceptance tests for Layout and Routing
 
-  - Create route tree
-  - Set up public routes (gallery, profile view)
-  - Set up protected routes (profile edit, add app)
-  - Implement route-based code splitting
-  - _Requirements: 1.1, 2.1, 4.1_
+  - **GIVEN** I navigate to any page
+  - **WHEN** the page renders
+  - **THEN** I should see consistent header with Navigation
+  - **GIVEN** I click a navigation link
+  - **WHEN** the link is clicked
+  - **THEN** I should navigate without a full page reload
+  - **GIVEN** I navigate to a profile page
+  - **WHEN** the URL contains a userId
+  - **THEN** I should see the correct profile
+  - **GIVEN** I use browser back/forward buttons
+  - **WHEN** I navigate
+  - **THEN** the correct page should render
+  - **GIVEN** I access a direct URL
+  - **WHEN** the page loads
+  - **THEN** the correct page should render
+  - _Requirements: 8.1, 8.4, 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 11. Implement error handling and loading states
-- [ ] 11.1 Create ErrorBoundary component
+- [ ] 14.2 Implement Layout component (RED → GREEN → REFACTOR)
 
-  - Catch React component errors
-  - Display fallback UI
-  - Log errors to console
-  - Provide "Try Again" action
-  - _Requirements: 10.2, 10.4_
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Add consistent header with Navigation
+  - **GREEN**: Add main content area with max-width container
+  - **GREEN**: Add footer with links
+  - **GREEN**: Implement mobile-responsive structure
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 8.1, 8.4_
 
-- [ ] 11.2 Create error handling utilities
+- [ ] 14.3 Set up routing with Tanstack Router (RED → GREEN → REFACTOR)
 
-  - Parse API error responses
-  - Generate user-friendly error messages
-  - Handle network errors
-  - Handle authentication errors
-  - _Requirements: 10.1, 10.2, 10.3_
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Create route tree
+  - **GREEN**: Set up gallery route (/)
+  - **GREEN**: Set up profile view route (/profile/:userId)
+  - **GREEN**: Set up profile edit route (/profile/:userId/edit)
+  - **GREEN**: Set up add application route (/add-app)
+  - **GREEN**: Implement route-based code splitting
+  - **GREEN**: Handle loading and error states
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 11.3 Add loading states to all data-fetching components
+- [ ] 15. Implement error handling and empty states (BDD/TDD)
+- [ ] 15.1 Write acceptance tests for error handling
 
-  - Show loading spinners during API calls
+  - **GIVEN** a React component throws an error
+  - **WHEN** the error occurs
+  - **THEN** I should see a fallback UI with error message
+  - **GIVEN** an error boundary is displayed
+  - **WHEN** I click "Try Again"
+  - **THEN** the error boundary should reset
+  - **GIVEN** the gallery has no applications
+  - **WHEN** I view the gallery
+  - **THEN** I should see an empty state message
+  - **GIVEN** a user has no applications
+  - **WHEN** I view their profile
+  - **THEN** I should see an empty state message
+  - _Requirements: 4.6, 5.5, 6.6, 9.2, 9.3_
+
+- [ ] 15.2 Implement ErrorBoundary component (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Catch React component errors
+  - **GREEN**: Display fallback UI with error message
+  - **GREEN**: Log errors to console for debugging
+  - **GREEN**: Provide "Try Again" button to reset error boundary
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 9.2, 9.3_
+
+- [ ] 15.3 Implement empty state components (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Create EmptyGallery component (no applications)
+  - **GREEN**: Create EmptyFilterResults component (no matches)
+  - **GREEN**: Create EmptyProfile component (no applications on profile)
+  - **GREEN**: Each with descriptive message and optional action
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 4.6, 5.5, 6.6_
+
+- [ ] 15.4 Add loading states to data-fetching components
+
+  - Show loading spinners during query fetches
   - Disable form submissions during processing
-  - Show skeleton loaders for content
-  - _Requirements: 10.4_
+  - Use Tanstack Query's isLoading state
+  - _Requirements: 9.3_
 
-- [ ] 12. Implement first-time user flow
-- [ ] 12.1 Create profile creation prompt
+- [ ] 16. Add mobile responsiveness and styling (BDD/TDD)
+- [ ] 16.1 Write acceptance tests for mobile responsiveness
 
-  - Detect first-time authentication
-  - Show profile creation modal/page
-  - Redirect to profile form
-  - _Requirements: 1.2_
+  - **GIVEN** I view the app on a 320px viewport
+  - **WHEN** the page renders
+  - **THEN** all content should be readable and accessible
+  - **GIVEN** I view the gallery on mobile
+  - **WHEN** the page renders
+  - **THEN** I should see a single column layout
+  - **GIVEN** I interact with touch targets on mobile
+  - **WHEN** I tap elements
+  - **THEN** all interactive elements should be at least 44x44px
+  - **GIVEN** I view forms on mobile
+  - **WHEN** the form renders
+  - **THEN** all fields should be easily tappable and readable
+  - _Requirements: 8.1, 8.2, 8.3, 8.5_
 
-- [ ] 12.2 Handle profile creation completion
+- [ ] 16.2 Implement mobile-first responsive design (RED → GREEN → REFACTOR)
 
-  - Redirect to gallery after profile creation
-  - Show success message
-  - _Requirements: 1.5_
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Use Tailwind responsive prefixes (sm:, md:, lg:, xl:)
+  - **GREEN**: Test layouts at 320px minimum width
+  - **GREEN**: Ensure single column layout on mobile for gallery
+  - **GREEN**: Ensure forms are readable and tappable on mobile
+  - **GREEN**: Ensure touch targets are at least 44x44px
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 8.1, 8.2, 8.3, 8.5_
 
-- [ ] 13. Add mobile responsiveness and styling
-- [ ] 13.1 Implement mobile-first responsive design
-
-  - Use Tailwind responsive prefixes (sm:, md:, lg:, xl:)
-  - Test layouts at 320px minimum width
-  - Ensure single column layout on mobile for gallery
-  - Ensure forms are readable and tappable on mobile
-  - _Requirements: 9.1, 9.2, 9.3, 9.5_
-
-- [ ] 13.2 Style all components with Tailwind CSS
+- [ ] 16.3 Style all components with Tailwind CSS
 
   - Apply consistent spacing and typography
   - Use shadcn/ui design tokens
   - Ensure proper contrast for accessibility
   - Add hover and focus states
-  - _Requirements: 9.1_
+  - Style validation errors (red border, error text)
+  - _Requirements: 8.1, 9.1_
 
-- [ ] 14. Final checkpoint - Ensure all tests pass
-
+- [ ] 17. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
-
-- [ ] 15. Deploy to development environment
-  - Run `make deploy-dev`
-  - Verify all resources are created
-  - Test authentication flow
-  - Test profile creation and editing
-  - Test application creation
-  - Test gallery and filtering
-  - _Requirements: 7.4, 7.5_

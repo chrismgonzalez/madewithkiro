@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ACM Certificate for CloudFront (must be deployed in us-east-1)
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: Domain name for the certificate
+    Default: madewithkiro.com
+
+  HostedZoneId:
+    Type: String
+    Description: Route 53 Hosted Zone ID for DNS validation
+    Default: Z00541582Q16QTXW4013F
+
+Resources:
+  # ACM Certificate in us-east-1 for CloudFront
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub "*.${DomainName}"
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: Name
+          Value: !Sub ${DomainName}-cloudfront-cert
+        - Key: Application
+          Value: MadeWithKiro
+
+Outputs:
+  CertificateArn:
+    Description: ARN of the ACM Certificate (use this in main stack)
+    Value: !Ref Certificate
+    Export:
+      Name: MadeWithKiro-Certificate-Arn
+
+  CertificateDomainName:
+    Description: Domain name of the certificate
+    Value: !Ref DomainName
+    Export:
+      Name: MadeWithKiro-Certificate-Domain
