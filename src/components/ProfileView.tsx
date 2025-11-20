@@ -105,7 +105,7 @@ export default function ProfileView({ userId }: ProfileViewProps) {
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           {/* AWS Builder Center Link */}
           <a
-            href={`https://community.aws/${profile.awsBuilderHandle}`}
+            href={`https://builder.aws.com/community/@${profile.awsBuilderHandle}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors min-h-[44px] text-sm sm:text-base"

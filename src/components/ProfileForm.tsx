@@ -218,6 +218,7 @@ export default function ProfileForm({
         <Input
           id="awsBuilderHandle"
           type="text"
+          placeholder="@"
           value={formData.awsBuilderHandle}
           onChange={(e) =>
             handleInputChange("awsBuilderHandle", e.target.value)
