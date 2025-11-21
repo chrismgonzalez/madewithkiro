@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMockAuth } from "@/contexts/MockAuthContext";
-import { Sparkles, Users, Rocket, Github, Linkedin } from "lucide-react";
+import { Sparkles, Users, Rocket } from "lucide-react";
 
 export default function LandingPage() {
   const { toggleAuth } = useMockAuth();
@@ -30,30 +30,30 @@ export default function LandingPage() {
           Ready to share your work with the world?
         </p>
 
-        <div className="flex flex-wrap justify-center items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground py-3">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Github className="h-4 w-4" />
-            <span>Open Source</span>
-          </div>
-          <span className="hidden sm:inline">•</span>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Linkedin className="h-4 w-4" />
-            <span>Professional Network</span>
-          </div>
-          <span className="hidden sm:inline">•</span>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Sparkles className="h-4 w-4" />
-            <span>AWS Community</span>
-          </div>
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2 md:justify-center">
+          <Button
+            size="lg"
+            onClick={toggleAuth}
+            className="min-h-[52px] sm:min-h-[56px] text-base sm:text-lg px-8 sm:px-12 w-full sm:w-auto"
+          >
+            Sign In to Get Started
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            asChild
+            className="min-h-[52px] sm:min-h-[56px] text-base sm:text-lg px-8 sm:px-12 w-full sm:w-auto"
+          >
+            <a
+              href="https://kiro.dev/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2"
+            >
+              Learn More About Kiro
+            </a>
+          </Button>
         </div>
-
-        <Button
-          size="lg"
-          onClick={toggleAuth}
-          className="min-h-[52px] sm:min-h-[56px] text-base sm:text-lg px-8 sm:px-12 w-full sm:w-auto"
-        >
-          Sign In to Get Started
-        </Button>
       </div>
 
       {/* Features Section */}

@@ -42,8 +42,11 @@ export const applicationSchema = z.object({
     .string()
     .min(1, "Description is required")
     .max(500, "Description must be 500 characters or less"),
-  appUrl: z.string().url("Must be a valid URL"),
-  githubUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  appUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+  githubUrl: z
+    .string()
+    .url("Must be a valid URL")
+    .min(1, "GitHub URL is required"),
   tags: z
     .array(z.string())
     .min(1, "At least one tag is required")

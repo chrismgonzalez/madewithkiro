@@ -10,19 +10,14 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-  InputGroupText,
-} from "@/components/ui/input-group";
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { Separator } from "@/components/ui/separator";
 import {
   applicationSchema,
   type ApplicationFormData,
 } from "@/utils/validation";
 import { z } from "zod";
-import { CheckCircle2, ExternalLink, Github, Tag } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 interface ApplicationFormProps {
   onSubmit: (data: ApplicationFormData) => void | Promise<void>;
@@ -47,7 +42,7 @@ export default function ApplicationForm({
     appUrl: initialData?.appUrl || "",
     githubUrl: initialData?.githubUrl || "",
     tags: initialData?.tags || [],
-    visibility: initialData?.visibility || "public",
+    visibility: "public", // Always public since auth is required
   });
 
   const [errors, setErrors] = useState<FieldError[]>([]);
@@ -65,7 +60,7 @@ export default function ApplicationForm({
     appUrl: initialData?.appUrl || "",
     githubUrl: initialData?.githubUrl || "",
     tags: initialData?.tags || [],
-    visibility: initialData?.visibility || "public",
+    visibility: "public", // Always public since auth is required
   });
 
   // Clear success message after 3 seconds
@@ -141,7 +136,6 @@ export default function ApplicationForm({
       appUrl: true,
       githubUrl: true,
       tags: true,
-      visibility: true,
     });
 
     // Validate entire form
@@ -275,52 +269,16 @@ export default function ApplicationForm({
               Application Links
             </h3>
 
-            {/* Live App URL */}
-            <div className="space-y-2">
-              <Label htmlFor="appUrl">
-                Live App URL <span className="text-red-500">*</span>
-              </Label>
-              <InputGroup>
-                <InputGroupAddon>
-                  <InputGroupText>https://</InputGroupText>
-                </InputGroupAddon>
-                <InputGroupInput
-                  id="appUrl"
-                  type="url"
-                  placeholder="example.com"
-                  value={formData.appUrl}
-                  onChange={(e) => handleInputChange("appUrl", e.target.value)}
-                  onBlur={() => handleBlur("appUrl")}
-                  className={hasFieldError("appUrl") ? "border-red-500" : ""}
-                  aria-invalid={hasFieldError("appUrl")}
-                  aria-describedby={
-                    hasFieldError("appUrl") ? "appUrl-error" : undefined
-                  }
-                />
-                <InputGroupAddon>
-                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                </InputGroupAddon>
-              </InputGroup>
-              {hasFieldError("appUrl") && (
-                <p id="appUrl-error" className="text-sm text-red-500">
-                  {getFieldError("appUrl")}
-                </p>
-              )}
-            </div>
-
             {/* GitHub URL */}
             <div className="space-y-2">
               <Label htmlFor="githubUrl">
-                GitHub Repository URL (Optional)
+                GitHub Repository URL <span className="text-red-500">*</span>
               </Label>
               <InputGroup>
-                <InputGroupAddon>
-                  <Github className="h-4 w-4 text-muted-foreground" />
-                </InputGroupAddon>
                 <InputGroupInput
                   id="githubUrl"
                   type="url"
-                  placeholder="github.com/username/repo"
+                  placeholder="https://github.com/username/repo"
                   value={formData.githubUrl}
                   onChange={(e) =>
                     handleInputChange("githubUrl", e.target.value)
@@ -339,6 +297,31 @@ export default function ApplicationForm({
                 </p>
               )}
             </div>
+
+            {/* Live App URL */}
+            <div className="space-y-2">
+              <Label htmlFor="appUrl">Live App URL (Optional)</Label>
+              <InputGroup>
+                <InputGroupInput
+                  id="appUrl"
+                  type="url"
+                  placeholder="https://example.com"
+                  value={formData.appUrl}
+                  onChange={(e) => handleInputChange("appUrl", e.target.value)}
+                  onBlur={() => handleBlur("appUrl")}
+                  className={hasFieldError("appUrl") ? "border-red-500" : ""}
+                  aria-invalid={hasFieldError("appUrl")}
+                  aria-describedby={
+                    hasFieldError("appUrl") ? "appUrl-error" : undefined
+                  }
+                />
+              </InputGroup>
+              {hasFieldError("appUrl") && (
+                <p id="appUrl-error" className="text-sm text-red-500">
+                  {getFieldError("appUrl")}
+                </p>
+              )}
+            </div>
           </div>
 
           <Separator />
@@ -346,12 +329,12 @@ export default function ApplicationForm({
           {/* Tags */}
           <div className="space-y-2">
             <Label htmlFor="tags">
-              Tags <span className="text-red-500">*</span>
+              Tags <span className="text-red-500">*</span>{" "}
+              <span className="text-xs text-muted-foreground font-normal">
+                (comma-separated)
+              </span>
             </Label>
             <InputGroup>
-              <InputGroupAddon>
-                <Tag className="h-4 w-4 text-muted-foreground" />
-              </InputGroupAddon>
               <InputGroupInput
                 id="tags"
                 type="text"
@@ -365,48 +348,10 @@ export default function ApplicationForm({
                 }
                 placeholder="react, typescript, aws"
               />
-              <InputGroupAddon align="inline-end">
-                <InputGroupText className="text-xs text-muted-foreground">
-                  comma-separated
-                </InputGroupText>
-              </InputGroupAddon>
             </InputGroup>
             {hasFieldError("tags") && (
               <p id="tags-error" className="text-sm text-red-500">
                 {getFieldError("tags")}
-              </p>
-            )}
-          </div>
-
-          {/* Visibility */}
-          <div className="space-y-2">
-            <Label htmlFor="visibility">
-              Visibility <span className="text-red-500">*</span>
-            </Label>
-            <select
-              id="visibility"
-              value={formData.visibility}
-              onChange={(e) =>
-                handleInputChange(
-                  "visibility",
-                  e.target.value as "public" | "private"
-                )
-              }
-              onBlur={() => handleBlur("visibility")}
-              className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm ${
-                hasFieldError("visibility") ? "border-red-500" : ""
-              }`}
-              aria-invalid={hasFieldError("visibility")}
-              aria-describedby={
-                hasFieldError("visibility") ? "visibility-error" : undefined
-              }
-            >
-              <option value="public">Public</option>
-              <option value="private">Private</option>
-            </select>
-            {hasFieldError("visibility") && (
-              <p id="visibility-error" className="text-sm text-red-500">
-                {getFieldError("visibility")}
               </p>
             )}
           </div>
@@ -418,7 +363,7 @@ export default function ApplicationForm({
               disabled={isSubmitting}
               className="min-h-[44px] w-full sm:w-auto"
             >
-              {isSubmitting ? "Saving..." : "Save Application"}
+              {isSubmitting ? "Saving..." : "Save"}
             </Button>
             <Button
               type="button"
