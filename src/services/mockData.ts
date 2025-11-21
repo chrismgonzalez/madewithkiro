@@ -257,3 +257,56 @@ export function getAllTags(isAuthenticated: boolean): string[] {
   const allTags = visibleApps.flatMap((app) => app.tags);
   return [...new Set(allTags)].sort();
 }
+
+/**
+ * Get an application by ID
+ * @param appId - The application ID to look up
+ * @returns The application or undefined if not found
+ */
+export function getApplicationById(appId: string): Application | undefined {
+  return mockApplications.find((app) => app.appId === appId);
+}
+
+/**
+ * Update an application in the mock data store
+ * @param appId - The application ID to update
+ * @param data - The data to update
+ * @returns The updated application
+ * @throws Error if application not found
+ */
+export function updateApplicationInStore(
+  appId: string,
+  data: Partial<Application>
+): Application {
+  const index = mockApplications.findIndex((app) => app.appId === appId);
+  if (index === -1) {
+    throw new Error("Application not found");
+  }
+
+  // Preserve immutable fields
+  const updated: Application = {
+    ...mockApplications[index],
+    ...data,
+    appId: mockApplications[index].appId, // Never change ID
+    userId: mockApplications[index].userId, // Never change owner
+    createdAt: mockApplications[index].createdAt, // Never change creation time
+    updatedAt: new Date().toISOString(), // Update timestamp
+  };
+
+  mockApplications[index] = updated;
+  return updated;
+}
+
+/**
+ * Delete an application from the mock data store
+ * @param appId - The application ID to delete
+ * @throws Error if application not found
+ */
+export function deleteApplicationFromStore(appId: string): void {
+  const index = mockApplications.findIndex((app) => app.appId === appId);
+  if (index === -1) {
+    throw new Error("Application not found");
+  }
+
+  mockApplications.splice(index, 1);
+}

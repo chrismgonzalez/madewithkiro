@@ -23,6 +23,7 @@ interface ApplicationFormProps {
   onSubmit: (data: ApplicationFormData) => void | Promise<void>;
   onCancel: () => void;
   initialData?: Partial<ApplicationFormData>;
+  mode?: "create" | "edit";
 }
 
 interface FieldError {
@@ -34,6 +35,7 @@ export default function ApplicationForm({
   onSubmit,
   onCancel,
   initialData,
+  mode = "create",
 }: ApplicationFormProps) {
   // Initialize form state with initial data or empty values
   const [formData, setFormData] = useState<ApplicationFormData>({
@@ -70,6 +72,37 @@ export default function ApplicationForm({
       return () => clearTimeout(timer);
     }
   }, [showSuccess]);
+
+  // Check if form has unsaved changes
+  const hasUnsavedChanges = () => {
+    return (
+      formData.name !== originalData.name ||
+      formData.description !== originalData.description ||
+      formData.appUrl !== originalData.appUrl ||
+      formData.githubUrl !== originalData.githubUrl ||
+      JSON.stringify(formData.tags.sort()) !==
+        JSON.stringify(originalData.tags.sort()) ||
+      formData.visibility !== originalData.visibility
+    );
+  };
+
+  // Warn user about unsaved changes when navigating away
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges() && !isSubmitting) {
+        e.preventDefault();
+        // Modern browsers require returnValue to be set
+        e.returnValue = "";
+        return "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [formData, originalData, isSubmitting]);
 
   const handleInputChange = (
     field: keyof ApplicationFormData,
@@ -193,10 +226,12 @@ export default function ApplicationForm({
     <Card className="max-w-3xl">
       <CardHeader>
         <CardTitle className="text-xl sm:text-2xl">
-          Application Details
+          {mode === "edit" ? "Edit Application" : "Application Details"}
         </CardTitle>
         <CardDescription>
-          Share your Kiro-built application with the community
+          {mode === "edit"
+            ? "Update your application information"
+            : "Share your Kiro-built application with the community"}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -363,7 +398,11 @@ export default function ApplicationForm({
               disabled={isSubmitting}
               className="min-h-[44px] w-full sm:w-auto"
             >
-              {isSubmitting ? "Saving..." : "Save"}
+              {isSubmitting
+                ? "Saving..."
+                : mode === "edit"
+                ? "Update Application"
+                : "Save Application"}
             </Button>
             <Button
               type="button"

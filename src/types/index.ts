@@ -49,6 +49,15 @@ export interface CreateApplicationRequest {
   visibility: ApplicationVisibility;
 }
 
+export interface UpdateApplicationRequest {
+  name: string;
+  description: string;
+  appUrl: string;
+  githubUrl?: string;
+  tags: string[];
+  visibility: ApplicationVisibility;
+}
+
 export interface ApiError {
   code: string;
   message: string;

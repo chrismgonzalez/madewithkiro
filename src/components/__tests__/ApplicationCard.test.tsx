@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { render } from "@/test/utils";
 import ApplicationCard from "../ApplicationCard";
 import { getAllApplications } from "@/services/mockData";
@@ -29,21 +30,15 @@ describe("ApplicationCard - Acceptance Tests", () => {
       });
     });
 
-    it("WHEN I view the card THEN I should see a visibility badge (Public or Private)", () => {
-      // Arrange & Act - Test public app
-      const { unmount } = render(<ApplicationCard application={publicApp} />);
+    it("WHEN I view the card THEN I should see the application name and description", () => {
+      // Arrange & Act
+      render(<ApplicationCard application={publicApp} />);
 
-      // Assert - Should show "Public" badge
-      expect(screen.getByText("Public")).toBeInTheDocument();
+      // Assert - Should display app name
+      expect(screen.getByText(publicApp.name)).toBeInTheDocument();
 
-      // Cleanup and test private app
-      unmount();
-
-      // Act - Test private app
-      render(<ApplicationCard application={privateApp} />);
-
-      // Assert - Should show "Private" badge
-      expect(screen.getByText("Private")).toBeInTheDocument();
+      // Assert - Should display description
+      expect(screen.getByText(publicApp.description)).toBeInTheDocument();
     });
 
     it("WHEN I view the card THEN I should see creator information with a clickable profile link", () => {
@@ -133,4 +128,114 @@ describe("ApplicationCard - Acceptance Tests", () => {
       });
     });
   });
+
+  describe("Edit button visibility - REMOVED from gallery view (moved to profile)", () => {
+    it("GIVEN I am authenticated and viewing my own application card WHEN the card renders THEN I should NOT see an edit button", () => {
+      // Arrange - Get an application owned by user-001 (Sarah Chen)
+      const myApp = mockApps.find((app) => app.userId === "user-001")!;
+
+      // Act - Render with authenticated user viewing their own app
+      render(<ApplicationCard application={myApp} />, {
+        mockAuthState: {
+          isAuthenticated: true,
+          currentUserId: "user-001",
+        },
+      });
+
+      // Assert - Should NOT see edit button (moved to profile view)
+      const editButton = screen.queryByRole("link", { name: /edit/i });
+      expect(editButton).not.toBeInTheDocument();
+    });
+
+    it("GIVEN I am authenticated and viewing another user's application card WHEN the card renders THEN I should NOT see an edit button", () => {
+      // Arrange - Get an application owned by user-002 (Marcus Rodriguez)
+      const otherUserApp = mockApps.find((app) => app.userId === "user-002")!;
+
+      // Act - Render with authenticated user viewing another user's app
+      render(<ApplicationCard application={otherUserApp} />, {
+        mockAuthState: {
+          isAuthenticated: true,
+          currentUserId: "user-001",
+        },
+      });
+
+      // Assert - Should NOT see edit button
+      const editButton = screen.queryByRole("link", { name: /edit/i });
+      expect(editButton).not.toBeInTheDocument();
+    });
+
+    it("GIVEN I am unauthenticated WHEN I view any application card THEN I should NOT see an edit button", () => {
+      // Arrange - Get any application
+      const anyApp = mockApps[0];
+
+      // Act - Render with unauthenticated user
+      render(<ApplicationCard application={anyApp} />, {
+        mockAuthState: {
+          isAuthenticated: false,
+          currentUserId: null,
+        },
+      });
+
+      // Assert - Should NOT see edit button
+      const editButton = screen.queryByRole("link", { name: /edit/i });
+      expect(editButton).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Delete button visibility - REMOVED from gallery view (moved to profile)", () => {
+    it("GIVEN I am authenticated and viewing my own application card WHEN the card renders THEN I should NOT see a delete button", () => {
+      // Arrange - Get an application owned by user-001 (Sarah Chen)
+      const myApp = mockApps.find((app) => app.userId === "user-001")!;
+
+      // Act - Render with authenticated user viewing their own app
+      render(<ApplicationCard application={myApp} />, {
+        mockAuthState: {
+          isAuthenticated: true,
+          currentUserId: "user-001",
+        },
+      });
+
+      // Assert - Should NOT see delete button (moved to profile view)
+      const deleteButton = screen.queryByRole("button", { name: /delete/i });
+      expect(deleteButton).not.toBeInTheDocument();
+    });
+
+    it("GIVEN I am authenticated and viewing another user's application card WHEN the card renders THEN I should NOT see a delete button", () => {
+      // Arrange - Get an application owned by user-002 (Marcus Rodriguez)
+      const otherUserApp = mockApps.find((app) => app.userId === "user-002")!;
+
+      // Act - Render with authenticated user viewing another user's app
+      render(<ApplicationCard application={otherUserApp} />, {
+        mockAuthState: {
+          isAuthenticated: true,
+          currentUserId: "user-001",
+        },
+      });
+
+      // Assert - Should NOT see delete button
+      const deleteButton = screen.queryByRole("button", { name: /delete/i });
+      expect(deleteButton).not.toBeInTheDocument();
+    });
+
+    it("GIVEN I am unauthenticated WHEN I view any application card THEN I should NOT see a delete button", () => {
+      // Arrange - Get any application
+      const anyApp = mockApps[0];
+
+      // Act - Render with unauthenticated user
+      render(<ApplicationCard application={anyApp} />, {
+        mockAuthState: {
+          isAuthenticated: false,
+          currentUserId: null,
+        },
+      });
+
+      // Assert - Should NOT see delete button
+      const deleteButton = screen.queryByRole("button", { name: /delete/i });
+      expect(deleteButton).not.toBeInTheDocument();
+    });
+  });
+
+  // NOTE: Delete confirmation flow tests removed - delete functionality moved to ProfileView
+  // These tests are now in ProfileView.test.tsx instead
+  // describe("Delete confirmation flow - Requirements 11.4, 11.5, 12.1, 12.3, 12.4, 12.5", () => {
 });

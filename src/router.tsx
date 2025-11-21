@@ -11,6 +11,7 @@ import Layout from "@/components/Layout";
 import GalleryPage from "@/pages/GalleryPage";
 import ProfilePage from "@/pages/ProfilePage";
 import AddApplicationPage from "@/pages/AddApplicationPage";
+import EditApplicationPage from "@/pages/EditApplicationPage";
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -73,12 +74,23 @@ const addAppRoute = createRoute({
   component: AddApplicationPage,
 });
 
+// Edit application route
+const editAppRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/edit/$appId",
+  component: () => {
+    const { appId } = editAppRoute.useParams();
+    return <EditApplicationPage />;
+  },
+});
+
 // Create the route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
   profileRoute,
   profileEditRoute,
   addAppRoute,
+  editAppRoute,
 ]);
 
 // Create the router

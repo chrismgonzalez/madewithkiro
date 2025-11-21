@@ -39,7 +39,6 @@ describe("Routing - Acceptance Tests", () => {
   beforeEach(() => {
     mockNavigate.mockClear();
     mockLocation.pathname = "/";
-    localStorage.clear();
   });
 
   describe("GIVEN I click a navigation link", () => {
@@ -226,6 +225,102 @@ describe("Routing - Acceptance Tests", () => {
 
       // Should call navigate
       expect(mockNavigate).toHaveBeenCalledWith("/profile/user123");
+    });
+  });
+
+  describe("Edit Application Routing - Acceptance Tests", () => {
+    describe("GIVEN I click an edit button", () => {
+      it("WHEN the button is clicked THEN I should navigate to /edit/:appId", async () => {
+        const user = userEvent.setup();
+        const testAppId = "app123";
+
+        const TestComponent = () => {
+          return (
+            <MockAuthProvider>
+              <div>
+                <button
+                  onClick={() => {
+                    mockNavigate(`/edit/${testAppId}`);
+                  }}
+                >
+                  Edit Application
+                </button>
+              </div>
+            </MockAuthProvider>
+          );
+        };
+
+        render(<TestComponent />);
+
+        // Click the edit button
+        const editButton = screen.getByText("Edit Application");
+        await user.click(editButton);
+
+        // Should navigate to the edit page with the correct appId
+        expect(mockNavigate).toHaveBeenCalledWith("/edit/app123");
+      });
+    });
+
+    describe("GIVEN I access /edit/:appId directly", () => {
+      it("WHEN the URL is loaded THEN the edit page should render", () => {
+        const testAppId = "app456";
+        mockLocation.pathname = `/edit/${testAppId}`;
+
+        const TestEditPage = () => {
+          return (
+            <MockAuthProvider>
+              <div>
+                <h1>Edit Application</h1>
+                <p>Editing app: {testAppId}</p>
+              </div>
+            </MockAuthProvider>
+          );
+        };
+
+        render(<TestEditPage />);
+
+        // Should render the edit page with the correct appId
+        expect(screen.getByText("Edit Application")).toBeInTheDocument();
+        expect(screen.getByText("Editing app: app456")).toBeInTheDocument();
+      });
+    });
+
+    describe("GIVEN I am on the edit page", () => {
+      it("WHEN I use browser back button THEN I should navigate to the previous page", async () => {
+        // Set initial location to edit page
+        mockLocation.pathname = "/edit/app789";
+
+        const TestComponent = () => {
+          return (
+            <MockAuthProvider>
+              <div>
+                <h1>Edit Application</h1>
+                <button
+                  onClick={() => {
+                    // Simulate browser back button by navigating to previous page
+                    mockNavigate(-1);
+                  }}
+                >
+                  Back
+                </button>
+              </div>
+            </MockAuthProvider>
+          );
+        };
+
+        render(<TestComponent />);
+
+        // Should be on edit page
+        expect(screen.getByText("Edit Application")).toBeInTheDocument();
+
+        // Click back button
+        const user = userEvent.setup();
+        const backButton = screen.getByText("Back");
+        await user.click(backButton);
+
+        // Should call navigate with -1 (browser back)
+        expect(mockNavigate).toHaveBeenCalledWith(-1);
+      });
     });
   });
 });

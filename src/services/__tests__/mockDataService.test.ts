@@ -6,6 +6,9 @@ import {
   getApplicationsByUserId,
   getAllTags,
   filterApplicationsByTags,
+  getApplicationById,
+  updateApplication,
+  deleteApplication,
 } from "../mockDataService";
 import type { Application } from "@/types";
 
@@ -421,6 +424,269 @@ describe("Data Service - Acceptance Tests", () => {
         // At least one of each type should exist
         expect(hasPublic || hasPrivate).toBe(true);
       }
+    });
+  });
+
+  describe("Application update operations", () => {
+    describe("GIVEN an application exists in mock data", () => {
+      it("WHEN I request that application by ID THEN I should receive the correct application", async () => {
+        // Arrange
+        const appId = "app-001";
+
+        // Act
+        const application = await getApplicationById(appId);
+
+        // Assert
+        expect(application).toBeDefined();
+        expect(application?.appId).toBe(appId);
+        expect(application?.name).toBeDefined();
+        expect(application?.userId).toBeDefined();
+      });
+
+      it("WHEN I request a non-existent application THEN I should receive null", async () => {
+        // Arrange
+        const appId = "non-existent-app";
+
+        // Act
+        const application = await getApplicationById(appId);
+
+        // Assert
+        expect(application).toBeNull();
+      });
+    });
+
+    describe("GIVEN I am the owner of an application", () => {
+      it("WHEN I update the application with valid data THEN the application should be updated successfully", async () => {
+        // Arrange
+        const appId = "app-001";
+        const userId = "user-001";
+        const updateData = {
+          name: "Updated Application Name",
+          description: "Updated description",
+          appUrl: "https://updated-app.example.com",
+          githubUrl: "https://github.com/updated/repo",
+          tags: ["Updated", "Tags"],
+          visibility: "private" as const,
+        };
+
+        // Act
+        const updatedApp = await updateApplication(appId, updateData, userId);
+
+        // Assert
+        expect(updatedApp).toBeDefined();
+        expect(updatedApp.appId).toBe(appId);
+        expect(updatedApp.name).toBe(updateData.name);
+        expect(updatedApp.description).toBe(updateData.description);
+        expect(updatedApp.appUrl).toBe(updateData.appUrl);
+        expect(updatedApp.githubUrl).toBe(updateData.githubUrl);
+        expect(updatedApp.tags).toEqual(updateData.tags);
+        expect(updatedApp.visibility).toBe(updateData.visibility);
+      });
+    });
+
+    describe("GIVEN I am not the owner of an application", () => {
+      it("WHEN I attempt to update the application THEN I should receive an authorization error", async () => {
+        // Arrange
+        const appId = "app-001"; // Owned by user-001
+        const nonOwnerUserId = "user-002";
+        const updateData = {
+          name: "Unauthorized Update",
+          description: "This should fail",
+          appUrl: "https://unauthorized.example.com",
+          tags: ["Unauthorized"],
+          visibility: "public" as const,
+        };
+
+        // Act & Assert
+        await expect(
+          updateApplication(appId, updateData, nonOwnerUserId)
+        ).rejects.toThrow("Unauthorized");
+      });
+    });
+
+    describe("GIVEN I update an application", () => {
+      it("WHEN the update succeeds THEN the createdAt timestamp should remain unchanged", async () => {
+        // Arrange
+        const appId = "app-002";
+        const userId = "user-001";
+        const originalApp = await getApplicationById(appId);
+        const originalCreatedAt = originalApp?.createdAt;
+
+        const updateData = {
+          name: "Updated Name",
+          description: "Updated description",
+          appUrl: "https://updated.example.com",
+          tags: ["Updated"],
+          visibility: "public" as const,
+        };
+
+        // Act
+        const updatedApp = await updateApplication(appId, updateData, userId);
+
+        // Assert
+        expect(updatedApp.createdAt).toBe(originalCreatedAt);
+      });
+
+      it("WHEN the update succeeds THEN the updatedAt timestamp should be newer than before", async () => {
+        // Arrange
+        const appId = "app-003";
+        const userId = "user-002";
+        const originalApp = await getApplicationById(appId);
+        const originalUpdatedAt = originalApp?.updatedAt;
+
+        // Wait a tiny bit to ensure timestamp difference
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        const updateData = {
+          name: "Updated Name",
+          description: "Updated description",
+          appUrl: "https://updated.example.com",
+          tags: ["Updated"],
+          visibility: "public" as const,
+        };
+
+        // Act
+        const updatedApp = await updateApplication(appId, updateData, userId);
+
+        // Assert
+        expect(updatedApp.updatedAt).toBeDefined();
+        if (originalUpdatedAt) {
+          const originalDate = new Date(originalUpdatedAt);
+          const updatedDate = new Date(updatedApp.updatedAt);
+          expect(updatedDate.getTime()).toBeGreaterThan(originalDate.getTime());
+        }
+      });
+
+      it("WHEN the update succeeds THEN the userId should remain unchanged", async () => {
+        // Arrange
+        const appId = "app-004";
+        const userId = "user-002";
+        const originalApp = await getApplicationById(appId);
+        const originalUserId = originalApp?.userId;
+
+        const updateData = {
+          name: "Updated Name",
+          description: "Updated description",
+          appUrl: "https://updated.example.com",
+          tags: ["Updated"],
+          visibility: "public" as const,
+        };
+
+        // Act
+        const updatedApp = await updateApplication(appId, updateData, userId);
+
+        // Assert
+        expect(updatedApp.userId).toBe(originalUserId);
+        expect(updatedApp.userId).toBe(userId);
+      });
+    });
+  });
+
+  describe("Application deletion operations", () => {
+    describe("GIVEN I am the owner of an application", () => {
+      it("WHEN I request to delete the application THEN the application should be removed from mock data", async () => {
+        // Arrange
+        const appId = "app-001";
+        const userId = "user-001";
+
+        // Verify application exists before deletion
+        const appBefore = await getApplicationById(appId);
+        expect(appBefore).toBeDefined();
+        expect(appBefore?.appId).toBe(appId);
+
+        // Act
+        await deleteApplication(appId, userId);
+
+        // Assert - application should no longer exist
+        const appAfter = await getApplicationById(appId);
+        expect(appAfter).toBeNull();
+      });
+    });
+
+    describe("GIVEN I am not the owner of an application", () => {
+      it("WHEN I attempt to delete the application THEN I should receive an authorization error", async () => {
+        // Arrange
+        const appId = "app-003"; // Owned by user-002
+        const nonOwnerUserId = "user-001";
+
+        // Verify application exists before attempt
+        const appBefore = await getApplicationById(appId);
+        expect(appBefore).toBeDefined();
+
+        // Act & Assert
+        await expect(deleteApplication(appId, nonOwnerUserId)).rejects.toThrow(
+          "Unauthorized"
+        );
+
+        // Verify application still exists after failed deletion
+        const appAfter = await getApplicationById(appId);
+        expect(appAfter).toBeDefined();
+        expect(appAfter?.appId).toBe(appId);
+      });
+    });
+
+    describe("GIVEN I delete an application", () => {
+      it("WHEN the deletion succeeds THEN subsequent queries for that application should return null", async () => {
+        // Arrange
+        const appId = "app-002";
+        const userId = "user-001";
+
+        // Verify application exists
+        const appBefore = await getApplicationById(appId);
+        expect(appBefore).toBeDefined();
+
+        // Act
+        await deleteApplication(appId, userId);
+
+        // Assert - multiple queries should all return null
+        const query1 = await getApplicationById(appId);
+        expect(query1).toBeNull();
+
+        const query2 = await getApplicationById(appId);
+        expect(query2).toBeNull();
+
+        const query3 = await getApplicationById(appId);
+        expect(query3).toBeNull();
+      });
+
+      it("WHEN the deletion succeeds THEN the application should not appear in any user's application list", async () => {
+        // Arrange
+        const appId = "app-006";
+        const userId = "user-003";
+
+        // Verify application exists in user's list before deletion
+        const userAppsBefore = await getApplicationsByUserId(userId, true);
+        const appExistsInList = userAppsBefore.some(
+          (app) => app.appId === appId
+        );
+        expect(appExistsInList).toBe(true);
+
+        // Act
+        await deleteApplication(appId, userId);
+
+        // Assert - application should not appear in user's list
+        const userAppsAfter = await getApplicationsByUserId(userId, true);
+        const appStillInList = userAppsAfter.some((app) => app.appId === appId);
+        expect(appStillInList).toBe(false);
+
+        // Assert - application should not appear in all applications list
+        const allApps = await getAllApplications(true);
+        const appInAllList = allApps.some((app) => app.appId === appId);
+        expect(appInAllList).toBe(false);
+      });
+    });
+
+    describe("GIVEN I attempt to delete a non-existent application", () => {
+      it("WHEN the deletion is attempted THEN I should receive an error", async () => {
+        // Arrange
+        const nonExistentAppId = "non-existent-app";
+        const userId = "user-001";
+
+        // Act & Assert
+        await expect(
+          deleteApplication(nonExistentAppId, userId)
+        ).rejects.toThrow("Application not found");
+      });
     });
   });
 });

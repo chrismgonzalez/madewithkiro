@@ -6,7 +6,7 @@ import ApplicationForm from "../ApplicationForm";
 
 describe("ApplicationForm - Acceptance Tests", () => {
   describe("GIVEN I view the application form", () => {
-    it("WHEN the form renders THEN I should see input fields for name, description, appUrl, githubUrl, tags, and visibility", () => {
+    it("WHEN the form renders THEN I should see input fields for name, description, appUrl, githubUrl, and tags", () => {
       // Arrange & Act
       render(<ApplicationForm onSubmit={vi.fn()} onCancel={vi.fn()} />);
 
@@ -25,9 +25,6 @@ describe("ApplicationForm - Acceptance Tests", () => {
       ).toBeInTheDocument();
       expect(
         screen.getByLabelText(/tags/i, { selector: "input" })
-      ).toBeInTheDocument();
-      expect(
-        screen.getByLabelText(/visibility/i, { selector: "select" })
       ).toBeInTheDocument();
     });
   });
@@ -187,6 +184,10 @@ describe("ApplicationForm - Acceptance Tests", () => {
         "This is a great application built with Kiro"
       );
       await user.type(
+        screen.getByLabelText(/github.*url/i, { selector: "input" }),
+        "https://github.com/user/myapp"
+      );
+      await user.type(
         screen.getByLabelText(/live app url/i, { selector: "input" }),
         "https://myapp.example.com"
       );
@@ -208,7 +209,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
         name: "My Awesome App",
         description: "This is a great application built with Kiro",
         appUrl: "https://myapp.example.com",
-        githubUrl: "",
+        githubUrl: "https://github.com/user/myapp",
         tags: ["react", "typescript", "aws"],
         visibility: "public",
       });
@@ -242,12 +243,6 @@ describe("ApplicationForm - Acceptance Tests", () => {
         "react,node,aws"
       );
 
-      // Select private visibility
-      const visibilitySelect = screen.getByLabelText(/visibility/i, {
-        selector: "select",
-      });
-      await user.selectOptions(visibilitySelect, "private");
-
       const submitButton = screen.getByRole("button", { name: /submit|save/i });
       await user.click(submitButton);
 
@@ -262,7 +257,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
         appUrl: "https://fullapp.example.com",
         githubUrl: "https://github.com/user/repo",
         tags: ["react", "node", "aws"],
-        visibility: "private",
+        visibility: "public",
       });
     });
   });
@@ -306,6 +301,10 @@ describe("ApplicationForm - Acceptance Tests", () => {
 
       // Now complete the form
       await user.type(
+        screen.getByLabelText(/github.*url/i, { selector: "input" }),
+        "https://github.com/user/myapp"
+      );
+      await user.type(
         screen.getByLabelText(/live app url/i, { selector: "input" }),
         "https://myapp.com"
       );
@@ -325,9 +324,280 @@ describe("ApplicationForm - Acceptance Tests", () => {
         name: "My App",
         description: "Great app",
         appUrl: "https://myapp.com",
-        githubUrl: "",
+        githubUrl: "https://github.com/user/myapp",
         tags: ["react"],
         visibility: "public",
+      });
+    });
+  });
+
+  // Edit Mode Acceptance Tests
+  describe("ApplicationForm Edit Mode - Acceptance Tests", () => {
+    const mockInitialData = {
+      name: "Existing App",
+      description: "This is an existing application",
+      appUrl: "https://existing.com",
+      githubUrl: "https://github.com/user/existing",
+      tags: ["react", "typescript"],
+      visibility: "public" as const,
+    };
+
+    describe("GIVEN I view the edit form with initialData", () => {
+      it("WHEN the form renders THEN all fields should be pre-populated with the application data", () => {
+        // Arrange & Act
+        render(
+          <ApplicationForm
+            onSubmit={vi.fn()}
+            onCancel={vi.fn()}
+            initialData={mockInitialData}
+            mode="edit"
+          />
+        );
+
+        // Assert - All fields should be pre-populated
+        const nameInput = screen.getByLabelText(/application name/i, {
+          selector: "input",
+        }) as HTMLInputElement;
+        const descriptionInput = screen.getByLabelText(/description/i, {
+          selector: "textarea",
+        }) as HTMLTextAreaElement;
+        const appUrlInput = screen.getByLabelText(/live app url/i, {
+          selector: "input",
+        }) as HTMLInputElement;
+        const githubUrlInput = screen.getByLabelText(/github.*url/i, {
+          selector: "input",
+        }) as HTMLInputElement;
+        const tagsInput = screen.getByLabelText(/tags/i, {
+          selector: "input",
+        }) as HTMLInputElement;
+
+        expect(nameInput.value).toBe("Existing App");
+        expect(descriptionInput.value).toBe("This is an existing application");
+        expect(appUrlInput.value).toBe("https://existing.com");
+        expect(githubUrlInput.value).toBe("https://github.com/user/existing");
+        expect(tagsInput.value).toBe("react,typescript");
+      });
+
+      it("WHEN the form renders THEN the submit button should say 'Update Application'", () => {
+        // Arrange & Act
+        render(
+          <ApplicationForm
+            onSubmit={vi.fn()}
+            onCancel={vi.fn()}
+            initialData={mockInitialData}
+            mode="edit"
+          />
+        );
+
+        // Assert
+        expect(
+          screen.getByRole("button", { name: /update application/i })
+        ).toBeInTheDocument();
+      });
+    });
+
+    describe("GIVEN I modify a field in edit mode", () => {
+      it("WHEN I change the value THEN the form should validate the new value", async () => {
+        // Arrange
+        const user = userEvent.setup();
+        render(
+          <ApplicationForm
+            onSubmit={vi.fn()}
+            onCancel={vi.fn()}
+            initialData={mockInitialData}
+            mode="edit"
+          />
+        );
+
+        // Act - Clear the name field (make it invalid)
+        const nameInput = screen.getByLabelText(/application name/i, {
+          selector: "input",
+        });
+        await user.clear(nameInput);
+        await user.tab(); // Trigger blur event
+
+        // Assert - Should see validation error
+        await waitFor(() => {
+          expect(
+            screen.getByText(/application name is required/i)
+          ).toBeInTheDocument();
+        });
+      });
+
+      it("WHEN I change a URL to an invalid format THEN I should see a validation error", async () => {
+        // Arrange
+        const user = userEvent.setup();
+        render(
+          <ApplicationForm
+            onSubmit={vi.fn()}
+            onCancel={vi.fn()}
+            initialData={mockInitialData}
+            mode="edit"
+          />
+        );
+
+        // Act - Change URL to invalid format
+        const appUrlInput = screen.getByLabelText(/live app url/i, {
+          selector: "input",
+        });
+        await user.clear(appUrlInput);
+        await user.type(appUrlInput, "not-a-valid-url");
+        await user.tab(); // Trigger blur event
+
+        // Assert - Should see validation error
+        await waitFor(() => {
+          expect(screen.getByText(/must be a valid url/i)).toBeInTheDocument();
+        });
+      });
+    });
+
+    describe("GIVEN I submit the edit form with valid changes", () => {
+      it("WHEN I click save THEN I should see a success message", async () => {
+        // Arrange
+        const user = userEvent.setup();
+        const onSubmit = vi.fn();
+        render(
+          <ApplicationForm
+            onSubmit={onSubmit}
+            onCancel={vi.fn()}
+            initialData={mockInitialData}
+            mode="edit"
+          />
+        );
+
+        // Act - Modify a field
+        const nameInput = screen.getByLabelText(/application name/i, {
+          selector: "input",
+        });
+        await user.clear(nameInput);
+        await user.type(nameInput, "Updated App Name");
+
+        const submitButton = screen.getByRole("button", {
+          name: /update application/i,
+        });
+        await user.click(submitButton);
+
+        // Assert - Should see success message
+        await waitFor(() => {
+          expect(
+            screen.getByText(/success|saved|created/i)
+          ).toBeInTheDocument();
+        });
+
+        // Should have called onSubmit with updated data
+        expect(onSubmit).toHaveBeenCalledWith({
+          name: "Updated App Name",
+          description: "This is an existing application",
+          appUrl: "https://existing.com",
+          githubUrl: "https://github.com/user/existing",
+          tags: ["react", "typescript"],
+          visibility: "public",
+        });
+      });
+    });
+
+    describe("GIVEN I submit the edit form with invalid data", () => {
+      it("WHEN I click save THEN I should see validation errors", async () => {
+        // Arrange
+        const user = userEvent.setup();
+        const onSubmit = vi.fn();
+        render(
+          <ApplicationForm
+            onSubmit={onSubmit}
+            onCancel={vi.fn()}
+            initialData={mockInitialData}
+            mode="edit"
+          />
+        );
+
+        // Act - Clear required fields
+        const nameInput = screen.getByLabelText(/application name/i, {
+          selector: "input",
+        });
+        await user.clear(nameInput);
+
+        const descriptionInput = screen.getByLabelText(/description/i, {
+          selector: "textarea",
+        });
+        await user.clear(descriptionInput);
+
+        const submitButton = screen.getByRole("button", {
+          name: /update application/i,
+        });
+        await user.click(submitButton);
+
+        // Assert - Should see validation errors
+        await waitFor(() => {
+          expect(
+            screen.getByText(/application name is required/i)
+          ).toBeInTheDocument();
+        });
+        expect(
+          screen.getByText(/description is required/i)
+        ).toBeInTheDocument();
+
+        // Should not have called onSubmit
+        expect(onSubmit).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("GIVEN I make changes in edit mode", () => {
+      it("WHEN I click cancel THEN the changes should be discarded", async () => {
+        // Arrange
+        const user = userEvent.setup();
+        const onCancel = vi.fn();
+        render(
+          <ApplicationForm
+            onSubmit={vi.fn()}
+            onCancel={onCancel}
+            initialData={mockInitialData}
+            mode="edit"
+          />
+        );
+
+        // Act - Modify a field
+        const nameInput = screen.getByLabelText(/application name/i, {
+          selector: "input",
+        });
+        await user.clear(nameInput);
+        await user.type(nameInput, "Modified Name");
+
+        // Verify the change was made
+        expect((nameInput as HTMLInputElement).value).toBe("Modified Name");
+
+        // Click cancel
+        const cancelButton = screen.getByRole("button", { name: /cancel/i });
+        await user.click(cancelButton);
+
+        // Assert - onCancel should be called
+        expect(onCancel).toHaveBeenCalled();
+
+        // The form should restore original data
+        // (This is tested by checking the value after cancel is clicked)
+        await waitFor(() => {
+          expect((nameInput as HTMLInputElement).value).toBe("Existing App");
+        });
+      });
+
+      it("WHEN I click cancel without making changes THEN onCancel should be called", async () => {
+        // Arrange
+        const user = userEvent.setup();
+        const onCancel = vi.fn();
+        render(
+          <ApplicationForm
+            onSubmit={vi.fn()}
+            onCancel={onCancel}
+            initialData={mockInitialData}
+            mode="edit"
+          />
+        );
+
+        // Act - Click cancel without making changes
+        const cancelButton = screen.getByRole("button", { name: /cancel/i });
+        await user.click(cancelButton);
+
+        // Assert
+        expect(onCancel).toHaveBeenCalled();
       });
     });
   });
