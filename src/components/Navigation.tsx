@@ -1,5 +1,5 @@
 import { LogIn, Plus } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -13,6 +13,18 @@ import ModeToggle from "@/components/ModeToggle";
 
 export default function Navigation() {
   const { isAuthenticated, toggleAuth } = useMockAuth();
+  const navigate = useNavigate();
+
+  const handleSignIn = () => {
+    // If not authenticated, sign in and navigate to gallery
+    if (!isAuthenticated) {
+      toggleAuth();
+      // Navigate to gallery view after a brief delay to ensure state updates
+      setTimeout(() => {
+        navigate({ to: "/" });
+      }, 0);
+    }
+  };
 
   return (
     <nav className="w-full">
@@ -64,7 +76,7 @@ export default function Navigation() {
             ) : (
               <Button
                 variant="outline"
-                onClick={toggleAuth}
+                onClick={handleSignIn}
                 className="min-h-[44px] min-w-[44px] gap-2"
               >
                 <LogIn className="h-4 w-4" />
@@ -99,7 +111,7 @@ export default function Navigation() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={toggleAuth}
+                onClick={handleSignIn}
                 className="min-h-[44px] min-w-[44px] h-11 w-11"
                 aria-label="Sign In"
               >

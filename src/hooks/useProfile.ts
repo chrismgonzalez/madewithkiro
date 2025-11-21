@@ -47,7 +47,7 @@ export function useProfile(userId: string) {
     { previousProfile: UserProfile | undefined }
   >({
     mutationFn: (data: UpdateProfileRequest) =>
-      profileService.updateProfile(data),
+      profileService.updateProfile({ ...data, userId }),
 
     // Optimistic update: Update UI immediately before API call completes
     onMutate: async (newData) => {
@@ -78,7 +78,7 @@ export function useProfile(userId: string) {
     },
 
     // Rollback on error: Revert to previous state
-    onError: (err, newData, context) => {
+    onError: (_err, _newData, context) => {
       if (context?.previousProfile) {
         queryClient.setQueryData(["profile", userId], context.previousProfile);
       }

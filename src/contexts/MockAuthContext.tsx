@@ -41,7 +41,7 @@ export function MockAuthProvider({
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     if (initialUserId !== undefined) return initialUserId;
     const stored = localStorage.getItem(MOCK_USER_ID_STORAGE_KEY);
-    return stored || "user-001"; // Default to user-001 (Sarah Chen) when authenticated
+    return stored || "test-user-001"; // Default to test-user-001 when authenticated
   });
 
   // Persist authentication state to localStorage whenever it changes
@@ -63,7 +63,7 @@ export function MockAuthProvider({
       const newAuth = !prev;
       // When authenticating, set default user ID if not set
       if (newAuth && !currentUserId) {
-        setCurrentUserId("user-001");
+        setCurrentUserId("test-user-001");
       }
       // When logging out, clear user ID
       if (!newAuth) {

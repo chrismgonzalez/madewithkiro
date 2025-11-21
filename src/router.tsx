@@ -78,10 +78,7 @@ const addAppRoute = createRoute({
 const editAppRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/edit/$appId",
-  component: () => {
-    const { appId } = editAppRoute.useParams();
-    return <EditApplicationPage />;
-  },
+  component: EditApplicationPage,
 });
 
 // Create the route tree

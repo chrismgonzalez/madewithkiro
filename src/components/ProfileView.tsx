@@ -58,17 +58,13 @@ export default function ProfileView({ userId }: ProfileViewProps) {
     profile,
     isLoading: profileLoading,
     updateProfile,
-    isUpdating,
   } = useProfile(userId);
   const { applications = [], isLoading: appsLoading } = useApplications(userId);
 
   // Handle form submission
   const handleSubmit = async (data: ProfileFormData) => {
     try {
-      await updateProfile({
-        ...data,
-        userId,
-      });
+      await updateProfile(data);
       setIsEditing(false);
     } catch (error) {
       console.error("Failed to update profile:", error);

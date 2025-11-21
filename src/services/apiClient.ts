@@ -133,7 +133,7 @@ export class ApiClientError extends Error {
  */
 export class ApiClient {
   private baseURL: string;
-  private timeout: number;
+  // private timeout: number; // Reserved for future use
   private retryAttempts: number;
   private retryDelay: number;
 
@@ -145,7 +145,7 @@ export class ApiClient {
     } else {
       this.baseURL = config.baseURL;
     }
-    this.timeout = config?.timeout || 30000; // 30 seconds default
+    // this.timeout = config?.timeout || 30000; // 30 seconds default - reserved for future use
     this.retryAttempts = config?.retryAttempts ?? 0; // No retries by default
     this.retryDelay = config?.retryDelay || 1000; // 1 second base delay
   }
@@ -542,7 +542,7 @@ export const getApiClient = (): ApiClient => {
  * ```
  */
 export const apiClient = new Proxy({} as ApiClient, {
-  get(target, prop) {
+  get(_target, prop) {
     return getApiClient()[prop as keyof ApiClient];
   },
 });

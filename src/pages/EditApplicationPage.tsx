@@ -15,13 +15,7 @@ export default function EditApplicationPage() {
   const [updateError, setUpdateError] = useState<string | null>(null);
 
   // Fetch application data and get update function
-  const {
-    application,
-    isLoading,
-    error: fetchError,
-    updateApplication,
-    isUpdating,
-  } = useApplication(appId);
+  const { application, isLoading, updateApplication } = useApplication(appId);
 
   // Check authentication
   if (!isAuthenticated || !currentUserId) {
@@ -111,7 +105,6 @@ export default function EditApplicationPage() {
     appUrl: application.appUrl,
     githubUrl: application.githubUrl,
     tags: application.tags,
-    visibility: application.visibility,
   };
 
   return (

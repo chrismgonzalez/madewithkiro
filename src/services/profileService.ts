@@ -160,7 +160,9 @@ class ProfileService {
    * }
    * ```
    */
-  async updateProfile(data: UpdateProfileRequest): Promise<UserProfile> {
+  async updateProfile(
+    data: UpdateProfileRequest & { userId: string }
+  ): Promise<UserProfile> {
     const { userId, ...updateData } = data;
 
     const response = await this.apiClient.put<UserProfile>(
@@ -219,7 +221,7 @@ export const getProfileService = (): ProfileService => {
  * ```
  */
 export const profileService = new Proxy({} as ProfileService, {
-  get(target, prop) {
+  get(_target, prop) {
     return getProfileService()[prop as keyof ProfileService];
   },
 });

@@ -139,11 +139,18 @@ deploy-prod: sam-build ## Deploy to production environment
 		echo "$(YELLOW)Deployment cancelled$(NC)"; \
 	fi
 
-upload-frontend-dev: build ## Upload frontend to S3 (dev)
+build-dev: ## Build frontend for dev environment
+	@echo "$(BLUE)Building frontend for dev environment...$(NC)"
+	@cp .env.dev .env.production.local
+	@bun run build
+	@rm -f .env.production.local
+	@echo "$(GREEN)✓ Frontend built for dev$(NC)"
+
+upload-frontend-dev: build-dev ## Upload frontend to S3 (dev)
 	@echo "$(BLUE)Uploading frontend to S3 (dev)...$(NC)"
-	@BUCKET_NAME=$$(aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text 2>/dev/null); \
+	@BUCKET_NAME=$$(AWS_PROFILE=mwkprod aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text 2>/dev/null); \
 	if [ -n "$$BUCKET_NAME" ]; then \
-		aws s3 sync dist/ s3://$$BUCKET_NAME/ --delete; \
+		AWS_PROFILE=mwkprod aws s3 sync dist/ s3://$$BUCKET_NAME/ --delete; \
 		echo "$(GREEN)✓ Frontend uploaded to S3$(NC)"; \
 	else \
 		echo "$(RED)✗ Could not find S3 bucket. Deploy infrastructure first.$(NC)"; \
@@ -274,9 +281,9 @@ setup-env-prod: ## Generate .env file from prod stack outputs
 
 invalidate-cloudfront-dev: ## Invalidate CloudFront cache (dev)
 	@echo "$(BLUE)Invalidating CloudFront cache for dev...$(NC)"
-	@DISTRIBUTION_ID=$$(aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text 2>/dev/null); \
+	@DISTRIBUTION_ID=$$(AWS_PROFILE=mwkprod aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text 2>/dev/null); \
 	if [ -n "$$DISTRIBUTION_ID" ] && [ "$$DISTRIBUTION_ID" != "None" ]; then \
-		aws cloudfront create-invalidation --distribution-id $$DISTRIBUTION_ID --paths "/*"; \
+		AWS_PROFILE=mwkprod aws cloudfront create-invalidation --distribution-id $$DISTRIBUTION_ID --paths "/*"; \
 		echo "$(GREEN)✓ CloudFront cache invalidated$(NC)"; \
 	else \
 		echo "$(YELLOW)No CloudFront distribution found. Custom domain not configured.$(NC)"; \

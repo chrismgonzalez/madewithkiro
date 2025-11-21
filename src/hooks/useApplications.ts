@@ -86,7 +86,7 @@ export function useApplications(userId?: string) {
     },
 
     // Replace temp app with real one on success
-    onSuccess: (newApp, variables, context) => {
+    onSuccess: (newApp, _variables, context) => {
       // Replace in all applications list
       queryClient.setQueryData<Application[]>(
         ["applications", "all"],
@@ -105,7 +105,7 @@ export function useApplications(userId?: string) {
     },
 
     // Remove optimistic app on error
-    onError: (err, newApp, context) => {
+    onError: (_err, _newApp, context) => {
       if (context?.tempId) {
         // Remove from all applications list
         queryClient.setQueryData<Application[]>(

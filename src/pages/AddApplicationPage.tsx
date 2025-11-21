@@ -7,7 +7,7 @@ import type { ApplicationFormData } from "@/utils/validation";
 export default function AddApplicationPage() {
   const navigate = useNavigate();
   const { currentUserId } = useMockAuth();
-  const { createApplication, isCreating } = useApplications();
+  const { createApplication } = useApplications();
 
   const handleSubmit = async (data: ApplicationFormData) => {
     try {

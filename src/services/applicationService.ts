@@ -262,7 +262,7 @@ export const getApplicationService = (): ApplicationService => {
  * ```
  */
 export const applicationService = new Proxy({} as ApplicationService, {
-  get(target, prop) {
+  get(_target, prop) {
     return getApplicationService()[prop as keyof ApplicationService];
   },
 });

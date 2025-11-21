@@ -32,7 +32,6 @@ export interface CreateProfileRequest {
  * Update Profile Request - matches backend UpdateProfileRequest model
  */
 export interface UpdateProfileRequest {
-  userId: string;
   firstName: string;
   lastName: string;
   awsBuilderHandle: string;
@@ -55,9 +54,8 @@ export interface Application {
   name: string;
   description: string;
   appUrl?: string;
-  githubUrl: string;
+  githubUrl?: string;
   tags: string[];
-  visibility: ApplicationVisibility; // Future feature - not yet in backend
   createdAt: string;
 }
 
@@ -70,7 +68,6 @@ export interface CreateApplicationRequest {
   appUrl?: string;
   githubUrl: string;
   tags: string[];
-  visibility: ApplicationVisibility; // Future feature - not yet in backend
 }
 
 /**
@@ -79,10 +76,9 @@ export interface CreateApplicationRequest {
 export interface UpdateApplicationRequest {
   name: string;
   description: string;
-  appUrl: string;
+  appUrl?: string;
   githubUrl?: string;
   tags: string[];
-  visibility: ApplicationVisibility;
 }
 
 /**
@@ -91,7 +87,7 @@ export interface UpdateApplicationRequest {
 export interface ApiError {
   code: string;
   message: string;
-  details?: Record<string, string>;
+  details?: Record<string, unknown>;
 }
 
 /**
