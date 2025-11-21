@@ -5,7 +5,11 @@ import { useMockAuth } from "@/contexts/MockAuthContext";
 import ProfileForm from "./ProfileForm";
 import LoadingSpinner from "./LoadingSpinner";
 import type { ProfileFormData } from "@/utils/validation";
-import { Linkedin, Github, ExternalLink } from "lucide-react";
+import { Linkedin, Github, ExternalLink, Edit2, Package } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ProfileViewProps {
   userId: string;
@@ -59,8 +63,7 @@ export default function ProfileView({ userId }: ProfileViewProps) {
   // Edit mode - show ProfileForm
   if (isEditing) {
     return (
-      <div className="w-full max-w-4xl mx-auto px-4 py-6 sm:px-6">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-6">Edit Profile</h1>
+      <div className="w-full max-w-4xl mx-auto">
         <ProfileForm
           onSubmit={handleSubmit}
           onCancel={handleCancel}
@@ -76,147 +79,178 @@ export default function ProfileView({ userId }: ProfileViewProps) {
     );
   }
 
+  const userInitials =
+    `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase();
+
   // View mode - display profile
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-6 sm:px-6">
-      {/* Profile Header */}
-      <div className="mb-6 sm:mb-8">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-4">
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-              {profile.firstName} {profile.lastName}
-            </h1>
-            <p className="text-base sm:text-lg text-gray-600 mb-4">
-              AWS Builder: {profile.awsBuilderHandle}
-            </p>
+    <div className="w-full max-w-5xl mx-auto px-4 py-6 sm:px-6">
+      {/* Profile Header Card */}
+      <Card className="mb-8">
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-6">
+            {/* Avatar */}
+            <Avatar className="h-24 w-24 border-4 border-primary/10">
+              <AvatarFallback className="text-2xl font-bold bg-primary/10 text-primary">
+                {userInitials}
+              </AvatarFallback>
+            </Avatar>
+
+            {/* Profile Info */}
+            <div className="flex-1 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight mb-2">
+                    {profile.firstName} {profile.lastName}
+                  </h1>
+                  <p className="text-muted-foreground flex items-center gap-2">
+                    <ExternalLink className="h-4 w-4" />
+                    AWS Builder: {profile.awsBuilderHandle}
+                  </p>
+                </div>
+                {isOwnProfile && (
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                    Edit Profile
+                  </Button>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* Social Links */}
+              <div className="flex flex-wrap gap-3">
+                <Button asChild variant="default" size="sm" className="gap-2">
+                  <a
+                    href={`https://builder.aws.com/community/@${profile.awsBuilderHandle}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    AWS Builder
+                  </a>
+                </Button>
+
+                {profile.linkedInUsername && (
+                  <Button asChild variant="outline" size="sm" className="gap-2">
+                    <a
+                      href={`https://www.linkedin.com/in/${profile.linkedInUsername}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Linkedin className="h-4 w-4" />
+                      LinkedIn
+                    </a>
+                  </Button>
+                )}
+
+                {profile.githubUsername && (
+                  <Button asChild variant="outline" size="sm" className="gap-2">
+                    <a
+                      href={`https://github.com/${profile.githubUsername}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Github className="h-4 w-4" />
+                      GitHub
+                    </a>
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
-          {/* Only show Edit button when viewing own profile */}
-          {isOwnProfile && (
-            <Button
-              onClick={() => setIsEditing(true)}
-              className="w-full sm:w-auto"
-            >
-              Edit Profile
-            </Button>
-          )}
-        </div>
-
-        {/* Social Links */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          {/* AWS Builder Center Link */}
-          <a
-            href={`https://builder.aws.com/community/@${profile.awsBuilderHandle}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors min-h-[44px] text-sm sm:text-base"
-          >
-            <ExternalLink size={16} />
-            AWS Builder Center
-          </a>
-
-          {/* LinkedIn Link - conditional */}
-          {profile.linkedInUsername && (
-            <a
-              href={`https://www.linkedin.com/in/${profile.linkedInUsername}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors min-h-[44px] text-sm sm:text-base"
-            >
-              <Linkedin size={16} />
-              LinkedIn
-            </a>
-          )}
-
-          {/* GitHub Link - conditional */}
-          {profile.githubUsername && (
-            <a
-              href={`https://github.com/${profile.githubUsername}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 transition-colors min-h-[44px] text-sm sm:text-base"
-            >
-              <Github size={16} />
-              GitHub
-            </a>
-          )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Applications Section */}
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold mb-4">Applications</h2>
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <Package className="h-6 w-6 text-primary" />
+          <h2 className="text-2xl font-bold tracking-tight">Applications</h2>
+          <Badge variant="secondary" className="ml-auto">
+            {applications.length}
+          </Badge>
+        </div>
 
         {appsLoading ? (
           <LoadingSpinner message="Loading applications..." />
         ) : applications.length === 0 ? (
-          <div className="text-center py-8 sm:py-12 bg-gray-50 rounded-lg">
-            <p className="text-gray-600 text-base sm:text-lg px-4">
-              This user hasn't created any applications yet.
-            </p>
-          </div>
+          <Card>
+            <CardContent className="text-center py-12">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground text-lg">
+                This user hasn't created any applications yet.
+              </p>
+            </CardContent>
+          </Card>
         ) : (
           <div className="grid gap-4">
             {applications.map((app) => (
-              <div
+              <Card
                 key={app.appId}
                 data-testid={`application-card-${app.appId}`}
-                className="border rounded-lg p-4 sm:p-6 hover:shadow-md transition-shadow"
+                className="hover:shadow-lg transition-shadow"
               >
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
-                  <h3 className="text-lg sm:text-xl font-semibold">
-                    {app.name}
-                  </h3>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium self-start ${
-                      app.visibility === "public"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {app.visibility === "public" ? "Public" : "Private"}
-                  </span>
-                </div>
-
-                <p className="text-gray-600 mb-4 text-sm sm:text-base">
-                  {app.description}
-                </p>
-
-                {/* Tags */}
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {app.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs sm:text-sm"
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                    <CardTitle className="text-xl">{app.name}</CardTitle>
+                    <Badge
+                      variant={
+                        app.visibility === "public" ? "default" : "secondary"
+                      }
                     >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                      {app.visibility === "public" ? "Public" : "Private"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-muted-foreground">{app.description}</p>
 
-                {/* Links */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  <a
-                    href={app.appUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 inline-flex items-center justify-center sm:justify-start gap-1 min-h-[44px] text-sm sm:text-base"
-                  >
-                    <ExternalLink size={16} />
-                    View App
-                  </a>
-                  {app.githubUrl && (
-                    <a
-                      href={app.githubUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-gray-600 hover:text-gray-800 inline-flex items-center justify-center sm:justify-start gap-1 min-h-[44px] text-sm sm:text-base"
-                    >
-                      <Github size={16} />
-                      Source Code
-                    </a>
-                  )}
-                </div>
-              </div>
+                  <div className="flex flex-wrap gap-2">
+                    {app.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex flex-wrap gap-3">
+                    <Button asChild size="sm" className="gap-2">
+                      <a
+                        href={app.appUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        View App
+                      </a>
+                    </Button>
+                    {app.githubUrl && (
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                      >
+                        <a
+                          href={app.githubUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Github className="h-4 w-4" />
+                          Source Code
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}

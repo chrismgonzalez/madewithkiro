@@ -66,18 +66,20 @@ export default function Navigation({ currentPath = "/" }: NavigationProps) {
   };
 
   return (
-    <nav className="border-b bg-background">
+    <nav className="w-full">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo and App Name - Clickable to go home */}
           <Link
             to="/"
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity group"
           >
-            <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold">
+            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-primary-foreground font-bold text-lg shadow-lg group-hover:shadow-xl transition-shadow">
               K
             </div>
-            <span className="text-lg font-semibold">MadeWithKiro</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+              MadeWithKiro
+            </span>
           </Link>
 
           {/* Desktop Navigation */}

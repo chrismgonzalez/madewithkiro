@@ -2,8 +2,17 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { profileSchema, type ProfileFormData } from "@/utils/validation";
 import { z } from "zod";
+import { CheckCircle2 } from "lucide-react";
 
 interface ProfileFormProps {
   onSubmit: (data: ProfileFormData) => void | Promise<void>;
@@ -152,155 +161,174 @@ export default function ProfileForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
-      {showSuccess && (
-        <div
-          className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded"
-          role="alert"
-        >
-          Profile saved successfully!
-        </div>
-      )}
+    <Card className="max-w-3xl">
+      <CardHeader>
+        <CardTitle>Edit Profile</CardTitle>
+        <CardDescription>
+          Update your profile information and social links
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {showSuccess && (
+            <Alert>
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertDescription>Profile saved successfully!</AlertDescription>
+            </Alert>
+          )}
 
-      {/* First Name */}
-      <div className="space-y-2">
-        <Label htmlFor="firstName">
-          First Name <span className="text-red-500">*</span>
-        </Label>
-        <Input
-          id="firstName"
-          type="text"
-          value={formData.firstName}
-          onChange={(e) => handleInputChange("firstName", e.target.value)}
-          onBlur={() => handleBlur("firstName")}
-          className={hasFieldError("firstName") ? "border-red-500" : ""}
-          aria-invalid={hasFieldError("firstName")}
-          aria-describedby={
-            hasFieldError("firstName") ? "firstName-error" : undefined
-          }
-        />
-        {hasFieldError("firstName") && (
-          <p id="firstName-error" className="text-sm text-red-500">
-            {getFieldError("firstName")}
-          </p>
-        )}
-      </div>
+          {/* First Name */}
+          <div className="space-y-2">
+            <Label htmlFor="firstName">
+              First Name <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="firstName"
+              type="text"
+              value={formData.firstName}
+              onChange={(e) => handleInputChange("firstName", e.target.value)}
+              onBlur={() => handleBlur("firstName")}
+              className={hasFieldError("firstName") ? "border-red-500" : ""}
+              aria-invalid={hasFieldError("firstName")}
+              aria-describedby={
+                hasFieldError("firstName") ? "firstName-error" : undefined
+              }
+            />
+            {hasFieldError("firstName") && (
+              <p id="firstName-error" className="text-sm text-red-500">
+                {getFieldError("firstName")}
+              </p>
+            )}
+          </div>
 
-      {/* Last Name */}
-      <div className="space-y-2">
-        <Label htmlFor="lastName">
-          Last Name <span className="text-red-500">*</span>
-        </Label>
-        <Input
-          id="lastName"
-          type="text"
-          value={formData.lastName}
-          onChange={(e) => handleInputChange("lastName", e.target.value)}
-          onBlur={() => handleBlur("lastName")}
-          className={hasFieldError("lastName") ? "border-red-500" : ""}
-          aria-invalid={hasFieldError("lastName")}
-          aria-describedby={
-            hasFieldError("lastName") ? "lastName-error" : undefined
-          }
-        />
-        {hasFieldError("lastName") && (
-          <p id="lastName-error" className="text-sm text-red-500">
-            {getFieldError("lastName")}
-          </p>
-        )}
-      </div>
+          {/* Last Name */}
+          <div className="space-y-2">
+            <Label htmlFor="lastName">
+              Last Name <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="lastName"
+              type="text"
+              value={formData.lastName}
+              onChange={(e) => handleInputChange("lastName", e.target.value)}
+              onBlur={() => handleBlur("lastName")}
+              className={hasFieldError("lastName") ? "border-red-500" : ""}
+              aria-invalid={hasFieldError("lastName")}
+              aria-describedby={
+                hasFieldError("lastName") ? "lastName-error" : undefined
+              }
+            />
+            {hasFieldError("lastName") && (
+              <p id="lastName-error" className="text-sm text-red-500">
+                {getFieldError("lastName")}
+              </p>
+            )}
+          </div>
 
-      {/* AWS Builder Handle */}
-      <div className="space-y-2">
-        <Label htmlFor="awsBuilderHandle">
-          AWS Builder Handle <span className="text-red-500">*</span>
-        </Label>
-        <Input
-          id="awsBuilderHandle"
-          type="text"
-          placeholder="@"
-          value={formData.awsBuilderHandle}
-          onChange={(e) =>
-            handleInputChange("awsBuilderHandle", e.target.value)
-          }
-          onBlur={() => handleBlur("awsBuilderHandle")}
-          className={hasFieldError("awsBuilderHandle") ? "border-red-500" : ""}
-          aria-invalid={hasFieldError("awsBuilderHandle")}
-          aria-describedby={
-            hasFieldError("awsBuilderHandle")
-              ? "awsBuilderHandle-error"
-              : undefined
-          }
-        />
-        {hasFieldError("awsBuilderHandle") && (
-          <p id="awsBuilderHandle-error" className="text-sm text-red-500">
-            {getFieldError("awsBuilderHandle")}
-          </p>
-        )}
-      </div>
+          {/* AWS Builder Handle */}
+          <div className="space-y-2">
+            <Label htmlFor="awsBuilderHandle">
+              AWS Builder Handle <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="awsBuilderHandle"
+              type="text"
+              placeholder="@"
+              value={formData.awsBuilderHandle}
+              onChange={(e) =>
+                handleInputChange("awsBuilderHandle", e.target.value)
+              }
+              onBlur={() => handleBlur("awsBuilderHandle")}
+              className={
+                hasFieldError("awsBuilderHandle") ? "border-red-500" : ""
+              }
+              aria-invalid={hasFieldError("awsBuilderHandle")}
+              aria-describedby={
+                hasFieldError("awsBuilderHandle")
+                  ? "awsBuilderHandle-error"
+                  : undefined
+              }
+            />
+            {hasFieldError("awsBuilderHandle") && (
+              <p id="awsBuilderHandle-error" className="text-sm text-red-500">
+                {getFieldError("awsBuilderHandle")}
+              </p>
+            )}
+          </div>
 
-      {/* LinkedIn Username */}
-      <div className="space-y-2">
-        <Label htmlFor="linkedInUsername">LinkedIn Username</Label>
-        <Input
-          id="linkedInUsername"
-          type="text"
-          value={formData.linkedInUsername}
-          onChange={(e) =>
-            handleInputChange("linkedInUsername", e.target.value)
-          }
-          onBlur={() => handleBlur("linkedInUsername")}
-          className={hasFieldError("linkedInUsername") ? "border-red-500" : ""}
-          aria-invalid={hasFieldError("linkedInUsername")}
-          aria-describedby={
-            hasFieldError("linkedInUsername")
-              ? "linkedInUsername-error"
-              : undefined
-          }
-        />
-        {hasFieldError("linkedInUsername") && (
-          <p id="linkedInUsername-error" className="text-sm text-red-500">
-            {getFieldError("linkedInUsername")}
-          </p>
-        )}
-      </div>
+          {/* LinkedIn Username */}
+          <div className="space-y-2">
+            <Label htmlFor="linkedInUsername">LinkedIn Username</Label>
+            <Input
+              id="linkedInUsername"
+              type="text"
+              value={formData.linkedInUsername}
+              onChange={(e) =>
+                handleInputChange("linkedInUsername", e.target.value)
+              }
+              onBlur={() => handleBlur("linkedInUsername")}
+              className={
+                hasFieldError("linkedInUsername") ? "border-red-500" : ""
+              }
+              aria-invalid={hasFieldError("linkedInUsername")}
+              aria-describedby={
+                hasFieldError("linkedInUsername")
+                  ? "linkedInUsername-error"
+                  : undefined
+              }
+            />
+            {hasFieldError("linkedInUsername") && (
+              <p id="linkedInUsername-error" className="text-sm text-red-500">
+                {getFieldError("linkedInUsername")}
+              </p>
+            )}
+          </div>
 
-      {/* GitHub Username */}
-      <div className="space-y-2">
-        <Label htmlFor="githubUsername">GitHub Username</Label>
-        <Input
-          id="githubUsername"
-          type="text"
-          value={formData.githubUsername}
-          onChange={(e) => handleInputChange("githubUsername", e.target.value)}
-          onBlur={() => handleBlur("githubUsername")}
-          className={hasFieldError("githubUsername") ? "border-red-500" : ""}
-          aria-invalid={hasFieldError("githubUsername")}
-          aria-describedby={
-            hasFieldError("githubUsername") ? "githubUsername-error" : undefined
-          }
-        />
-        {hasFieldError("githubUsername") && (
-          <p id="githubUsername-error" className="text-sm text-red-500">
-            {getFieldError("githubUsername")}
-          </p>
-        )}
-      </div>
+          {/* GitHub Username */}
+          <div className="space-y-2">
+            <Label htmlFor="githubUsername">GitHub Username</Label>
+            <Input
+              id="githubUsername"
+              type="text"
+              value={formData.githubUsername}
+              onChange={(e) =>
+                handleInputChange("githubUsername", e.target.value)
+              }
+              onBlur={() => handleBlur("githubUsername")}
+              className={
+                hasFieldError("githubUsername") ? "border-red-500" : ""
+              }
+              aria-invalid={hasFieldError("githubUsername")}
+              aria-describedby={
+                hasFieldError("githubUsername")
+                  ? "githubUsername-error"
+                  : undefined
+              }
+            />
+            {hasFieldError("githubUsername") && (
+              <p id="githubUsername-error" className="text-sm text-red-500">
+                {getFieldError("githubUsername")}
+              </p>
+            )}
+          </div>
 
-      {/* Form Actions */}
-      <div className="flex gap-4">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : "Save"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleCancel}
-          disabled={isSubmitting}
-        >
-          Cancel
-        </Button>
-      </div>
-    </form>
+          {/* Form Actions */}
+          <div className="flex gap-4 pt-4">
+            <Button type="submit" disabled={isSubmitting} size="lg">
+              {isSubmitting ? "Saving..." : "Save Profile"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancel}
+              disabled={isSubmitting}
+              size="lg"
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
