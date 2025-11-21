@@ -50,22 +50,27 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
           <Card className="max-w-md w-full">
             <CardHeader>
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-6 w-6 text-destructive" />
-                <CardTitle>Something went wrong</CardTitle>
+                <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-destructive" />
+                <CardTitle className="text-lg sm:text-xl">
+                  Something went wrong
+                </CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-muted-foreground">
+            <CardContent className="space-y-3 sm:space-y-4">
+              <p className="text-sm sm:text-base text-muted-foreground">
                 An unexpected error occurred. Please try again.
               </p>
               {this.state.error && (
                 <div className="p-3 bg-muted rounded-md">
-                  <p className="text-sm font-mono text-destructive">
+                  <p className="text-xs sm:text-sm font-mono text-destructive break-words">
                     {this.state.error.message}
                   </p>
                 </div>
               )}
-              <Button onClick={this.handleReset} className="w-full">
+              <Button
+                onClick={this.handleReset}
+                className="w-full min-h-[44px]"
+              >
                 Try Again
               </Button>
             </CardContent>

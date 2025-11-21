@@ -191,13 +191,15 @@ export default function ApplicationForm({
   return (
     <Card className="max-w-3xl">
       <CardHeader>
-        <CardTitle>Application Details</CardTitle>
+        <CardTitle className="text-xl sm:text-2xl">
+          Application Details
+        </CardTitle>
         <CardDescription>
           Share your Kiro-built application with the community
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
           {showSuccess && (
             <Alert>
               <CheckCircle2 className="h-4 w-4" />
@@ -362,8 +364,12 @@ export default function ApplicationForm({
           </div>
 
           {/* Form Actions */}
-          <div className="flex gap-4 pt-4">
-            <Button type="submit" disabled={isSubmitting} size="lg">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="min-h-[44px] w-full sm:w-auto"
+            >
               {isSubmitting ? "Saving..." : "Save Application"}
             </Button>
             <Button
@@ -371,7 +377,7 @@ export default function ApplicationForm({
               variant="outline"
               onClick={handleCancel}
               disabled={isSubmitting}
-              size="lg"
+              className="min-h-[44px] w-full sm:w-auto"
             >
               Cancel
             </Button>

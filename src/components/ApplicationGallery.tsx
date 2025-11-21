@@ -75,9 +75,8 @@ export default function ApplicationGallery() {
             <span className="text-sm font-medium">Active Filters</span>
             <Button
               variant="ghost"
-              size="sm"
               onClick={handleClearFilters}
-              className="h-8 text-xs"
+              className="min-h-[44px] text-xs"
             >
               Clear All
             </Button>
@@ -103,7 +102,7 @@ export default function ApplicationGallery() {
         <span className="text-sm font-medium">Available Tags</span>
         <div className="space-y-2">
           {availableTags.map((tag) => (
-            <div key={tag} className="flex items-center space-x-2">
+            <div key={tag} className="flex items-center space-x-2 min-h-[44px]">
               <Checkbox
                 id={`tag-${tag}`}
                 checked={selectedTags.includes(tag)}
@@ -112,7 +111,7 @@ export default function ApplicationGallery() {
               />
               <Label
                 htmlFor={`tag-${tag}`}
-                className="text-sm font-normal cursor-pointer flex-1"
+                className="text-sm font-normal cursor-pointer flex-1 py-3"
               >
                 {tag}
               </Label>
@@ -129,7 +128,7 @@ export default function ApplicationGallery() {
       <div className="lg:hidden mb-4 flex items-center gap-2">
         <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" className="gap-2 min-h-[44px]">
               <Filter className="h-4 w-4" />
               Filters
               {selectedTags.length > 0 && (
@@ -187,16 +186,15 @@ export default function ApplicationGallery() {
               {selectedTags.length > 0 && (
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={handleClearFilters}
-                  className="mt-4"
+                  className="mt-4 min-h-[44px]"
                 >
                   Clear Filters
                 </Button>
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
               {filteredApplications.map((app) => (
                 <ApplicationCard key={app.appId} application={app} />
               ))}
