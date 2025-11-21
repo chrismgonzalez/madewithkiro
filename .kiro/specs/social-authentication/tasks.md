@@ -535,23 +535,249 @@ Each task follows this pattern to ensure proper SDLC practices.
 
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 25. Documentation and cleanup
+- [ ] 25. Integrate authentication with API client (BDD/TDD)
+- [ ] 25.1 Write acceptance tests for API client authentication
 
-  - [ ] 25.1 Update README with authentication details
+  - **GIVEN** a user is authenticated
+  - **WHEN** the API client makes a request with requiresAuth set to true
+  - **THEN** the request should include an Authorization header with a Bearer token
+  - **GIVEN** a user is not authenticated
+  - **WHEN** the API client makes a request with requiresAuth set to true
+  - **THEN** the request should proceed without an Authorization header
+  - **GIVEN** a user makes an authenticated request
+  - **WHEN** the API returns 401 Unauthorized
+  - **THEN** the system should attempt to refresh the token and retry the request
+  - **GIVEN** token refresh succeeds
+  - **WHEN** the request is retried
+  - **THEN** the request should include the new token and succeed
+  - **GIVEN** token refresh fails
+  - **WHEN** the refresh attempt completes
+  - **THEN** the system should redirect to the authentication page
+  - **GIVEN** a user makes a request to a public endpoint
+  - **WHEN** requiresAuth is false or undefined
+  - **THEN** the request should not include an Authorization header
+  - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-    - Document OAuth provider setup
-    - Document environment variables
+- [ ]\* 25.2 Write property test for authenticated request token inclusion
+
+  - **Property 21: Authenticated request token inclusion**
+  - **Validates: Requirements 13.1, 13.2**
+
+- [ ]\* 25.3 Write property test for public request without token
+
+  - **Property 22: Public request without token**
+  - **Validates: Requirements 13.3**
+
+- [ ] 25.4 Create auth service module (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Create authService.ts file
+  - **GREEN**: Implement getAccessToken method
+  - **GREEN**: Implement getIdToken method
+  - **GREEN**: Implement isAuthenticated method
+  - **GREEN**: Implement refreshSession method
+  - **GREEN**: Export singleton instance
+  - **REFACTOR**: Add error handling
+  - **REFACTOR**: Add JSDoc comments
+  - **REFACTOR**: Ensure all tests pass
+  - _Requirements: 13.1, 13.4_
+
+- [ ] 25.5 Update API client with authentication support (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Add getAuthToken private method to ApiClient
+  - **GREEN**: Update buildHeaders to accept requiresAuth parameter
+  - **GREEN**: Update buildHeaders to add Authorization header when authenticated
+  - **GREEN**: Add handleUnauthorized method for 401 responses
+  - **GREEN**: Update makeRequest to handle 401 responses
+  - **GREEN**: Update makeRequest to call handleUnauthorized on 401
+  - **GREEN**: Ensure token refresh and retry logic works
+  - **REFACTOR**: Extract token management to helper methods
+  - **REFACTOR**: Improve error handling
+  - **REFACTOR**: Ensure all tests pass
+  - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
+
+- [ ] 25.6 Update service methods to use requiresAuth flag
+
+  - Update applicationService methods to set requiresAuth: true
+  - Update profileService methods to set requiresAuth: true
+  - Ensure public endpoints (if any) use requiresAuth: false
+  - Test authenticated API calls work correctly
+  - _Requirements: 13.1, 13.2, 13.3_
+
+- [ ] 25.7 Test API client authentication integration
+
+  - Test authenticated requests include Bearer token
+  - Test public requests don't include token
+  - Test 401 response triggers token refresh
+  - Test successful token refresh and retry
+  - Test failed token refresh redirects to auth
+  - Verify all API calls work with real authentication
+  - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
+
+- [ ] 26. Create OAuth provider setup documentation (BDD/TDD)
+- [ ] 26.1 Write documentation validation tests
+
+  - **GIVEN** a developer follows the Google OAuth setup documentation
+  - **WHEN** they complete all steps
+  - **THEN** they should have a valid Google Client ID and Client Secret stored in SSM
+  - **GIVEN** a developer follows the GitHub OAuth setup documentation
+  - **WHEN** they complete all steps
+  - **THEN** they should have a valid GitHub Client ID and Client Secret stored in SSM
+  - **GIVEN** a developer configures OAuth redirect URIs
+  - **WHEN** they deploy the Cognito User Pool
+  - **THEN** the redirect URIs should match the Cognito domain exactly
+  - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5_
+
+- [ ] 26.2 Create OAuth setup documentation
+
+  - **GREEN**: Document Google Cloud Console project creation
+  - **GREEN**: Document Google OAuth consent screen configuration
+  - **GREEN**: Document Google OAuth credentials creation
+  - **GREEN**: Document GitHub OAuth App creation
+  - **GREEN**: Document GitHub callback URL configuration
+  - **GREEN**: Document SSM parameter storage commands
+  - **GREEN**: Document Cognito domain setup
+  - **GREEN**: Document redirect URI updates
+  - **GREEN**: Add troubleshooting section for common OAuth errors
+  - **REFACTOR**: Ensure documentation is clear and complete
+  - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5_
+
+- [ ] 27. Transition from mock to real authentication (BDD/TDD)
+- [ ] 27.1 Write acceptance tests for mock removal
+
+  - **GIVEN** the codebase has been migrated to real authentication
+  - **WHEN** searching for "MockAuthContext" in the codebase
+  - **THEN** the search should return zero results
+  - **GIVEN** the codebase has been migrated to real authentication
+  - **WHEN** all components are checked
+  - **THEN** all components should use the real AuthContext
+  - **GIVEN** the codebase has been migrated to real authentication
+  - **WHEN** all API calls are checked
+  - **THEN** all API calls should use real authentication tokens
+  - **GIVEN** the codebase has been migrated to real authentication
+  - **WHEN** all tests are run
+  - **THEN** all tests should pass without mock authentication
+  - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
+
+- [ ] 27.2 Identify and document mock authentication usage
+
+  - **GREEN**: Search for all MockAuthContext imports
+  - **GREEN**: List all components using mock authentication
+  - **GREEN**: Identify test files that need updates
+  - **GREEN**: Create migration checklist
+  - _Requirements: 14.1_
+
+- [ ] 27.3 Replace mock context with real context (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Replace MockAuthContext imports with AuthContext
+  - **GREEN**: Update main.tsx to use real AuthProvider
+  - **GREEN**: Update all component imports
+  - **GREEN**: Update service imports to use real services
+  - **REFACTOR**: Verify all imports are correct
+  - **REFACTOR**: Ensure all tests pass
+  - _Requirements: 14.2, 14.3_
+
+- [ ] 27.4 Remove mock authentication files (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Delete MockAuthContext.tsx file
+  - **GREEN**: Remove mock-related test utilities
+  - **GREEN**: Clean up unused mock data services
+  - **GREEN**: Update test setup to mock Amplify Auth
+  - **REFACTOR**: Verify no broken imports
+  - **REFACTOR**: Ensure all tests pass
+  - _Requirements: 14.1, 14.5_
+
+- [ ] 27.5 Verify migration completeness
+
+  - Search codebase for any remaining mock references
+  - Run all tests and verify they pass
+  - Test OAuth flows end-to-end
+  - Verify protected routes work correctly
+  - Check for console errors
+  - _Requirements: 14.4, 14.5_
+
+- [ ] 28. Implement multi-domain authentication support (BDD/TDD)
+- [ ] 28.1 Write acceptance tests for multi-domain support
+
+  - **GIVEN** the application is running on localhost
+  - **WHEN** a user initiates OAuth authentication
+  - **THEN** the redirect URL should be http://localhost:5173/auth/callback
+  - **GIVEN** the application is running on CloudFront dev
+  - **WHEN** a user initiates OAuth authentication
+  - **THEN** the redirect URL should be https://dev.madewithkiro.com/auth/callback
+  - **GIVEN** the application is running on CloudFront prod
+  - **WHEN** a user initiates OAuth authentication
+  - **THEN** the redirect URL should be https://madewithkiro.com/auth/callback
+  - **GIVEN** OAuth providers are configured
+  - **WHEN** checking authorized origins
+  - **THEN** all domains (localhost, dev, prod) should be included
+  - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
+
+- [ ]\* 28.2 Write property test for dynamic redirect URL detection
+
+  - **Property 26: Dynamic redirect URL detection**
+  - **Validates: Requirements 16.3, 16.4, 16.5**
+
+- [ ] 28.3 Implement dynamic redirect URL detection (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Implement getCurrentDomain() function
+  - **GREEN**: Implement getRedirectUrls() function
+  - **GREEN**: Update Amplify config to use dynamic redirect URLs
+  - **GREEN**: Handle localhost detection
+  - **GREEN**: Handle CloudFront domain detection
+  - **REFACTOR**: Extract domain detection logic
+  - **REFACTOR**: Add error handling for edge cases
+  - **REFACTOR**: Ensure all tests pass
+  - _Requirements: 16.3, 16.4, 16.5_
+
+- [ ] 28.4 Update SAM template with multiple callback URLs
+
+  - Add localhost callback URL to CallbackURLs array
+  - Add dev CloudFront callback URL to CallbackURLs array
+  - Add prod CloudFront callback URL to CallbackURLs array
+  - Add corresponding LogoutURLs
+  - Document callback URL configuration
+  - _Requirements: 16.2_
+
+- [ ] 28.5 Update OAuth provider configurations
+
+  - Add localhost to Google authorized origins
+  - Add dev CloudFront to Google authorized origins
+  - Add prod CloudFront to Google authorized origins
+  - Update Google redirect URIs for all Cognito domains
+  - Create separate GitHub OAuth apps for dev and prod (or configure multiple callbacks)
+  - Document OAuth provider multi-domain setup
+  - _Requirements: 16.1_
+
+- [ ] 28.6 Test authentication on all domains
+
+  - Test Google OAuth on localhost
+  - Test GitHub OAuth on localhost
+  - Test Google OAuth on CloudFront dev
+  - Test GitHub OAuth on CloudFront dev
+  - Test Google OAuth on CloudFront prod
+  - Test GitHub OAuth on CloudFront prod
+  - Verify tokens persist across page refreshes on all domains
+  - Verify API calls work from all domains
+  - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
+
+- [ ] 29. Documentation and cleanup
+
+  - [ ] 29.1 Update README with authentication details
+
+    - Document OAuth provider setup process
+    - Document environment variables required
     - Document authentication flow
+    - Add link to OAuth setup documentation
+    - Document multi-domain testing process
+    - Add testing checklist for each domain
     - _Requirements: All_
 
-  - [ ] 25.2 Remove mock authentication code
-
-    - Delete MockAuthContext if it exists
-    - Remove mock auth imports
-    - Clean up unused code
-    - _Requirements: 1.1, 2.1, 3.1, 4.1_
-
-  - [ ] 25.3 Add JSDoc comments to auth services
+  - [ ] 29.2 Add JSDoc comments to auth services
     - Document all auth functions
     - Document parameters and return types
     - Add usage examples

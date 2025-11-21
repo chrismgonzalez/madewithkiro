@@ -162,3 +162,51 @@ This specification defines the requirements for implementing authentication usin
 3. WHEN deploying to the production environment THEN the SAM Template SHALL create a separate Cognito User Pool for production
 4. WHEN deploying to the production environment THEN the System SHALL use production-specific OAuth client credentials stored in SSM Parameter Store
 5. WHEN switching between environments THEN the Frontend Application SHALL use environment-specific Cognito configuration from environment variables
+
+### Requirement 13
+
+**User Story:** As a developer, I want all API requests to include authentication tokens, so that the backend can identify and authorize users.
+
+#### Acceptance Criteria
+
+1. WHEN the API Client makes an authenticated request THEN the System SHALL retrieve the current access token from Cognito
+2. WHEN the API Client makes an authenticated request THEN the System SHALL add the access token to the Authorization header as a Bearer token
+3. WHEN an API request is made without authentication THEN the System SHALL allow the request to proceed without an Authorization header for public endpoints
+4. WHEN the access token is expired THEN the System SHALL automatically refresh the token before making the request
+5. WHEN token refresh fails THEN the System SHALL redirect the user to the authentication page
+
+### Requirement 14
+
+**User Story:** As a developer, I want to transition from mock authentication to real Cognito authentication, so that the application uses production-ready authentication.
+
+#### Acceptance Criteria
+
+1. WHEN transitioning to real authentication THEN the System SHALL remove all mock authentication code from the codebase
+2. WHEN transitioning to real authentication THEN the System SHALL replace MockAuthContext with the real AuthContext in all components
+3. WHEN transitioning to real authentication THEN the System SHALL update all imports to use the real authentication services
+4. WHEN transitioning to real authentication THEN the System SHALL verify that all protected routes use the real authentication
+5. WHEN transitioning to real authentication THEN the System SHALL ensure no mock authentication references remain in the codebase
+
+### Requirement 15
+
+**User Story:** As a system administrator, I want detailed documentation for setting up OAuth providers, so that I can configure Google and GitHub authentication correctly.
+
+#### Acceptance Criteria
+
+1. WHEN setting up Google OAuth THEN the Documentation SHALL provide step-by-step instructions for creating a Google Cloud project
+2. WHEN setting up Google OAuth THEN the Documentation SHALL provide instructions for configuring OAuth consent screen and credentials
+3. WHEN setting up GitHub OAuth THEN the Documentation SHALL provide step-by-step instructions for creating a GitHub OAuth App
+4. WHEN setting up GitHub OAuth THEN the Documentation SHALL provide instructions for configuring callback URLs and permissions
+5. WHEN storing OAuth secrets THEN the Documentation SHALL provide commands for storing secrets in AWS Systems Manager Parameter Store
+
+### Requirement 16
+
+**User Story:** As a developer, I want to test authentication on both localhost and CloudFront URLs, so that I can verify functionality in different environments before production deployment.
+
+#### Acceptance Criteria
+
+1. WHEN configuring OAuth providers THEN the System SHALL support multiple authorized origins including localhost and CloudFront domains
+2. WHEN configuring Cognito User Pool Client THEN the SAM Template SHALL include callback URLs for localhost, development CloudFront, and production CloudFront
+3. WHEN the Frontend Application initializes THEN the System SHALL dynamically detect the current domain and use appropriate redirect URLs
+4. WHEN testing on localhost THEN the System SHALL redirect OAuth callbacks to localhost URLs
+5. WHEN testing on CloudFront THEN the System SHALL redirect OAuth callbacks to CloudFront URLs

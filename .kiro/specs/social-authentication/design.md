@@ -720,61 +720,234 @@ export const ProfilePicture = ({
 };
 ```
 
-### 7. API Request Interceptor
+### 7. API Client Authentication Integration
+
+The existing `ApiClient` class needs to be enhanced to support authentication tokens. We'll add token management without changing the existing API.
+
+#### Updated API Client with Authentication
 
 ```typescript
-// src/services/api.ts
-import axios from "axios";
+// src/services/apiClient.ts (additions)
 import { Auth } from "aws-amplify";
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-});
+export class ApiClient {
+  // ... existing properties ...
 
-// Request interceptor to add auth token
-api.interceptors.request.use(
-  async (config) => {
+  /**
+   * Get current authentication token
+   *
+   * Retrieves the current access token from Cognito session.
+   * Returns null if user is not authenticated.
+   *
+   * @returns Access token or null
+   * @private
+   */
+  private async getAuthToken(): Promise<string | null> {
     try {
       const session = await Auth.currentSession();
-      const token = session.getIdToken().getJwtToken();
-      config.headers.Authorization = `Bearer ${token}`;
+      return session.getAccessToken().getJwtToken();
     } catch (error) {
-      // No valid session, request will proceed without token
-      console.error("Failed to get auth token:", error);
+      // User not authenticated or session expired
+      return null;
     }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+  }
 
-// Response interceptor to handle token expiration
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+  /**
+   * Build request headers with authentication
+   *
+   * Adds standard headers (Content-Type, Accept) and Authorization header
+   * if user is authenticated.
+   *
+   * @param requiresAuth - Whether this request requires authentication
+   * @returns Headers object with standard and auth headers
+   * @private
+   */
+  private async buildHeaders(requiresAuth: boolean = false): Promise<Headers> {
+    const headers = new Headers();
+    headers.set("Content-Type", "application/json");
+    headers.set("Accept", "application/json");
 
-    // If 401 and haven't retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      try {
-        // Try to refresh the session
-        const session = await Auth.currentSession();
-        const token = session.getIdToken().getJwtToken();
-        originalRequest.headers.Authorization = `Bearer ${token}`;
-        return api(originalRequest);
-      } catch (refreshError) {
-        // Refresh failed, redirect to auth
-        window.location.href = "/auth";
-        return Promise.reject(refreshError);
+    // Add auth token if available and required
+    if (requiresAuth) {
+      const token = await this.getAuthToken();
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
       }
     }
 
-    return Promise.reject(error);
+    return headers;
   }
-);
 
-export default api;
+  /**
+   * Handle 401 Unauthorized responses
+   *
+   * Attempts to refresh the session and retry the request.
+   * Redirects to auth page if refresh fails.
+   *
+   * @template T - The expected response data type
+   * @param options - Original request options
+   * @returns API response after retry
+   * @throws ApiClientError if refresh fails
+   * @private
+   */
+  private async handleUnauthorized<T>(
+    options: RequestOptions
+  ): Promise<ApiResponse<T>> {
+    try {
+      // Try to refresh the session
+      await Auth.currentSession();
+
+      // Retry the original request
+      return this.makeRequest<T>(options, 0);
+    } catch (error) {
+      // Refresh failed, redirect to auth
+      window.location.href = "/auth";
+      throw new ApiClientError("Authentication required", "UNAUTHORIZED", 401);
+    }
+  }
+
+  /**
+   * Make an HTTP request with authentication support
+   *
+   * Enhanced version that handles authentication tokens and 401 responses.
+   *
+   * @template T - The expected response data type
+   * @param options - Request options
+   * @param attempt - Current attempt number (default: 0)
+   * @returns API response
+   * @throws ApiClientError for permanent failures
+   * @private
+   */
+  private async makeRequest<T>(
+    options: RequestOptions,
+    attempt: number = 0
+  ): Promise<ApiResponse<T>> {
+    const { method, endpoint, data, params, requiresAuth, signal } = options;
+
+    try {
+      // Check if already aborted before making request
+      if (signal?.aborted) {
+        throw new DOMException("The operation was aborted.", "AbortError");
+      }
+
+      // Build URL and headers (with auth if required)
+      const url = this.buildURL(endpoint, params);
+      const headers = await this.buildHeaders(requiresAuth);
+
+      // Make fetch request
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+        signal,
+      });
+
+      // Check if aborted after fetch completes
+      if (signal?.aborted) {
+        throw new DOMException("The operation was aborted.", "AbortError");
+      }
+
+      // Handle 401 Unauthorized (token expired or invalid)
+      if (response.status === 401 && requiresAuth && attempt === 0) {
+        return this.handleUnauthorized<T>(options);
+      }
+
+      // Handle response
+      return await this.handleResponse<T>(response);
+    } catch (error) {
+      // ... existing error handling ...
+    }
+  }
+}
+```
+
+#### Auth Service Module
+
+Create a dedicated auth service for token management:
+
+```typescript
+// src/services/authService.ts
+import { Auth } from "aws-amplify";
+
+/**
+ * Authentication Service
+ *
+ * Provides methods for token management and authentication checks.
+ */
+export class AuthService {
+  /**
+   * Get current access token
+   *
+   * @returns Access token or null if not authenticated
+   */
+  async getAccessToken(): Promise<string | null> {
+    try {
+      const session = await Auth.currentSession();
+      return session.getAccessToken().getJwtToken();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Get current ID token
+   *
+   * @returns ID token or null if not authenticated
+   */
+  async getIdToken(): Promise<string | null> {
+    try {
+      const session = await Auth.currentSession();
+      return session.getIdToken().getJwtToken();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Check if user is authenticated
+   *
+   * @returns True if user has valid session
+   */
+  async isAuthenticated(): Promise<boolean> {
+    try {
+      await Auth.currentAuthenticatedUser();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Refresh current session
+   *
+   * @returns True if refresh succeeded
+   */
+  async refreshSession(): Promise<boolean> {
+    try {
+      await Auth.currentSession();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+}
+
+// Export singleton instance
+export const authService = new AuthService();
+```
+
+#### Updated Request Options
+
+```typescript
+// src/services/apiClient.ts
+export interface RequestOptions {
+  method: "GET" | "POST" | "PUT" | "DELETE";
+  endpoint: string;
+  data?: unknown;
+  params?: Record<string, string>;
+  requiresAuth?: boolean; // Now fully implemented
+  signal?: AbortSignal;
+}
 ```
 
 ### 8. Routing Configuration
@@ -1056,6 +1229,36 @@ _For any_ user with a picture URL, the frontend should render an image element w
 
 _For any_ user without a picture URL or when the image fails to load, the system should display a default avatar with the user's initial.
 **Validates: Requirements 10.5**
+
+### Property 21: Authenticated request token inclusion
+
+_For any_ API request with requiresAuth set to true, the request should include an Authorization header with a Bearer token.
+**Validates: Requirements 13.1, 13.2**
+
+### Property 22: Public request without token
+
+_For any_ API request with requiresAuth set to false or undefined, the request should not include an Authorization header.
+**Validates: Requirements 13.3**
+
+### Property 23: Automatic token refresh on expiration
+
+_For any_ API request that returns 401 Unauthorized, the system should attempt to refresh the token and retry the request once.
+**Validates: Requirements 13.4**
+
+### Property 24: Redirect on refresh failure
+
+_For any_ token refresh attempt that fails, the system should redirect the user to the authentication page.
+**Validates: Requirements 13.5**
+
+### Property 25: Mock authentication removal
+
+_For any_ codebase search for "MockAuthContext", the system should return zero results after migration.
+**Validates: Requirements 14.1, 14.2, 14.3, 14.5**
+
+### Property 26: Dynamic redirect URL detection
+
+_For any_ domain where the application is hosted (localhost or CloudFront), the OAuth redirect URLs should match the current domain.
+**Validates: Requirements 16.3, 16.4, 16.5**
 
 ## Error Handling
 
@@ -1420,6 +1623,565 @@ aws cloudformation describe-stacks \
 1. **Minimize Redirects**: Use code flow (already implemented)
 2. **Parallel Requests**: Amplify handles token exchange efficiently
 3. **Caching**: Cache identity provider metadata
+
+## Transition from Mock to Real Authentication
+
+### Migration Steps
+
+1. **Identify Mock Authentication Usage**
+
+   - Search for `MockAuthContext` imports
+   - Find all components using mock authentication
+   - Identify test files that may need updates
+
+2. **Replace Mock Context with Real Context**
+
+```typescript
+// Before (using mock)
+import { MockAuthContext } from "@/contexts/MockAuthContext";
+
+// After (using real)
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+```
+
+3. **Update Main Application Entry**
+
+```typescript
+// src/main.tsx
+import { AuthProvider } from "@/contexts/AuthContext";
+import "@/config/amplify"; // Initialize Amplify
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  </React.StrictMode>
+);
+```
+
+4. **Update Service Imports**
+
+```typescript
+// Before
+import { mockDataService } from "@/services/mockDataService";
+
+// After
+import { applicationService } from "@/services/applicationService";
+import { profileService } from "@/services/profileService";
+```
+
+5. **Remove Mock Files**
+
+   - Delete `src/contexts/MockAuthContext.tsx`
+   - Delete or update mock-related test utilities
+   - Remove mock data services if no longer needed
+
+6. **Update Tests**
+   - Replace mock auth in tests with real auth mocks
+   - Update test setup to mock Amplify Auth
+   - Ensure all tests pass with real authentication
+
+### Verification Checklist
+
+- [ ] All `MockAuthContext` imports removed
+- [ ] All components use real `AuthContext`
+- [ ] API client uses real authentication tokens
+- [ ] Protected routes use real authentication
+- [ ] Tests updated and passing
+- [ ] No console errors related to authentication
+- [ ] OAuth flows work end-to-end
+
+## OAuth Provider Setup Documentation
+
+### Google OAuth Setup
+
+#### Step 1: Create Google Cloud Project
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Click "Select a project" → "New Project"
+3. Enter project name: "MadeWithKiro" (or your preferred name)
+4. Click "Create"
+
+#### Step 2: Enable Google+ API
+
+1. In the Google Cloud Console, go to "APIs & Services" → "Library"
+2. Search for "Google+ API"
+3. Click on "Google+ API"
+4. Click "Enable"
+
+#### Step 3: Configure OAuth Consent Screen
+
+1. Go to "APIs & Services" → "OAuth consent screen"
+2. Select "External" user type
+3. Click "Create"
+4. Fill in required fields:
+   - App name: "MadeWithKiro"
+   - User support email: Your email
+   - Developer contact email: Your email
+5. Click "Save and Continue"
+6. Add scopes:
+   - `email`
+   - `profile`
+   - `openid`
+7. Click "Save and Continue"
+8. Add test users (for development):
+   - Add your email and any test user emails
+9. Click "Save and Continue"
+10. Review and click "Back to Dashboard"
+
+#### Step 4: Create OAuth Credentials
+
+1. Go to "APIs & Services" → "Credentials"
+2. Click "Create Credentials" → "OAuth client ID"
+3. Select "Web application"
+4. Enter name: "MadeWithKiro Web Client"
+5. Add Authorized JavaScript origins:
+   - Development: `http://localhost:5173`
+   - Production: `https://madewithkiro.com`
+6. Add Authorized redirect URIs:
+   - Development: `https://<your-cognito-domain-dev>.auth.<region>.amazoncognito.com/oauth2/idpresponse`
+   - Production: `https://<your-cognito-domain-prod>.auth.<region>.amazoncognito.com/oauth2/idpresponse`
+7. Click "Create"
+8. Copy the Client ID and Client Secret
+
+#### Step 5: Store Credentials in AWS
+
+```bash
+# Development
+aws ssm put-parameter \
+  --name "/madewithkiro/dev/google-client-id" \
+  --value "<your-google-client-id>" \
+  --type "String" \
+  --description "Google OAuth client ID for dev"
+
+aws ssm put-parameter \
+  --name "/madewithkiro/dev/google-client-secret" \
+  --value "<your-google-client-secret>" \
+  --type "SecureString" \
+  --description "Google OAuth client secret for dev"
+
+# Production
+aws ssm put-parameter \
+  --name "/madewithkiro/prod/google-client-id" \
+  --value "<your-google-client-id>" \
+  --type "String" \
+  --description "Google OAuth client ID for prod"
+
+aws ssm put-parameter \
+  --name "/madewithkiro/prod/google-client-secret" \
+  --value "<your-google-client-secret>" \
+  --type "SecureString" \
+  --description "Google OAuth client secret for prod"
+```
+
+### GitHub OAuth Setup
+
+#### Step 1: Create GitHub OAuth App
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Click "OAuth Apps" → "New OAuth App"
+3. Fill in application details:
+   - Application name: "MadeWithKiro Dev" (or "MadeWithKiro Prod")
+   - Homepage URL:
+     - Development: `http://localhost:5173`
+     - Production: `https://madewithkiro.com`
+   - Application description: "Showcase platform for Kiro-built applications"
+   - Authorization callback URL:
+     - Development: `https://<your-cognito-domain-dev>.auth.<region>.amazoncognito.com/oauth2/idpresponse`
+     - Production: `https://<your-cognito-domain-prod>.auth.<region>.amazoncognito.com/oauth2/idpresponse`
+4. Click "Register application"
+5. Copy the Client ID
+6. Click "Generate a new client secret"
+7. Copy the Client Secret (you won't be able to see it again)
+
+#### Step 2: Store Credentials in AWS
+
+```bash
+# Development
+aws ssm put-parameter \
+  --name "/madewithkiro/dev/github-client-id" \
+  --value "<your-github-client-id>" \
+  --type "String" \
+  --description "GitHub OAuth client ID for dev"
+
+aws ssm put-parameter \
+  --name "/madewithkiro/dev/github-client-secret" \
+  --value "<your-github-client-secret>" \
+  --type "SecureString" \
+  --description "GitHub OAuth client secret for dev"
+
+# Production
+aws ssm put-parameter \
+  --name "/madewithkiro/prod/github-client-id" \
+  --value "<your-github-client-id>" \
+  --type "String" \
+  --description "GitHub OAuth client ID for prod"
+
+aws ssm put-parameter \
+  --name "/madewithkiro/prod/github-client-secret" \
+  --value "<your-github-client-secret>" \
+  --type "SecureString" \
+  --description "GitHub OAuth client secret for prod"
+```
+
+### Cognito Domain Setup
+
+After deploying the SAM template, you need to configure a Cognito domain:
+
+```bash
+# Get User Pool ID from CloudFormation outputs
+USER_POOL_ID=$(aws cloudformation describe-stacks \
+  --stack-name madewithkiro-dev \
+  --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' \
+  --output text)
+
+# Create Cognito domain (must be unique across all AWS accounts)
+aws cognito-idp create-user-pool-domain \
+  --domain madewithkiro-dev-<random-suffix> \
+  --user-pool-id $USER_POOL_ID
+
+# The domain will be: madewithkiro-dev-<random-suffix>.auth.<region>.amazoncognito.com
+```
+
+### Updating OAuth Redirect URIs
+
+After creating the Cognito domain, update the redirect URIs in Google and GitHub:
+
+1. **Google Cloud Console**:
+
+   - Go to "APIs & Services" → "Credentials"
+   - Click on your OAuth client
+   - Update "Authorized redirect URIs" with the actual Cognito domain
+   - Click "Save"
+
+2. **GitHub OAuth App**:
+   - Go to GitHub Developer Settings → OAuth Apps
+   - Click on your app
+   - Update "Authorization callback URL" with the actual Cognito domain
+   - Click "Update application"
+
+## Testing Authentication on Multiple Domains
+
+### Overview
+
+During development and deployment, you'll need to test authentication on multiple domains:
+
+- **Localhost**: `http://localhost:5173` (Vite dev server)
+- **CloudFront Dev**: `https://dev.madewithkiro.com` (development environment)
+- **CloudFront Prod**: `https://madewithkiro.com` (production environment)
+
+### Multi-Domain OAuth Configuration
+
+#### Option 1: Multiple OAuth Applications (Recommended)
+
+Create separate OAuth applications for each environment:
+
+**Google OAuth:**
+
+- **Dev Application**: "MadeWithKiro Dev"
+  - Authorized JavaScript origins: `http://localhost:5173`, `https://dev.madewithkiro.com`
+  - Authorized redirect URIs: `https://<cognito-domain-dev>.auth.<region>.amazoncognito.com/oauth2/idpresponse`
+- **Prod Application**: "MadeWithKiro Prod"
+  - Authorized JavaScript origins: `https://madewithkiro.com`
+  - Authorized redirect URIs: `https://<cognito-domain-prod>.auth.<region>.amazoncognito.com/oauth2/idpresponse`
+
+**GitHub OAuth:**
+
+- **Dev Application**: "MadeWithKiro Dev"
+  - Homepage URL: `http://localhost:5173` or `https://dev.madewithkiro.com`
+  - Authorization callback URL: `https://<cognito-domain-dev>.auth.<region>.amazoncognito.com/oauth2/idpresponse`
+- **Prod Application**: "MadeWithKiro Prod"
+  - Homepage URL: `https://madewithkiro.com`
+  - Authorization callback URL: `https://<cognito-domain-prod>.auth.<region>.amazoncognito.com/oauth2/idpresponse`
+
+#### Option 2: Single OAuth Application with Multiple Origins
+
+For development convenience, you can use a single OAuth application with multiple authorized origins:
+
+**Google OAuth:**
+
+```
+Authorized JavaScript origins:
+- http://localhost:5173
+- https://dev.madewithkiro.com
+- https://madewithkiro.com
+
+Authorized redirect URIs:
+- https://<cognito-domain-dev>.auth.<region>.amazoncognito.com/oauth2/idpresponse
+- https://<cognito-domain-prod>.auth.<region>.amazoncognito.com/oauth2/idpresponse
+```
+
+**GitHub OAuth:**
+
+- Create one app with dev callback URL for development
+- Create separate app for production (GitHub only allows one callback URL per app)
+
+### Cognito Callback URL Configuration
+
+Configure Cognito User Pool Client with multiple callback URLs:
+
+```yaml
+# template.yaml
+CognitoUserPoolClient:
+  Type: AWS::Cognito::UserPoolClient
+  Properties:
+    # ... other properties ...
+    CallbackURLs:
+      - http://localhost:5173/auth/callback
+      - https://dev.madewithkiro.com/auth/callback
+      - https://madewithkiro.com/auth/callback
+    LogoutURLs:
+      - http://localhost:5173/
+      - https://dev.madewithkiro.com/
+      - https://madewithkiro.com/
+```
+
+### Environment-Specific Configuration
+
+#### Development Environment (.env.development)
+
+```bash
+# AWS Cognito Configuration
+VITE_AWS_REGION=us-east-1
+VITE_USER_POOL_ID=us-east-1_DEVPOOL123
+VITE_USER_POOL_CLIENT_ID=abc123devClientId
+VITE_IDENTITY_POOL_ID=us-east-1:dev-identity-pool-id
+VITE_COGNITO_DOMAIN=madewithkiro-dev.auth.us-east-1.amazoncognito.com
+
+# OAuth Redirect URLs (automatically detected based on window.location)
+VITE_OAUTH_REDIRECT_SIGN_IN=http://localhost:5173/auth/callback
+VITE_OAUTH_REDIRECT_SIGN_OUT=http://localhost:5173/
+
+# API Configuration
+VITE_API_BASE_URL=https://api-dev.madewithkiro.com
+```
+
+#### Production Environment (.env.production)
+
+```bash
+# AWS Cognito Configuration
+VITE_AWS_REGION=us-east-1
+VITE_USER_POOL_ID=us-east-1_PRODPOOL456
+VITE_USER_POOL_CLIENT_ID=xyz789prodClientId
+VITE_IDENTITY_POOL_ID=us-east-1:prod-identity-pool-id
+VITE_COGNITO_DOMAIN=madewithkiro.auth.us-east-1.amazoncognito.com
+
+# OAuth Redirect URLs
+VITE_OAUTH_REDIRECT_SIGN_IN=https://madewithkiro.com/auth/callback
+VITE_OAUTH_REDIRECT_SIGN_OUT=https://madewithkiro.com/
+
+# API Configuration
+VITE_API_BASE_URL=https://api.madewithkiro.com
+```
+
+### Dynamic Redirect URL Configuration
+
+For testing on both localhost and CloudFront with the same build, implement dynamic redirect URL detection:
+
+```typescript
+// src/config/amplify.ts
+import { Amplify } from "aws-amplify";
+
+// Detect current domain
+const getCurrentDomain = (): string => {
+  if (typeof window === "undefined") return "";
+  return window.location.origin;
+};
+
+// Determine redirect URLs based on current domain
+const getRedirectUrls = () => {
+  const currentDomain = getCurrentDomain();
+
+  // If running on localhost, use localhost URLs
+  if (currentDomain.includes("localhost")) {
+    return {
+      redirectSignIn: "http://localhost:5173/auth/callback",
+      redirectSignOut: "http://localhost:5173/",
+    };
+  }
+
+  // Otherwise use the current domain
+  return {
+    redirectSignIn: `${currentDomain}/auth/callback`,
+    redirectSignOut: `${currentDomain}/`,
+  };
+};
+
+const redirectUrls = getRedirectUrls();
+
+const amplifyConfig = {
+  Auth: {
+    region: import.meta.env.VITE_AWS_REGION,
+    userPoolId: import.meta.env.VITE_USER_POOL_ID,
+    userPoolWebClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID,
+    identityPoolId: import.meta.env.VITE_IDENTITY_POOL_ID,
+    oauth: {
+      domain: import.meta.env.VITE_COGNITO_DOMAIN,
+      scope: ["email", "openid", "profile", "aws.cognito.signin.user.admin"],
+      redirectSignIn: redirectUrls.redirectSignIn,
+      redirectSignOut: redirectUrls.redirectSignOut,
+      responseType: "code",
+    },
+  },
+};
+
+Amplify.configure(amplifyConfig);
+
+export default amplifyConfig;
+```
+
+### Testing Workflow
+
+#### 1. Local Development Testing
+
+```bash
+# Start local dev server
+bun run dev
+
+# Navigate to http://localhost:5173
+# Test authentication flows:
+# - Click "Sign in with Google"
+# - Click "Sign in with GitHub"
+# - Verify redirect back to localhost
+# - Check that tokens are stored
+# - Test protected routes
+# - Test sign out
+```
+
+#### 2. CloudFront Dev Testing
+
+```bash
+# Build and deploy to dev
+bun run build
+aws s3 sync dist/ s3://madewithkiro-dev-bucket/
+aws cloudfront create-invalidation --distribution-id E1234DEV --paths "/*"
+
+# Navigate to https://dev.madewithkiro.com
+# Test same authentication flows
+# Verify HTTPS redirect works correctly
+# Check CloudWatch logs for any errors
+```
+
+#### 3. CloudFront Prod Testing
+
+```bash
+# Build and deploy to prod
+bun run build
+aws s3 sync dist/ s3://madewithkiro-prod-bucket/
+aws cloudfront create-invalidation --distribution-id E5678PROD --paths "/*"
+
+# Navigate to https://madewithkiro.com
+# Test authentication flows
+# Verify production OAuth credentials work
+# Monitor for any issues
+```
+
+### Testing Checklist
+
+**Localhost Testing:**
+
+- [ ] Google OAuth flow completes successfully
+- [ ] GitHub OAuth flow completes successfully
+- [ ] Tokens are stored in browser storage
+- [ ] Protected routes redirect to auth when unauthenticated
+- [ ] Protected routes allow access when authenticated
+- [ ] Profile picture loads correctly
+- [ ] Sign out clears tokens and redirects
+- [ ] Token refresh works on expiration
+- [ ] API requests include Bearer token
+
+**CloudFront Dev Testing:**
+
+- [ ] HTTPS connection is secure
+- [ ] Google OAuth flow works over HTTPS
+- [ ] GitHub OAuth flow works over HTTPS
+- [ ] Redirect back to CloudFront URL works
+- [ ] Tokens persist across page refreshes
+- [ ] API Gateway accepts tokens from Cognito
+- [ ] CloudWatch logs show successful authentication
+- [ ] No CORS errors in browser console
+
+**CloudFront Prod Testing:**
+
+- [ ] Production OAuth credentials work
+- [ ] All authentication flows work in production
+- [ ] Performance is acceptable
+- [ ] No errors in CloudWatch logs
+- [ ] Monitoring and alarms are functioning
+
+### Common Issues and Solutions
+
+#### Issue: "redirect_uri_mismatch" on localhost
+
+**Solution:**
+
+- Ensure `http://localhost:5173` is in Google's Authorized JavaScript origins
+- Ensure Cognito callback URL includes `http://localhost:5173/auth/callback`
+- Check that dynamic redirect URL detection is working
+
+#### Issue: OAuth works on localhost but not CloudFront
+
+**Solution:**
+
+- Verify CloudFront domain is in OAuth authorized origins
+- Check that HTTPS is properly configured
+- Ensure Cognito callback URLs include CloudFront domain
+- Verify CloudFront distribution is serving the correct build
+
+#### Issue: Tokens not persisting on CloudFront
+
+**Solution:**
+
+- Check browser storage settings (cookies, localStorage)
+- Verify CloudFront is not blocking storage
+- Check for CORS issues in browser console
+- Ensure Amplify is configured correctly for the domain
+
+#### Issue: Different behavior between localhost and CloudFront
+
+**Solution:**
+
+- Check environment variables are correct for each environment
+- Verify API base URLs point to correct endpoints
+- Check for hardcoded URLs in code
+- Test with browser dev tools network tab to compare requests
+
+### Development Best Practices
+
+1. **Use Environment Variables**: Never hardcode URLs or credentials
+2. **Test Both Environments**: Always test on localhost AND CloudFront before deploying to prod
+3. **Monitor Logs**: Check CloudWatch logs for authentication errors
+4. **Use Browser Dev Tools**: Network tab and console are essential for debugging OAuth flows
+5. **Clear Browser Storage**: When testing, clear storage between tests to ensure clean state
+6. **Document Credentials**: Keep track of which OAuth apps are for which environments
+7. **Separate Cognito Pools**: Use separate User Pools for dev and prod to avoid conflicts
+
+### Troubleshooting
+
+#### Common Issues
+
+1. **"redirect_uri_mismatch" error**
+
+   - Verify the redirect URI in Google/GitHub matches exactly with Cognito domain
+   - Ensure no trailing slashes
+   - Check for http vs https
+
+2. **"invalid_client" error**
+
+   - Verify client ID and secret are correct in SSM Parameter Store
+   - Check that SAM template is reading from correct SSM parameters
+   - Redeploy SAM template after updating parameters
+
+3. **"User pool client does not exist" error**
+
+   - Ensure User Pool Client has `DependsOn` for both identity providers
+   - Verify identity providers are created before the client
+
+4. **Profile picture not loading**
+   - Check CORS configuration on image URLs
+   - Verify picture attribute is mapped correctly in identity provider
+   - Check browser console for image load errors
 
 ## Future Enhancements
 
