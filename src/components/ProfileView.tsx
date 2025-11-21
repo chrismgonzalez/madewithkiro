@@ -147,8 +147,8 @@ export default function ProfileView({ userId }: ProfileViewProps) {
                 <Separator />
 
                 {/* Social Links with ButtonGroup */}
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <ButtonGroup className="flex-wrap">
+                <div className="flex flex-col sm:flex-row gap-3 items-center sm:items-start">
+                  <ButtonGroup className="flex-wrap justify-center sm:justify-start">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
