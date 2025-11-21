@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { render } from "@/test/utils";
 import ApplicationGallery from "@/components/ApplicationGallery";
 import ProfileForm from "@/components/ProfileForm";
@@ -25,10 +24,6 @@ describe("Mobile Responsiveness - Acceptance Tests", () => {
   };
 
   // Helper to check if element meets minimum touch target size
-  const meetsMinimumTouchTarget = (element: HTMLElement): boolean => {
-    const rect = element.getBoundingClientRect();
-    return rect.width >= 44 && rect.height >= 44;
-  };
 
   beforeEach(() => {
     // Reset viewport to default before each test

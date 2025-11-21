@@ -23,7 +23,7 @@ if (typeof localStorage === "undefined") {
     };
   })();
 
-  Object.defineProperty(global, "localStorage", {
+  Object.defineProperty(globalThis, "localStorage", {
     value: localStorageMock,
     writable: true,
   });

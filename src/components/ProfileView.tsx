@@ -12,14 +12,7 @@ import { useMockAuth } from "@/contexts/MockAuthContext";
 import ProfileForm from "./ProfileForm";
 import LoadingSpinner from "./LoadingSpinner";
 import type { ProfileFormData } from "@/utils/validation";
-import {
-  Linkedin,
-  Github,
-  ExternalLink,
-  Edit2,
-  Package,
-  Briefcase,
-} from "lucide-react";
+import { Linkedin, Github, ExternalLink, Edit2, Package } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";

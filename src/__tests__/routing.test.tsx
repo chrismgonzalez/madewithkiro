@@ -48,14 +48,37 @@ describe("Routing - Acceptance Tests", () => {
 
       // Create a simple test component with navigation
       const TestComponent = () => {
-        const { Link } = require("@tanstack/react-router");
         return (
           <MockAuthProvider>
             <div>
               <nav>
-                <Link to="/">Gallery</Link>
-                <Link to="/profile/user123">Profile</Link>
-                <Link to="/add-app">Add App</Link>
+                <a
+                  href="/"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    mockNavigate("/");
+                  }}
+                >
+                  Gallery
+                </a>
+                <a
+                  href="/profile/user123"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    mockNavigate("/profile/user123");
+                  }}
+                >
+                  Profile
+                </a>
+                <a
+                  href="/add-app"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    mockNavigate("/add-app");
+                  }}
+                >
+                  Add App
+                </a>
               </nav>
             </div>
           </MockAuthProvider>
@@ -75,15 +98,8 @@ describe("Routing - Acceptance Tests", () => {
 
   describe("GIVEN I navigate to a profile page", () => {
     it("WHEN the URL contains a userId THEN I should see the correct profile", async () => {
-      // Mock useParams to return a userId
-      const mockUseParams = vi.fn(() => ({ userId: "user123" }));
-      vi.mocked(require("@tanstack/react-router").useParams).mockImplementation(
-        mockUseParams
-      );
-
       const TestProfilePage = () => {
-        const { useParams } = require("@tanstack/react-router");
-        const { userId } = useParams();
+        const userId = "user123";
         return (
           <MockAuthProvider>
             <div>
@@ -107,12 +123,10 @@ describe("Routing - Acceptance Tests", () => {
       // In a real scenario, this would be tested with actual browser history
 
       const TestComponent = () => {
-        const { useLocation } = require("@tanstack/react-router");
-        const location = useLocation();
         return (
           <MockAuthProvider>
             <div>
-              <p>Current path: {location.pathname}</p>
+              <p>Current path: {mockLocation.pathname}</p>
             </div>
           </MockAuthProvider>
         );
@@ -144,13 +158,11 @@ describe("Routing - Acceptance Tests", () => {
       mockLocation.pathname = "/add-app";
 
       const TestComponent = () => {
-        const { useLocation } = require("@tanstack/react-router");
-        const location = useLocation();
         return (
           <MockAuthProvider>
             <div>
               <h1>Add Application</h1>
-              <p>Path: {location.pathname}</p>
+              <p>Path: {mockLocation.pathname}</p>
             </div>
           </MockAuthProvider>
         );
@@ -169,20 +181,32 @@ describe("Routing - Acceptance Tests", () => {
       const user = userEvent.setup();
 
       const TestComponent = () => {
-        const { Link } = require("@tanstack/react-router");
-        const { useLocation } = require("@tanstack/react-router");
-        const location = useLocation();
-
         return (
           <MockAuthProvider>
             <div>
               <nav>
-                <Link to="/">Gallery</Link>
-                <Link to="/profile/user123">Profile</Link>
+                <a
+                  href="/"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    mockNavigate("/");
+                  }}
+                >
+                  Gallery
+                </a>
+                <a
+                  href="/profile/user123"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    mockNavigate("/profile/user123");
+                  }}
+                >
+                  Profile
+                </a>
               </nav>
               <main>
-                {location.pathname === "/" && <div>Gallery Page</div>}
-                {location.pathname.startsWith("/profile") && (
+                {mockLocation.pathname === "/" && <div>Gallery Page</div>}
+                {mockLocation.pathname.startsWith("/profile") && (
                   <div>Profile Page</div>
                 )}
               </main>

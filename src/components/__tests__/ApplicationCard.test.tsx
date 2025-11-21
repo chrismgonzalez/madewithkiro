@@ -3,7 +3,6 @@ import { screen } from "@testing-library/react";
 import { render } from "@/test/utils";
 import ApplicationCard from "../ApplicationCard";
 import { getAllApplications } from "@/services/mockData";
-import type { Application } from "@/types";
 
 describe("ApplicationCard - Acceptance Tests", () => {
   // Use mock data for testing

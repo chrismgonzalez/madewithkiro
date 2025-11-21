@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { screen, within, waitFor } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
 import { render } from "@/test/utils";
 import ProfileView from "../ProfileView";
 import { getUserById, getApplicationsByUserId } from "@/services/mockData";
@@ -8,7 +8,6 @@ describe("ProfileView - Acceptance Tests", () => {
   // Use mock data for testing
   const testUser = getUserById("user-001")!; // Sarah Chen with LinkedIn and GitHub
   const testUserNoLinkedIn = getUserById("user-003")!; // Aisha Patel - no LinkedIn
-  const testUserNoApps = getUserById("user-004")!; // James Wilson - for testing with no apps
 
   describe("GIVEN I view a user profile", () => {
     it("WHEN the profile renders THEN I should see firstName, lastName, and awsBuilderHandle", async () => {
@@ -118,13 +117,10 @@ describe("ProfileView - Acceptance Tests", () => {
     it("WHEN I view their profile as authenticated user THEN I should see both public and private applications", async () => {
       // Arrange
       const userId = testUser.userId;
-      // Get all applications for this user (authenticated view)
-      const allApps = getApplicationsByUserId(userId, true);
-
       // Act - Render with authenticated context
       // Note: The MockAuthProvider in test utils starts unauthenticated by default
       // We'll need to toggle auth state in the test
-      const { container } = render(<ProfileView userId={userId} />);
+      render(<ProfileView userId={userId} />);
 
       // For now, we're testing the unauthenticated view
       // The authenticated view will be tested when we implement auth toggle in tests
@@ -229,7 +225,7 @@ describe("ProfileView - Acceptance Tests", () => {
         const currentUserId = "user-001"; // Sarah Chen
 
         // Act - Render with authenticated context and viewing own profile
-        const { user } = render(<ProfileView userId={currentUserId} />, {
+        render(<ProfileView userId={currentUserId} />, {
           mockAuthState: { isAuthenticated: true, currentUserId },
         });
 
