@@ -8,14 +8,21 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  useProfile,
-  useUserApplications,
-  useDeleteApplication,
-} from "@/hooks/useData";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useProfile } from "@/hooks/useProfile";
+import { useApplications } from "@/hooks/useApplications";
 import { useMockAuth } from "@/contexts/MockAuthContext";
+import { applicationService } from "@/services/applicationService";
 import ProfileForm from "./ProfileForm";
 import LoadingSpinner from "./LoadingSpinner";
-import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import type { ProfileFormData } from "@/utils/validation";
 import {
   Linkedin,
@@ -38,6 +45,7 @@ interface ProfileViewProps {
 export default function ProfileView({ userId }: ProfileViewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [deleteAppId, setDeleteAppId] = useState<string | null>(null);
+  const [deleteAppName, setDeleteAppName] = useState<string>("");
 
   // Get authentication state
   const { isAuthenticated, currentUserId } = useMockAuth();
@@ -45,18 +53,27 @@ export default function ProfileView({ userId }: ProfileViewProps) {
   // Determine if viewing own profile
   const isOwnProfile = isAuthenticated && currentUserId === userId;
 
-  // Fetch user profile and applications
-  const { data: profile, isLoading: profileLoading } = useProfile(userId);
-  const { data: applications = [], isLoading: appsLoading } =
-    useUserApplications(userId);
-
-  // Delete mutation
-  const deleteMutation = useDeleteApplication();
+  // Fetch user profile and applications using real API hooks
+  const {
+    profile,
+    isLoading: profileLoading,
+    updateProfile,
+    isUpdating,
+  } = useProfile(userId);
+  const { applications = [], isLoading: appsLoading } = useApplications(userId);
 
   // Handle form submission
-  const handleSubmit = (data: ProfileFormData) => {
-    console.log("Profile updated:", data);
-    setIsEditing(false);
+  const handleSubmit = async (data: ProfileFormData) => {
+    try {
+      await updateProfile({
+        ...data,
+        userId,
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Failed to update profile:", error);
+      // Error is already handled by the hook
+    }
   };
 
   // Handle cancel
@@ -64,20 +81,33 @@ export default function ProfileView({ userId }: ProfileViewProps) {
     setIsEditing(false);
   };
 
-  // Handle delete confirmation
-  const handleDeleteConfirm = () => {
-    if (!deleteAppId) return;
-
-    deleteMutation.mutate(deleteAppId, {
-      onSuccess: () => {
-        setDeleteAppId(null);
-        console.log("Application deleted successfully");
-      },
-      onError: (error) => {
-        console.error("Failed to delete application:", error);
-      },
-    });
+  // Handle delete
+  const handleDeleteClick = (appId: string, appName: string) => {
+    setDeleteAppId(appId);
+    setDeleteAppName(appName);
   };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteAppId || !currentUserId) return;
+
+    try {
+      await applicationService.deleteApplication(deleteAppId, currentUserId);
+      setDeleteAppId(null);
+      setDeleteAppName("");
+      // Refetch applications
+      window.location.reload();
+    } catch (error) {
+      console.error("Failed to delete application:", error);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteAppId(null);
+    setDeleteAppName("");
+  };
+  //   if (!deleteAppId) return;
+  //   // Delete logic here
+  // };
 
   // Loading state
   if (profileLoading) {
@@ -367,7 +397,9 @@ export default function ProfileView({ userId }: ProfileViewProps) {
                             variant="destructive"
                             size="sm"
                             className="min-h-[44px] min-w-[44px]"
-                            onClick={() => setDeleteAppId(app.appId)}
+                            onClick={() =>
+                              handleDeleteClick(app.appId, app.name)
+                            }
                             aria-label="Delete application"
                           >
                             <Trash2 className="h-4 w-4 sm:mr-2" />
@@ -384,15 +416,31 @@ export default function ProfileView({ userId }: ProfileViewProps) {
         </div>
 
         {/* Delete Confirmation Dialog */}
-        <DeleteConfirmDialog
-          isOpen={deleteAppId !== null}
-          onClose={() => setDeleteAppId(null)}
-          onConfirm={handleDeleteConfirm}
-          applicationName={
-            applications.find((app) => app.appId === deleteAppId)?.name || ""
-          }
-          isDeleting={deleteMutation.isPending}
-        />
+        <AlertDialog
+          open={deleteAppId !== null}
+          onOpenChange={(open) => !open && handleDeleteCancel()}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Application</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{deleteAppName}"? This action
+                cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleDeleteCancel}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteConfirm}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );

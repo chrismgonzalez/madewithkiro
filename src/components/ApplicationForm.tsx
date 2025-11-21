@@ -16,6 +16,7 @@ import {
   applicationSchema,
   type ApplicationFormData,
 } from "@/utils/validation";
+import { showSuccessToast, showErrorToast } from "@/utils/toast";
 import { z } from "zod";
 import { CheckCircle2 } from "lucide-react";
 
@@ -186,6 +187,9 @@ export default function ApplicationForm({
 
       // Show success message
       setShowSuccess(true);
+
+      // Show success toast notification
+      showSuccessToast("Application created successfully", 5000);
     } catch (error) {
       if (error instanceof z.ZodError) {
         const issues = error.issues;
@@ -194,6 +198,9 @@ export default function ApplicationForm({
           message: err.message,
         }));
         setErrors(fieldErrors);
+      } else if (error instanceof Error) {
+        // Show error toast notification
+        showErrorToast(error.message, 5000);
       }
     } finally {
       setIsSubmitting(false);

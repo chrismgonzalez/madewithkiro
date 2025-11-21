@@ -2,25 +2,24 @@
 
 ## Introduction
 
-This specification defines the requirements for integrating the MadeWithKiro frontend application with the backend API services. The system will replace mock data services with real API calls to AWS Lambda functions through API Gateway, implement proper authentication token handling with AWS Cognito, and ensure seamless data flow between the React frontend and serverless backend. This integration builds upon the existing UI components from the madewithkiro-mvp spec and the authentication implementation from the social-authentication spec.
+This specification defines the requirements for integrating the MadeWithKiro frontend application with the backend API services. The system will replace mock data services with real API calls to AWS Lambda functions through API Gateway and ensure seamless data flow between the React frontend and serverless backend. This integration builds upon the existing UI components from the madewithkiro-mvp spec. Note: Authentication is not yet implemented, so all API endpoints will be public for this phase.
 
 ## Glossary
 
 - **API Service**: A frontend service module that communicates with backend Lambda functions via HTTP requests
 - **API Gateway**: AWS service that exposes Lambda functions as RESTful HTTP endpoints
-- **Bearer Token**: An access token included in the Authorization header for authenticated API requests
 - **Frontend Application**: The React-based user interface built with TypeScript and Vite
 - **Lambda Function**: Serverless compute function handling backend business logic
 - **API Client**: A configured HTTP client (e.g., fetch or axios) for making API requests
-- **Request Interceptor**: Middleware that modifies outgoing API requests (e.g., adding auth headers)
+- **Request Interceptor**: Middleware that modifies outgoing API requests
 - **Response Interceptor**: Middleware that processes incoming API responses (e.g., handling errors)
 - **Environment Configuration**: Runtime configuration values (API URLs, region) loaded from environment variables
 - **Error Boundary**: React component that catches and handles errors in child components
 - **Loading State**: UI state indicating an asynchronous operation is in progress
 - **Optimistic Update**: UI update that occurs before server confirmation for better perceived performance
-- **Token Refresh**: Process of obtaining a new access token using a refresh token
 - **CORS**: Cross-Origin Resource Sharing configuration allowing frontend to call backend APIs
 - **System**: The integrated MadeWithKiro platform including frontend and backend
+- **Seed Data**: Pre-populated test data in DynamoDB for development and testing purposes
 
 ## Requirements
 
@@ -38,15 +37,15 @@ This specification defines the requirements for integrating the MadeWithKiro fro
 
 ### Requirement 2
 
-**User Story:** As a developer, I want to implement request interceptors, so that authentication tokens are automatically included in API calls.
+**User Story:** As a developer, I want to implement request interceptors, so that standard headers and configuration are automatically included in API calls.
 
 #### Acceptance Criteria
 
-1. WHEN a user is authenticated THEN the System SHALL retrieve the current access token from Cognito
-2. WHEN the API client makes an authenticated request THEN the System SHALL include the access token in the Authorization header as a Bearer token
-3. WHEN a user is not authenticated THEN the System SHALL make requests without an Authorization header for public endpoints
-4. WHEN an access token is expired THEN the System SHALL attempt to refresh the token before making the request
-5. WHEN token refresh fails THEN the System SHALL redirect the user to the authentication page
+1. WHEN the API client makes a request THEN the System SHALL include standard request headers for all API calls
+2. WHEN the API client makes a request THEN the System SHALL include any custom headers specified in the request options
+3. WHEN the API client makes a request THEN the System SHALL properly format query parameters in the URL
+4. WHEN the API client makes a request with a request body THEN the System SHALL properly serialize the body as JSON
+5. WHEN the API client configuration changes THEN the System SHALL apply the new configuration to all subsequent requests
 
 ### Requirement 3
 
@@ -54,11 +53,11 @@ This specification defines the requirements for integrating the MadeWithKiro fro
 
 #### Acceptance Criteria
 
-1. WHEN the API returns a 401 Unauthorized response THEN the System SHALL clear authentication state and redirect to the sign-in page
-2. WHEN the API returns a 403 Forbidden response THEN the System SHALL display an error message indicating insufficient permissions
-3. WHEN the API returns a 404 Not Found response THEN the System SHALL display an error message indicating the resource was not found
-4. WHEN the API returns a 500 Internal Server Error response THEN the System SHALL display a generic error message and log the error details
-5. WHEN the API returns validation errors in a 400 Bad Request response THEN the System SHALL extract and display field-specific error messages
+1. WHEN the API returns a 404 Not Found response THEN the System SHALL display an error message indicating the resource was not found
+2. WHEN the API returns a 500 Internal Server Error response THEN the System SHALL display a generic error message and log the error details
+3. WHEN the API returns validation errors in a 400 Bad Request response THEN the System SHALL extract and display field-specific error messages
+4. WHEN the API returns a 503 Service Unavailable response THEN the System SHALL display a message indicating the service is temporarily unavailable
+5. WHEN the API returns any error response THEN the System SHALL log the error details for debugging purposes
 
 ### Requirement 4
 
@@ -67,8 +66,8 @@ This specification defines the requirements for integrating the MadeWithKiro fro
 #### Acceptance Criteria
 
 1. WHEN calling getProfile with a userId THEN the System SHALL send a GET request to the profile endpoint and return the user profile data
-2. WHEN calling createProfile with profile data THEN the System SHALL send a POST request with the authenticated user's token and return the created profile
-3. WHEN calling updateProfile with updated data THEN the System SHALL send a PUT request with the authenticated user's token and return the updated profile
+2. WHEN calling createProfile with profile data THEN the System SHALL send a POST request and return the created profile
+3. WHEN calling updateProfile with userId and updated data THEN the System SHALL send a PUT request and return the updated profile
 4. WHEN a profile API call fails with validation errors THEN the System SHALL return an object mapping field names to error messages
 5. WHEN a profile API call succeeds THEN the System SHALL return the profile data in a consistent format matching the UserProfile type
 
@@ -80,7 +79,7 @@ This specification defines the requirements for integrating the MadeWithKiro fro
 
 1. WHEN calling listApplications without parameters THEN the System SHALL send a GET request to the applications endpoint and return all public applications
 2. WHEN calling listApplications with a userId parameter THEN the System SHALL send a GET request with the userId query parameter and return that user's applications
-3. WHEN calling createApplication with application data THEN the System SHALL send a POST request with the authenticated user's token and return the created application
+3. WHEN calling createApplication with application data and userId THEN the System SHALL send a POST request and return the created application
 4. WHEN an application API call fails with validation errors THEN the System SHALL return an object mapping field names to error messages
 5. WHEN an application API call succeeds THEN the System SHALL return the application data in a consistent format matching the Application type
 
@@ -254,17 +253,18 @@ This specification defines the requirements for integrating the MadeWithKiro fro
 
 ### Requirement 20
 
-**User Story:** As a developer, I want to seed DynamoDB with mock data, so that I can test the application with realistic data without manual data entry.
+**User Story:** As a developer, I want to seed DynamoDB with test data including a default user, so that I can test the application with realistic data without manual data entry.
 
 #### Acceptance Criteria
 
-1. WHEN running the seed script THEN the System SHALL create at least three user profiles with complete profile information in DynamoDB
-2. WHEN running the seed script THEN the System SHALL create at least ten applications distributed across the seeded users in DynamoDB
+1. WHEN running the seed script THEN the System SHALL create exactly one user profile with userId "test-user-001" and complete profile information in DynamoDB
+2. WHEN running the seed script THEN the System SHALL create at least ten applications associated with the test user in DynamoDB
 3. WHEN running the seed script THEN the System SHALL include applications with various tags for testing filtering functionality
 4. WHEN running the seed script THEN the System SHALL include applications with and without optional GitHub URLs
 5. WHEN running the seed script THEN the System SHALL check for existing data and skip seeding if data already exists to prevent duplicates
 6. WHEN the seed script completes THEN the System SHALL output a summary of created profiles and applications
 7. WHEN running the seed script with a clean flag THEN the System SHALL delete all existing data before seeding new data
+8. WHEN the frontend application loads THEN the System SHALL use "test-user-001" as the default userId for creating and updating applications
 
 ### Requirement 21
 

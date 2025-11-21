@@ -1,13 +1,32 @@
 import ApplicationForm from "@/components/ApplicationForm";
 import { useNavigate } from "@tanstack/react-router";
+import { useApplications } from "@/hooks/useApplications";
+import { useMockAuth } from "@/contexts/MockAuthContext";
 import type { ApplicationFormData } from "@/utils/validation";
 
 export default function AddApplicationPage() {
   const navigate = useNavigate();
+  const { currentUserId } = useMockAuth();
+  const { createApplication, isCreating } = useApplications();
 
-  const handleSubmit = (data: ApplicationFormData) => {
-    console.log("Application submitted:", data);
-    navigate({ to: "/" });
+  const handleSubmit = async (data: ApplicationFormData) => {
+    try {
+      // Remove visibility field (not yet supported by backend) and convert empty appUrl to undefined
+      const { visibility, appUrl, ...rest } = data;
+      const payload = {
+        ...rest,
+        appUrl: appUrl || undefined, // Convert empty string to undefined
+        userId: currentUserId || "test-user-001", // Fallback to test user
+      };
+
+      console.log("Submitting application:", payload);
+      await createApplication(payload);
+      // Redirect to gallery on success
+      navigate({ to: "/" });
+    } catch (error) {
+      console.error("Failed to create application:", error);
+      // Error is already handled by the hook
+    }
   };
 
   const handleCancel = () => {

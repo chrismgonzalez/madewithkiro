@@ -72,9 +72,12 @@ class CreateApplicationRequest(BaseModel):
     """Request model for creating an application"""
     name: str = Field(..., min_length=1, max_length=100, description="Application name")
     description: str = Field(..., min_length=1, max_length=500, description="Application description")
-    appUrl: HttpUrl = Field(..., description="Live application URL")
-    githubUrl: Optional[HttpUrl] = Field(None, description="GitHub repository URL (optional)")
+    appUrl: Optional[HttpUrl] = Field(None, description="Live application URL (optional)")
+    githubUrl: HttpUrl = Field(..., description="GitHub repository URL (required)")
     tags: List[str] = Field(..., min_length=1, max_length=10, description="Application tags")
+    userId: Optional[str] = Field(None, description="User ID (for POC without Cognito)")
+    
+    model_config = {"extra": "ignore"}  # Ignore extra fields
 
     @field_validator('name', 'description')
     @classmethod
@@ -110,7 +113,7 @@ class Application(BaseModel):
     userName: str
     name: str
     description: str
-    appUrl: str
+    appUrl: Optional[str] = None
     githubUrl: Optional[str] = None
     tags: List[str]
     createdAt: str

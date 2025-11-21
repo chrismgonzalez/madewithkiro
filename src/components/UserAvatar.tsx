@@ -20,7 +20,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { useMockAuth } from "@/contexts/MockAuthContext";
-import { getUserById } from "@/services/mockData";
+import { useProfile } from "@/hooks/useProfile";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 export default function UserAvatar() {
@@ -29,9 +29,11 @@ export default function UserAvatar() {
   const [open, setOpen] = useState(false);
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
-  if (!currentUserId) return null;
+  // Fetch user profile from API
+  const { profile: user, isLoading } = useProfile(currentUserId || "");
 
-  const user = getUserById(currentUserId);
+  if (!currentUserId) return null;
+  if (isLoading) return null; // Don't show avatar while loading
   if (!user) return null;
 
   const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();

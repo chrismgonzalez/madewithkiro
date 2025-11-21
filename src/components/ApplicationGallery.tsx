@@ -1,15 +1,30 @@
 import { useState, useMemo } from "react";
-import { useApplications } from "@/hooks/useData";
-import { filterApplicationsByTags } from "@/services/mockDataService";
+import { useApplications } from "@/hooks/useApplications";
 import ApplicationCard from "./ApplicationCard";
 import LoadingSpinner from "./LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, Filter as FilterIcon } from "lucide-react";
+import {
+  X,
+  Filter as FilterIcon,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+
+// Helper function to filter applications by tags
+function filterApplicationsByTags(applications: any[], selectedTags: string[]) {
+  if (selectedTags.length === 0) return applications;
+  return applications.filter((app) =>
+    selectedTags.every((tag) => app.tags.includes(tag))
+  );
+}
+
+const PAGE_SIZE = 50;
 
 export default function ApplicationGallery() {
-  const { data: applications, isLoading, error } = useApplications();
+  const { applications, isLoading, error } = useApplications();
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Extract unique tags from visible applications
   const availableTags = useMemo(() => {
@@ -23,9 +38,22 @@ export default function ApplicationGallery() {
 
   // Filter applications by selected tags
   const filteredApplications = useMemo(() => {
-    if (!applications) return [];
-    return filterApplicationsByTags(applications, selectedTags);
+    return filterApplicationsByTags(applications || [], selectedTags);
   }, [applications, selectedTags]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredApplications.length / PAGE_SIZE);
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const endIndex = startIndex + PAGE_SIZE;
+  const paginatedApplications = filteredApplications.slice(
+    startIndex,
+    endIndex
+  );
+
+  // Reset to page 1 when filters change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [selectedTags]);
 
   // Handle tag selection
   const handleTagToggle = (tag: string) => {
@@ -37,6 +65,19 @@ export default function ApplicationGallery() {
   // Clear all filters
   const handleClearFilters = () => {
     setSelectedTags([]);
+  };
+
+  // Pagination handlers
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage((prev) => prev - 1);
+    }
   };
 
   if (isLoading) {
@@ -144,11 +185,49 @@ export default function ApplicationGallery() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {filteredApplications.map((app) => (
-            <ApplicationCard key={app.appId} application={app} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {paginatedApplications.map((app) => (
+              <ApplicationCard key={app.appId} application={app} />
+            ))}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <nav
+              className="flex items-center justify-center gap-2 mt-8"
+              aria-label="Pagination navigation"
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+                className="min-h-[44px] min-w-[44px]"
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+
+              <span className="text-sm text-muted-foreground px-4">
+                Page {currentPage} of {totalPages}
+              </span>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={currentPage === totalPages}
+                className="min-h-[44px] min-w-[44px]"
+                aria-label="Next page"
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </nav>
+          )}
+        </>
       )}
     </div>
   );

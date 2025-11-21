@@ -245,6 +245,26 @@ def decimal_to_float(obj: Any) -> Any:
     return obj
 
 
+def delete_item(pk: str, sk: str) -> None:
+    """
+    Delete an item from DynamoDB
+    
+    Args:
+        pk: Partition key value
+        sk: Sort key value
+    """
+    try:
+        table.delete_item(
+            Key={
+                'PK': pk,
+                'SK': sk
+            }
+        )
+    except Exception as e:
+        print(f"Error deleting item: {str(e)}")
+        raise
+
+
 def clean_dynamodb_item(item: Dict[str, Any]) -> Dict[str, Any]:
     """
     Clean DynamoDB item by removing internal keys and converting Decimals

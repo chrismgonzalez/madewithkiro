@@ -2,6 +2,12 @@
  * API endpoint constants
  */
 
+/**
+ * Default test user ID for development (no auth yet)
+ * This user is created by the seed script
+ */
+export const TEST_USER_ID = "test-user-001";
+
 export const API_ENDPOINTS = {
   // Profile endpoints
   PROFILE: "/profile",

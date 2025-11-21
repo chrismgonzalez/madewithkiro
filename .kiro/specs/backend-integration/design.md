@@ -2,9 +2,9 @@
 
 ## Overview
 
-The backend integration feature connects the MadeWithKiro React frontend with AWS Lambda backend services through API Gateway. This design replaces the existing mock data services with real API calls, implements authentication token management, and ensures robust error handling and data synchronization between frontend and backend.
+The backend integration feature connects the MadeWithKiro React frontend with AWS Lambda backend services through API Gateway. This design replaces the existing mock data services with real API calls and ensures robust error handling and data synchronization between frontend and backend.
 
-The integration leverages the existing UI components from the madewithkiro-mvp spec and the Cognito authentication from the social-authentication spec. The design focuses on creating a clean service layer that abstracts API communication, handles authentication automatically, and provides a seamless developer experience.
+The integration leverages the existing UI components from the madewithkiro-mvp spec. The design focuses on creating a clean service layer that abstracts API communication and provides a seamless developer experience. Note: Authentication is not yet implemented, so all API endpoints are public and use a hardcoded test user ID for this phase.
 
 ## Architecture
 
@@ -34,10 +34,6 @@ The integration leverages the existing UI components from the madewithkiro-mvp s
 │                          │                                   │
 └──────────────────────────┼───────────────────────────────────┘
                            │
-                  ┌────────┴────────┐
-                  │  Auth Context   │
-                  │   (Cognito)     │
-                  └────────┬────────┘
                            │
                 ┌──────────┴──────────┐
                 │    API Gateway      │
@@ -62,16 +58,14 @@ The integration leverages the existing UI components from the madewithkiro-mvp s
 1. User action triggers API call in component
 2. Component calls service layer function (e.g., `profileService.getProfile()`)
 3. Service function calls API client with endpoint and parameters
-4. API client adds authentication token from Cognito (if authenticated)
-5. API client sends HTTP request to API Gateway
-6. API Gateway validates token with Cognito authorizer
-7. API Gateway invokes Lambda function
-8. Lambda processes request and interacts with DynamoDB
-9. Lambda returns response to API Gateway
-10. API Gateway returns response to frontend
-11. API client processes response (parse JSON, handle errors)
-12. Service function returns typed data to component
-13. Component updates UI with response data
+4. API client sends HTTP request to API Gateway
+5. API Gateway invokes Lambda function
+6. Lambda processes request and interacts with DynamoDB
+7. Lambda returns response to API Gateway
+8. API Gateway returns response to frontend
+9. API client processes response (parse JSON, handle errors)
+10. Service function returns typed data to component
+11. Component updates UI with response data
 
 ## Components and Interfaces
 
@@ -83,7 +77,6 @@ The core HTTP client that handles all communication with the backend API.
 
 - Configure base URL from environment variables
 - Add standard headers to all requests
-- Handle authentication token injection
 - Parse JSON responses
 - Implement retry logic with exponential backoff
 - Handle request cancellation with AbortController
@@ -103,7 +96,6 @@ interface RequestOptions {
   endpoint: string;
   data?: unknown;
   params?: Record<string, string>;
-  requiresAuth?: boolean;
   signal?: AbortSignal;
 }
 
@@ -192,19 +184,21 @@ interface Application {
 }
 ```
 
-### Auth Integration (`src/services/authService.ts`)
+### Constants (`src/constants/api.ts`)
 
-Provides authentication token management for API requests.
+Provides constant values for API configuration.
 
 **Interface:**
 
 ```typescript
-interface AuthService {
-  getAccessToken(): Promise<string | null>;
-  refreshToken(): Promise<string>;
-  isAuthenticated(): Promise<boolean>;
-  signOut(): Promise<void>;
-}
+// Default test user ID for development (no auth yet)
+export const TEST_USER_ID = "test-user-001";
+
+// API endpoints
+export const API_ENDPOINTS = {
+  PROFILE: "/profile",
+  APPLICATIONS: "/applications",
+} as const;
 ```
 
 ### TanStack Query Integration
@@ -492,9 +486,9 @@ _For any_ valid JSON response received by the API client, the response body shou
 _For any_ HTTP response with a non-2xx status code, the API client should throw an error containing the status code and error message
 **Validates: Requirements 1.5**
 
-### Property 4: Authenticated request token inclusion
+### Property 4: Request header consistency
 
-_For any_ API request made when a user is authenticated, the request should include the access token in the Authorization header as a Bearer token
+_For any_ API request made by the API client, custom headers specified in request options should be included in the request
 **Validates: Requirements 2.2**
 
 ### Property 5: Profile API request correctness
@@ -504,12 +498,12 @@ _For any_ valid userId, calling getProfile should send a GET request to the corr
 
 ### Property 6: Profile creation request correctness
 
-_For any_ valid profile data, calling createProfile should send a POST request with the authenticated user's token
+_For any_ valid profile data, calling createProfile should send a POST request to the correct endpoint
 **Validates: Requirements 4.2**
 
 ### Property 7: Profile update request correctness
 
-_For any_ valid profile update data, calling updateProfile should send a PUT request with the authenticated user's token
+_For any_ valid profile update data with userId, calling updateProfile should send a PUT request to the correct endpoint
 **Validates: Requirements 4.3**
 
 ### Property 8: Validation error parsing
@@ -529,7 +523,7 @@ _For any_ valid userId parameter, calling listApplications should send a GET req
 
 ### Property 11: Application creation request correctness
 
-_For any_ valid application data, calling createApplication should send a POST request with the authenticated user's token
+_For any_ valid application data with userId, calling createApplication should send a POST request to the correct endpoint
 **Validates: Requirements 5.3**
 
 ### Property 12: Application response type consistency
@@ -566,8 +560,6 @@ _For any_ API response received, the system should validate that the response st
 **HTTP Errors:**
 
 - 400 Bad Request - Validation errors
-- 401 Unauthorized - Invalid or expired token
-- 403 Forbidden - Insufficient permissions
 - 404 Not Found - Resource doesn't exist
 - 500 Internal Server Error - Backend failure
 - 502/503/504 - Gateway/service errors
@@ -606,7 +598,7 @@ _For any_ API response received, the system should validate that the response st
 
 - Network errors: Retry up to 3 times
 - 5xx server errors: Retry up to 2 times
-- 4xx client errors: No retry (except 429 rate limit)
+- 4xx client errors: No retry
 
 **Backoff Strategy:**
 
@@ -616,19 +608,10 @@ _For any_ API response received, the system should validate that the response st
 
 **No Retry Scenarios:**
 
-- 401 Unauthorized (redirect to login)
-- 403 Forbidden (show permission error)
 - 404 Not Found (show not found message)
 - 400 Bad Request (show validation errors)
 
 ### Error Recovery
-
-**Token Expiration:**
-
-1. Detect 401 response
-2. Attempt token refresh with Cognito
-3. Retry original request with new token
-4. If refresh fails, redirect to login
 
 **Optimistic Update Failure:**
 
@@ -707,28 +690,25 @@ test("Property 1: All requests include standard headers", () => {
   );
 });
 
-// Property 4: Authenticated requests include token
-test("Property 4: Authenticated requests include Bearer token", () => {
+// Property 4: Custom headers inclusion
+test("Property 4: Custom headers are included in requests", () => {
   fc.assert(
     fc.property(
-      fc.string({ minLength: 20 }), // access token
       fc.record({
         method: fc.constantFrom("GET", "POST", "PUT"),
         endpoint: fc.string(),
-        requiresAuth: fc.constant(true),
+        headers: fc.dictionary(fc.string(), fc.string()),
       }),
-      async (token, requestConfig) => {
-        const authService = { getAccessToken: () => Promise.resolve(token) };
-        const client = new ApiClient(
-          { baseURL: "https://api.test" },
-          authService
-        );
+      async (requestConfig) => {
+        const client = new ApiClient({ baseURL: "https://api.test" });
         const spy = vi.spyOn(global, "fetch");
 
         await client.request(requestConfig).catch(() => {});
 
         const headers = spy.mock.calls[0][1]?.headers as Headers;
-        expect(headers.get("Authorization")).toBe(`Bearer ${token}`);
+        Object.entries(requestConfig.headers).forEach(([key, value]) => {
+          expect(headers.get(key)).toBe(value);
+        });
       }
     ),
     { numRuns: 100 }
@@ -786,20 +766,12 @@ async function request<T>(options: RequestOptions): Promise<ApiResponse<T>> {
     Accept: "application/json",
   });
 
-  // 3. Add authentication token if required
-  if (options.requiresAuth) {
-    const token = await authService.getAccessToken();
-    if (token) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-  }
-
-  // 4. Log request in development
+  // 3. Log request in development
   if (isDevelopment()) {
     logRequest(options.method, url, headers);
   }
 
-  // 5. Make request with retry logic
+  // 4. Make request with retry logic
   return await retryWithBackoff(() =>
     fetch(url, {
       method: options.method,
@@ -825,13 +797,6 @@ async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
 
   // 3. Handle error responses
   if (!response.ok) {
-    // Handle 401 - Token expired
-    if (response.status === 401) {
-      await handleUnauthorized();
-      throw new ApiError("UNAUTHORIZED", "Please sign in again");
-    }
-
-    // Handle other errors
     return {
       data: null,
       error: {
@@ -869,7 +834,6 @@ async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
 
 - On profile update: Invalidate `profile:${userId}`
 - On application create: Invalidate `applications:*`
-- On sign out: Clear all cache
 
 ### Optimistic Updates
 
@@ -932,25 +896,21 @@ function useApplications() {
 
 ```
 VITE_API_BASE_URL=https://dev-api.madewithkiro.com
-VITE_COGNITO_USER_POOL_ID=us-east-1_devpool
-VITE_COGNITO_CLIENT_ID=dev-client-id
-VITE_COGNITO_REGION=us-east-1
+VITE_TEST_USER_ID=test-user-001
 ```
 
 **Production (.env.production):**
 
 ```
 VITE_API_BASE_URL=https://api.madewithkiro.com
-VITE_COGNITO_USER_POOL_ID=us-east-1_prodpool
-VITE_COGNITO_CLIENT_ID=prod-client-id
-VITE_COGNITO_REGION=us-east-1
+VITE_TEST_USER_ID=test-user-001
 ```
 
 **Configuration Validation:**
 
 ```typescript
 function validateConfig(config: EnvironmentConfig): void {
-  const required = ["apiBaseUrl", "cognitoUserPoolId", "cognitoClientId"];
+  const required = ["apiBaseUrl", "testUserId"];
 
   for (const key of required) {
     if (!config[key]) {
@@ -978,38 +938,20 @@ The seed script will be a Python script that uses boto3 to populate DynamoDB wit
 
 ### Seed Data Structure
 
-**User Profiles (3 users):**
+**User Profile (1 test user):**
 
 ```python
-SEED_USERS = [
-    {
-        'userId': 'user-001',
-        'firstName': 'Alice',
-        'lastName': 'Johnson',
-        'awsBuilderHandle': 'alice-builder',
-        'linkedInUsername': 'alicejohnson',
-        'githubUsername': 'alice-codes',
-    },
-    {
-        'userId': 'user-002',
-        'firstName': 'Bob',
-        'lastName': 'Smith',
-        'awsBuilderHandle': 'bob-aws',
-        'linkedInUsername': 'bobsmith',
-        'githubUsername': None,  # Optional field
-    },
-    {
-        'userId': 'user-003',
-        'firstName': 'Carol',
-        'lastName': 'Williams',
-        'awsBuilderHandle': 'carol-dev',
-        'linkedInUsername': None,  # Optional field
-        'githubUsername': 'carol-williams',
-    },
-]
+SEED_USER = {
+    'userId': 'test-user-001',
+    'firstName': 'Test',
+    'lastName': 'User',
+    'awsBuilderHandle': 'test-builder',
+    'linkedInUsername': 'testuser',
+    'githubUsername': 'test-user',
+}
 ```
 
-**Applications (10+ applications):**
+**Applications (10+ applications for test user):**
 
 ```python
 SEED_APPLICATIONS = [
@@ -1017,9 +959,9 @@ SEED_APPLICATIONS = [
         'name': 'Task Manager Pro',
         'description': 'A powerful task management application built with Kiro',
         'appUrl': 'https://taskmanager.example.com',
-        'githubUrl': 'https://github.com/alice-codes/task-manager',
+        'githubUrl': 'https://github.com/test-user/task-manager',
         'tags': ['productivity', 'react', 'typescript'],
-        'userId': 'user-001',
+        'userId': 'test-user-001',
     },
     {
         'name': 'Weather Dashboard',
@@ -1027,9 +969,9 @@ SEED_APPLICATIONS = [
         'appUrl': 'https://weather.example.com',
         'githubUrl': None,  # Optional field
         'tags': ['weather', 'dashboard', 'api'],
-        'userId': 'user-001',
+        'userId': 'test-user-001',
     },
-    # ... more applications distributed across users
+    # ... more applications for test user
 ]
 ```
 
@@ -1070,13 +1012,10 @@ def seed_database(table_name: str, clean: bool = False, dry_run: bool = False):
         print(f"Found {existing_profiles} existing profiles. Skipping seed.")
         return
 
-    # 4. Create user profiles
-    profiles_created = 0
-    for user_data in SEED_USERS:
-        if not dry_run:
-            create_profile(table, user_data)
-        profiles_created += 1
-        print(f"Created profile: {user_data['firstName']} {user_data['lastName']}")
+    # 4. Create test user profile
+    if not dry_run:
+        create_profile(table, SEED_USER)
+    print(f"Created profile: {SEED_USER['firstName']} {SEED_USER['lastName']}")
 
     # 5. Create applications
     apps_created = 0
@@ -1088,7 +1027,7 @@ def seed_database(table_name: str, clean: bool = False, dry_run: bool = False):
 
     # 6. Output summary
     print(f"\nSeed complete!")
-    print(f"Profiles created: {profiles_created}")
+    print(f"Profile created: test-user-001")
     print(f"Applications created: {apps_created}")
 ```
 
@@ -1227,25 +1166,17 @@ If critical issues arise:
 
 ## Security Considerations
 
-### Token Management
-
-**Storage:**
-
-- Never store tokens in localStorage (XSS risk)
-- Use httpOnly cookies when possible
-- Use Cognito's secure token storage
+### Data Security
 
 **Transmission:**
 
 - Always use HTTPS
-- Include tokens only in Authorization header
-- Never include tokens in URL parameters
+- Never include sensitive data in URL parameters
 
-**Expiration:**
+**Test User ID:**
 
-- Implement automatic token refresh
-- Clear tokens on sign out
-- Handle token expiration gracefully
+- Use hardcoded test user ID for development
+- Plan for proper authentication in future phases
 
 ### Input Validation
 
@@ -1306,8 +1237,6 @@ Cors:
 - API response times
 - Error rates by endpoint
 - Cache hit rates
-- Token refresh frequency
-- Failed authentication attempts
 
 **Alerts:**
 

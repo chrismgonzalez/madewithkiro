@@ -194,7 +194,7 @@ Resources:
             UserPoolArn: !GetAtt CognitoUserPool.Arn
         AddDefaultAuthorizerToCorsPreflight: false
       Cors:
-        AllowMethods: "'GET,POST,PUT,OPTIONS'"
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
       Tags:
@@ -261,6 +261,14 @@ Resources:
             Method: GET
             Auth:
               Authorizer: NONE
+        GetApplication:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /applications/{appId}
+            Method: GET
+            Auth:
+              Authorizer: NONE
         CreateApplication:
           Type: Api
           Properties:
@@ -268,7 +276,23 @@ Resources:
             Path: /applications
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
+              Authorizer: NONE
+        UpdateApplication:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /applications/{appId}
+            Method: PUT
+            Auth:
+              Authorizer: NONE
+        DeleteApplication:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /applications/{appId}
+            Method: DELETE
+            Auth:
+              Authorizer: NONE
       Tags:
         Environment: !Ref Environment
         Application: MadeWithKiro

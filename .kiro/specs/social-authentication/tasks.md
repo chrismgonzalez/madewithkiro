@@ -292,6 +292,51 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 6.2, 6.4_
 
+- [ ] 12.3 Create auth service module (BDD/TDD)
+- [ ] 12.3.1 Write acceptance tests for auth service
+
+  - **GIVEN** a user is authenticated
+  - **WHEN** I request the access token
+  - **THEN** I should receive the current access token from Cognito
+  - **GIVEN** an access token is expired
+  - **WHEN** I make an authenticated request
+  - **THEN** the system should attempt to refresh the token before making the request
+  - **GIVEN** token refresh fails
+  - **WHEN** the refresh attempt completes
+  - **THEN** the user should be redirected to the authentication page
+
+- [ ] 12.3.2 Write acceptance tests for request interceptor integration
+
+  - **GIVEN** a user is authenticated
+  - **WHEN** the API client makes an authenticated request
+  - **THEN** the request should include the access token in the Authorization header as a Bearer token
+  - **GIVEN** a user is not authenticated
+  - **WHEN** the API client makes a request to a public endpoint
+  - **THEN** the request should not include an Authorization header
+
+- [ ]\* 12.3.3 Write property test for authenticated request token inclusion
+
+  - **Property: Authenticated request token inclusion**
+  - **Validates: Token is correctly added to all authenticated requests**
+
+- [ ] 12.3.4 Implement auth service (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Implement getAccessToken method using Cognito SDK
+  - **GREEN**: Implement token refresh logic
+  - **GREEN**: Implement isAuthenticated check
+  - **GREEN**: Handle token expiration
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+
+- [ ] 12.3.5 Integrate auth service with API client (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Retrieve access token before authenticated requests
+  - **GREEN**: Add Bearer token to Authorization header
+  - **GREEN**: Handle token expiration and refresh
+  - **GREEN**: Redirect to auth page on refresh failure
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+
 - [ ] 13. Update routing configuration
 
   - Add /auth route for AuthPage component

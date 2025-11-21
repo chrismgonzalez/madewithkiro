@@ -2,6 +2,16 @@
  * Tanstack Query hooks for data fetching
  * These hooks provide a clean interface for components to access data
  * with built-in caching, loading states, and error handling
+ *
+ * NOTE: This file uses mock data services and is still used by features not yet migrated:
+ * - Application editing (EditApplicationPage)
+ * - Application deletion
+ *
+ * For new features, use the real API hooks:
+ * - useProfile from @/hooks/useProfile
+ * - useApplications from @/hooks/useApplications
+ *
+ * Once all features are migrated, this file can be removed.
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";

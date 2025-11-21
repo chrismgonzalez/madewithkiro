@@ -2,6 +2,13 @@
  * Mock Data Service Layer
  * Wraps mock data functions and returns Promises to simulate async API calls
  * This interface will make it easy to swap with real API calls later
+ *
+ * NOTE: This file is still used by features not yet migrated to the real API:
+ * - Application editing (EditApplicationPage via useData hook)
+ * - Application deletion
+ * - Test files
+ *
+ * Once these features are migrated to use real API services, this file can be removed.
  */
 
 import type {

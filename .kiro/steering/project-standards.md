@@ -144,6 +144,8 @@ src/
 - Write unit tests for utility functions and hooks
 - Test mobile responsiveness manually or with tools
 - Test authentication flows thoroughly
+- The test command is `bun run test`
+- Tests should validate the behavior we expect, not the implementation details
 
 ## Performance
 
@@ -162,8 +164,8 @@ src/
 - Use Cognito for authentication, not custom solutions
 - Follow AWS security best practices
 
-
 ## Extra
 
 - No need for abundant comments
 - No need for summary documentation unless asked
+- Do not rewrite complete files, only fix what needs to be fixed

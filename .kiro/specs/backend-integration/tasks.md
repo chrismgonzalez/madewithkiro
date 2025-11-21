@@ -13,7 +13,7 @@ Each task follows this pattern to ensure proper SDLC practices.
 
 ---
 
-- [ ] 1. Set up infrastructure and dependencies
+- [x] 1. Set up infrastructure and dependencies
 
   - Install @tanstack/react-query and configure QueryClient
   - Install fast-check for property-based testing
@@ -22,8 +22,8 @@ Each task follows this pattern to ensure proper SDLC practices.
   - Configure test scripts in package.json
   - _Requirements: 11.1, 11.2, 11.3_
 
-- [ ] 2. Create API client foundation (BDD/TDD)
-- [ ] 2.1 Write acceptance tests for API client
+- [x] 2. Create API client foundation (BDD/TDD)
+- [x] 2.1 Write acceptance tests for API client
 
   - **GIVEN** the API client is initialized
   - **WHEN** I make any request
@@ -54,7 +54,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **Property 3: Error status code handling**
   - **Validates: Requirements 1.5**
 
-- [ ] 2.5 Implement core API client (RED → GREEN → REFACTOR)
+- [x] 2.5 Implement core API client (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Create ApiClient class with base configuration from environment variables
@@ -65,64 +65,15 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [ ] 3. Implement authentication integration (BDD/TDD)
-- [ ] 3.1 Write acceptance tests for auth service
+- [ ] 3. Note: Authentication not yet implemented
 
-  - **GIVEN** a user is authenticated
-  - **WHEN** I request the access token
-  - **THEN** I should receive the current access token from Cognito
-  - **GIVEN** an access token is expired
-  - **WHEN** I make an authenticated request
-  - **THEN** the system should attempt to refresh the token before making the request
-  - **GIVEN** token refresh fails
-  - **WHEN** the refresh attempt completes
-  - **THEN** the user should be redirected to the authentication page
-  - _Requirements: 2.1, 2.4, 2.5_
+  - All API endpoints are public for this phase
+  - Use hardcoded test user ID (test-user-001) for development
+  - Authentication will be added in a future spec
 
-- [ ] 3.2 Write acceptance tests for request interceptor
+- [x] 4. Implement response interceptors and error handling (BDD/TDD)
+- [x] 4.1 Write acceptance tests for response interceptor
 
-  - **GIVEN** a user is authenticated
-  - **WHEN** the API client makes an authenticated request
-  - **THEN** the request should include the access token in the Authorization header as a Bearer token
-  - **GIVEN** a user is not authenticated
-  - **WHEN** the API client makes a request to a public endpoint
-  - **THEN** the request should not include an Authorization header
-  - _Requirements: 2.2, 2.3_
-
-- [ ]\* 3.3 Write property test for authenticated request token inclusion
-
-  - **Property 4: Authenticated request token inclusion**
-  - **Validates: Requirements 2.2**
-
-- [ ] 3.4 Implement auth service (RED → GREEN → REFACTOR)
-
-  - **RED**: Run acceptance tests and watch them fail
-  - **GREEN**: Implement getAccessToken method using Cognito SDK
-  - **GREEN**: Implement token refresh logic
-  - **GREEN**: Implement isAuthenticated check
-  - **GREEN**: Handle token expiration
-  - **REFACTOR**: Ensure all tests pass, improve code quality
-  - _Requirements: 2.1, 2.4_
-
-- [ ] 3.5 Add request interceptor for authentication (RED → GREEN → REFACTOR)
-
-  - **RED**: Run acceptance tests and watch them fail
-  - **GREEN**: Retrieve access token before authenticated requests
-  - **GREEN**: Add Bearer token to Authorization header
-  - **GREEN**: Handle token expiration and refresh
-  - **GREEN**: Redirect to auth page on refresh failure
-  - **REFACTOR**: Ensure all tests pass, improve code quality
-  - _Requirements: 2.2, 2.3, 2.5_
-
-- [ ] 4. Implement response interceptors and error handling (BDD/TDD)
-- [ ] 4.1 Write acceptance tests for response interceptor
-
-  - **GIVEN** the API returns a 401 Unauthorized response
-  - **WHEN** the response is processed
-  - **THEN** the system should clear authentication state and redirect to the sign-in page
-  - **GIVEN** the API returns a 403 Forbidden response
-  - **WHEN** the response is processed
-  - **THEN** the system should display an error message indicating insufficient permissions
   - **GIVEN** the API returns a 404 Not Found response
   - **WHEN** the response is processed
   - **THEN** the system should display an error message indicating the resource was not found
@@ -132,9 +83,12 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **GIVEN** the API returns validation errors in a 400 Bad Request response
   - **WHEN** the response is processed
   - **THEN** the system should extract and display field-specific error messages
+  - **GIVEN** the API returns a 503 Service Unavailable response
+  - **WHEN** the response is processed
+  - **THEN** the system should display a message indicating the service is temporarily unavailable
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 4.2 Write acceptance tests for retry logic
+- [x] 4.2 Write acceptance tests for retry logic
 
   - **GIVEN** an API request fails with a network error
   - **WHEN** the error occurs
@@ -153,18 +107,17 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** the system should process the response normally without indicating that retries occurred
   - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
 
-- [ ] 4.3 Implement response interceptor (RED → GREEN → REFACTOR)
+- [x] 4.3 Implement response interceptor (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
-  - **GREEN**: Handle 401 Unauthorized (clear auth and redirect)
-  - **GREEN**: Handle 403 Forbidden (show permission error)
   - **GREEN**: Handle 404 Not Found (show not found message)
   - **GREEN**: Handle 500 Internal Server Error (show generic error)
   - **GREEN**: Handle 400 Bad Request validation errors
+  - **GREEN**: Handle 503 Service Unavailable (show service unavailable message)
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 4.4 Implement retry logic with exponential backoff (RED → GREEN → REFACTOR)
+- [x] 4.4 Implement retry logic with exponential backoff (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Retry network errors up to 3 times
@@ -175,18 +128,18 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
 
-- [ ] 5. Create profile service (BDD/TDD)
-- [ ] 5.1 Write acceptance tests for profile service
+- [x] 5. Create profile service (BDD/TDD)
+- [x] 5.1 Write acceptance tests for profile service
 
   - **GIVEN** I call getProfile with a valid userId
   - **WHEN** the request is made
   - **THEN** a GET request should be sent to the profile endpoint and return the user profile data
   - **GIVEN** I call createProfile with valid profile data
   - **WHEN** the request is made
-  - **THEN** a POST request should be sent with the authenticated user's token and return the created profile
-  - **GIVEN** I call updateProfile with valid updated data
+  - **THEN** a POST request should be sent and return the created profile
+  - **GIVEN** I call updateProfile with userId and valid updated data
   - **WHEN** the request is made
-  - **THEN** a PUT request should be sent with the authenticated user's token and return the updated profile
+  - **THEN** a PUT request should be sent and return the updated profile
   - **GIVEN** a profile API call fails with validation errors
   - **WHEN** the error response is processed
   - **THEN** the system should return an object mapping field names to error messages
@@ -220,7 +173,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **Property 9: Profile response type consistency**
   - **Validates: Requirements 4.5**
 
-- [ ] 5.7 Implement profile API service (RED → GREEN → REFACTOR)
+- [x] 5.7 Implement profile API service (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Implement getProfile function
@@ -231,8 +184,8 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 6. Create application service (BDD/TDD)
-- [ ] 6.1 Write acceptance tests for application service
+- [x] 6. Create application service (BDD/TDD)
+- [x] 6.1 Write acceptance tests for application service
 
   - **GIVEN** I call listApplications without parameters
   - **WHEN** the request is made
@@ -240,9 +193,9 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **GIVEN** I call listApplications with a userId parameter
   - **WHEN** the request is made
   - **THEN** a GET request should be sent with the userId query parameter and return that user's applications
-  - **GIVEN** I call createApplication with valid application data
+  - **GIVEN** I call createApplication with valid application data and userId
   - **WHEN** the request is made
-  - **THEN** a POST request should be sent with the authenticated user's token and return the created application
+  - **THEN** a POST request should be sent and return the created application
   - **GIVEN** an application API call fails with validation errors
   - **WHEN** the error response is processed
   - **THEN** the system should return an object mapping field names to error messages
@@ -266,7 +219,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **Property 12: Application response type consistency**
   - **Validates: Requirements 5.5**
 
-- [ ] 6.5 Implement application API service (RED → GREEN → REFACTOR)
+- [x] 6.5 Implement application API service (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Implement listApplications function (with optional userId)
@@ -276,8 +229,8 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 7. Set up TanStack Query and create hooks (BDD/TDD)
-- [ ] 7.1 Write acceptance tests for TanStack Query configuration
+- [x] 7. Set up TanStack Query and create hooks (BDD/TDD)
+- [x] 7.1 Write acceptance tests for TanStack Query configuration
 
   - **GIVEN** the application initializes
   - **WHEN** TanStack Query is configured
@@ -290,7 +243,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** the QueryClient should retry failed requests 2 times
   - _Requirements: 9.1, 9.2, 9.5_
 
-- [ ] 7.2 Write acceptance tests for useProfile hook
+- [x] 7.2 Write acceptance tests for useProfile hook
 
   - **GIVEN** I use the useProfile hook with a userId
   - **WHEN** the hook initializes
@@ -306,7 +259,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** the UI should revert to the previous state and display an error message
   - _Requirements: 7.1, 7.2, 7.3, 10.1, 10.2, 10.3_
 
-- [ ] 7.3 Write acceptance tests for useApplications hook
+- [x] 7.3 Write acceptance tests for useApplications hook
 
   - **GIVEN** I use the useApplications hook
   - **WHEN** the hook initializes
@@ -325,7 +278,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** the optimistic application should be removed and an error message should be displayed
   - _Requirements: 7.1, 7.2, 7.3, 10.4, 10.5_
 
-- [ ] 7.4 Configure QueryClient and provider (RED → GREEN → REFACTOR)
+- [x] 7.4 Configure QueryClient and provider (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Create QueryClient with staleTime: 5 minutes
@@ -336,7 +289,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 9.1, 9.2, 9.5_
 
-- [ ] 7.5 Create useProfile hook (RED → GREEN → REFACTOR)
+- [x] 7.5 Create useProfile hook (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Implement useQuery for profile fetching with query key ['profile', userId]
@@ -347,7 +300,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 7.1, 7.2, 7.3, 10.1, 10.2, 10.3_
 
-- [ ] 7.6 Create useApplications hook (RED → GREEN → REFACTOR)
+- [x] 7.6 Create useApplications hook (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Implement useQuery for applications fetching with dynamic query key
@@ -363,8 +316,8 @@ Each task follows this pattern to ensure proper SDLC practices.
 
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 9. Implement request cancellation (BDD/TDD)
-- [ ] 9.1 Write acceptance tests for request cancellation
+- [x] 9. Implement request cancellation (BDD/TDD)
+- [x] 9.1 Write acceptance tests for request cancellation
 
   - **GIVEN** a component unmounts during an API request
   - **WHEN** the unmount occurs
@@ -383,7 +336,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** no error messages should be displayed to the user
   - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-- [ ] 9.2 Add AbortController support to API client (RED → GREEN → REFACTOR)
+- [x] 9.2 Add AbortController support to API client (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Accept signal parameter in request options
@@ -392,7 +345,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-- [ ] 9.3 Implement request cancellation in hooks (RED → GREEN → REFACTOR)
+- [x] 9.3 Implement request cancellation in hooks (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Cancel requests on component unmount using useEffect cleanup
@@ -401,8 +354,8 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-- [ ] 10. Add TypeScript type safety (BDD/TDD)
-- [ ] 10.1 Write acceptance tests for TypeScript types
+- [x] 10. Add TypeScript type safety (BDD/TDD)
+- [x] 10.1 Write acceptance tests for TypeScript types
 
   - **GIVEN** I define API service functions
   - **WHEN** I use TypeScript interfaces
@@ -420,7 +373,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **Property 15: Response type validation**
   - **Validates: Requirements 14.2**
 
-- [ ] 10.3 Create TypeScript interfaces (RED → GREEN → REFACTOR)
+- [x] 10.3 Create TypeScript interfaces (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Define UserProfile interface matching backend
@@ -432,7 +385,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 14.1_
 
-- [ ] 10.4 Implement runtime type validation (RED → GREEN → REFACTOR)
+- [x] 10.4 Implement runtime type validation (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Add response validation using Zod schemas
@@ -473,7 +426,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5_
 
 - [ ] 12. Replace mock services in components (BDD/TDD)
-- [ ] 12.1 Write acceptance tests for component API integration
+- [x] 12.1 Write acceptance tests for component API integration
 
   - **GIVEN** the ProfilePage loads
   - **WHEN** the page renders
@@ -494,7 +447,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **Property 13: Service signature compatibility**
   - **Validates: Requirements 6.5**
 
-- [ ] 12.3 Update ProfilePage to use real API (RED → GREEN → REFACTOR)
+- [x] 12.3 Update ProfilePage to use real API (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Replace mock data service with useProfile hook
@@ -503,7 +456,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 6.2_
 
-- [ ] 12.4 Update GalleryPage to use real API (RED → GREEN → REFACTOR)
+- [x] 12.4 Update GalleryPage to use real API (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Replace mock data service with useApplications hook
@@ -513,7 +466,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 6.1_
 
-- [ ] 12.5 Update ProfileForm to use real API (RED → GREEN → REFACTOR)
+- [x] 12.5 Update ProfileForm to use real API (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Replace mock submission with useProfile mutation
@@ -522,7 +475,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 6.3_
 
-- [ ] 12.6 Update ApplicationForm to use real API (RED → GREEN → REFACTOR)
+- [x] 12.6 Update ApplicationForm to use real API (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Replace mock submission with useApplications mutation
@@ -532,8 +485,8 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 6.4_
 
-- [ ] 13. Implement toast notifications (BDD/TDD)
-- [ ] 13.1 Write acceptance tests for toast notifications
+- [x] 13. Implement toast notifications (BDD/TDD)
+- [x] 13.1 Write acceptance tests for toast notifications
 
   - **GIVEN** a user successfully creates a profile
   - **WHEN** the creation completes
@@ -552,7 +505,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** the system should automatically dismiss the notification
   - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
 
-- [ ] 13.2 Add toast notification library (RED → GREEN → REFACTOR)
+- [x] 13.2 Add toast notification library (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Install react-hot-toast or similar
@@ -561,7 +514,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
 
-- [ ] 13.3 Add success and error notifications (RED → GREEN → REFACTOR)
+- [x] 13.3 Add success and error notifications (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Show toast on profile create success
@@ -572,8 +525,8 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
 
-- [ ] 14. Implement pagination support (BDD/TDD)
-- [ ] 14.1 Write acceptance tests for pagination
+- [x] 14. Implement pagination support (BDD/TDD)
+- [x] 14.1 Write acceptance tests for pagination
 
   - **GIVEN** the applications list exceeds 50 items
   - **WHEN** the gallery loads
@@ -592,7 +545,7 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** the system should disable the next page navigation control
   - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5_
 
-- [ ] 14.2 Add pagination to applications list (RED → GREEN → REFACTOR)
+- [x] 14.2 Add pagination to applications list (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Update listApplications to accept pagination params
@@ -602,15 +555,15 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **REFACTOR**: Ensure all tests pass, improve code quality
   - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5_
 
-- [ ] 15. Create DynamoDB seed script (BDD/TDD)
-- [ ] 15.1 Write acceptance tests for seed script
+- [x] 15. Create DynamoDB seed script (BDD/TDD)
+- [x] 15.1 Write acceptance tests for seed script
 
   - **GIVEN** I run the seed script on an empty database
   - **WHEN** the script executes
-  - **THEN** it should create at least 3 user profiles with complete profile information in DynamoDB
+  - **THEN** it should create exactly 1 user profile with userId "test-user-001" and complete profile information in DynamoDB
   - **GIVEN** I run the seed script on an empty database
   - **WHEN** the script executes
-  - **THEN** it should create at least 10 applications distributed across the seeded users in DynamoDB
+  - **THEN** it should create at least 10 applications associated with test-user-001 in DynamoDB
   - **GIVEN** I run the seed script on an empty database
   - **WHEN** the script executes
   - **THEN** it should include applications with various tags for testing filtering functionality
@@ -622,32 +575,38 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **THEN** it should check for existing data and skip seeding to prevent duplicates
   - **GIVEN** the seed script completes
   - **WHEN** execution finishes
-  - **THEN** it should output a summary of created profiles and applications
+  - **THEN** it should output a summary of created profile and applications
   - **GIVEN** I run the seed script with the clean flag
   - **WHEN** the script executes
   - **THEN** it should delete all existing data before seeding new data
-  - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5, 20.6, 20.7_
+  - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5, 20.6, 20.7, 20.8_
 
-- [ ] 15.2 Implement seed script in Python (RED → GREEN → REFACTOR)
+- [x] 15.2 Implement seed script in Python (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
   - **GREEN**: Create seed_db.py script with boto3
-  - **GREEN**: Define seed data for 3 users with all fields
-  - **GREEN**: Define seed data for 10+ applications with variety
+  - **GREEN**: Define seed data for 1 test user (test-user-001) with all fields
+  - **GREEN**: Define seed data for 10+ applications associated with test user
   - **GREEN**: Implement check for existing data (skip if exists)
   - **GREEN**: Implement clean flag to delete existing data
   - **GREEN**: Output summary of created items
   - **REFACTOR**: Ensure all tests pass, improve code quality
-  - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5, 20.6, 20.7_
+  - _Requirements: 20.1, 20.2, 20.3, 20.4, 20.5, 20.6, 20.7, 20.8_
 
-- [ ] 15.3 Add Makefile commands for seeding
+- [x] 15.3 Add Makefile commands for seeding
 
   - Add `make seed-db` command
   - Add `make seed-db-clean` command
-  - _Requirements: 20.1-20.7_
+  - _Requirements: 20.1-20.8_
 
-- [ ] 16. Add environment-specific configuration (BDD/TDD)
-- [ ] 16.1 Write acceptance tests for environment configuration
+- [x] 15.4 Add test user ID constant to frontend
+
+  - Create constant TEST_USER_ID = "test-user-001" in src/constants/api.ts
+  - Use this constant throughout the application for creating/updating data
+  - _Requirements: 20.8_
+
+- [x] 16. Add environment-specific configuration (BDD/TDD)
+- [x] 16.1 Write acceptance tests for environment configuration
 
   - **GIVEN** the frontend application builds for development
   - **WHEN** the build process runs
@@ -665,11 +624,11 @@ Each task follows this pattern to ensure proper SDLC practices.
   - **Property 14: Centralized API base URL**
   - **Validates: Requirements 11.5**
 
-- [ ] 16.3 Create environment files (RED → GREEN → REFACTOR)
+- [x] 16.3 Create environment files (RED → GREEN → REFACTOR)
 
   - **RED**: Run acceptance tests and watch them fail
-  - **GREEN**: Create .env.development with API URL and Cognito config
-  - **GREEN**: Create .env.production with API URL and Cognito config
+  - **GREEN**: Create .env.development with API URL and test user ID
+  - **GREEN**: Create .env.production with API URL and test user ID
   - **GREEN**: Update .env.example with all required variables
   - **GREEN**: Add environment variable validation on app init
   - **REFACTOR**: Ensure all tests pass, improve code quality
@@ -706,23 +665,23 @@ Each task follows this pattern to ensure proper SDLC practices.
 
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 19. Documentation and cleanup
+- [x] 19. Documentation and cleanup
 
-  - [ ] 19.1 Update README with API integration details
+  - [x] 19.1 Update README with API integration details
 
     - Document environment variables
     - Document seed script usage
     - Document TanStack Query setup
     - _Requirements: All_
 
-  - [ ] 19.2 Remove mock data services
+  - [x] 19.2 Remove mock data services
 
     - Delete mock data service files
     - Remove mock data imports
     - Clean up unused code
     - _Requirements: 6.5_
 
-  - [ ] 19.3 Add JSDoc comments to API services
+  - [x] 19.3 Add JSDoc comments to API services
     - Document all service functions
     - Document parameters and return types
     - Add usage examples

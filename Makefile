@@ -49,6 +49,40 @@ test: ## Run all tests (frontend and backend)
 	@bun run test --run 2>/dev/null || echo "$(YELLOW)No frontend tests configured yet$(NC)"
 	@echo "$(GREEN)✓ Tests completed$(NC)"
 
+seed-db: ## Seed DynamoDB with test data (dev environment)
+	@echo "$(BLUE)Seeding DynamoDB with test data...$(NC)"
+	@TABLE_NAME=$$(aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs[?OutputKey==`TableName`].OutputValue' --output text 2>/dev/null); \
+	if [ -n "$$TABLE_NAME" ]; then \
+		cd backend && uv run python scripts/seed_db.py --table-name $$TABLE_NAME; \
+		echo "$(GREEN)✓ Database seeded successfully$(NC)"; \
+	else \
+		echo "$(RED)✗ Could not find DynamoDB table. Deploy infrastructure first with: make deploy-dev$(NC)"; \
+		exit 1; \
+	fi
+
+seed-db-clean: ## Clean and reseed DynamoDB (dev environment)
+	@echo "$(BLUE)Cleaning and reseeding DynamoDB...$(NC)"
+	@echo "$(YELLOW)⚠️  WARNING: This will DELETE all existing data$(NC)"
+	@read -p "Are you sure? [y/N] " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		TABLE_NAME=$$(aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs[?OutputKey==`TableName`].OutputValue' --output text 2>/dev/null); \
+		if [ -n "$$TABLE_NAME" ]; then \
+			cd backend && uv run python scripts/seed_db.py --table-name $$TABLE_NAME --clean; \
+			echo "$(GREEN)✓ Database cleaned and reseeded$(NC)"; \
+		else \
+			echo "$(RED)✗ Could not find DynamoDB table$(NC)"; \
+			exit 1; \
+		fi \
+	else \
+		echo "$(YELLOW)Seeding cancelled$(NC)"; \
+	fi
+
+seed-db-local: ## Seed local DynamoDB (for local development)
+	@echo "$(BLUE)Seeding local DynamoDB...$(NC)"
+	@cd backend && uv run python scripts/seed_db.py --table-name MadeWithKiro-local
+	@echo "$(GREEN)✓ Local database seeded$(NC)"
+
 sam-build: ## Build SAM application
 	@echo "$(BLUE)Building SAM application...$(NC)"
 	sam build

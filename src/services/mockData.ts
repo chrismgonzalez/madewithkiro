@@ -1,6 +1,13 @@
 /**
  * Mock Data Layer for MadeWithKiro MVP
  * Provides sample data for development and testing
+ *
+ * NOTE: This file is still used by features not yet migrated to the real API:
+ * - Application editing (EditApplicationPage)
+ * - Application deletion
+ * - Test files
+ *
+ * Once these features are migrated to use real API services, this file can be removed.
  */
 
 import type { UserProfile, Application } from "../types";

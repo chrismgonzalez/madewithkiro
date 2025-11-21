@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/input-group";
 import { Separator } from "@/components/ui/separator";
 import { profileSchema, type ProfileFormData } from "@/utils/validation";
+import { showSuccessToast, showErrorToast } from "@/utils/toast";
 import { z } from "zod";
 import { CheckCircle2, Github, Linkedin } from "lucide-react";
 
@@ -133,6 +134,15 @@ export default function ProfileForm({
 
       // Show success message
       setShowSuccess(true);
+
+      // Show success toast notification
+      const isUpdate = initialData && Object.keys(initialData).length > 0;
+      showSuccessToast(
+        isUpdate
+          ? "Profile updated successfully"
+          : "Profile created successfully",
+        5000
+      );
     } catch (error) {
       if (error instanceof z.ZodError) {
         const issues = error.issues;
@@ -141,6 +151,9 @@ export default function ProfileForm({
           message: err.message,
         }));
         setErrors(fieldErrors);
+      } else if (error instanceof Error) {
+        // Show error toast notification
+        showErrorToast(error.message, 5000);
       }
     } finally {
       setIsSubmitting(false);

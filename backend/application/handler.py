@@ -27,31 +27,68 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Routes:
     - GET /applications - List all applications (public)
     - GET /applications?userId={userId} - List user's applications (public)
+    - GET /applications/{appId} - Get single application (public)
     - POST /applications - Create application (authenticated)
+    - PUT /applications/{appId} - Update application (authenticated, owner only)
+    - DELETE /applications/{appId} - Delete application (authenticated, owner only)
     """
     
     http_method = event.get('httpMethod')
+    path_parameters = event.get('pathParameters') or {}
     query_parameters = event.get('queryStringParameters') or {}
+    app_id = path_parameters.get('appId')
     
     try:
         if http_method == 'GET':
-            # List applications
-            user_id = query_parameters.get('userId')
-            
-            if user_id:
-                return list_user_applications(user_id)
+            if app_id:
+                # Get single application
+                return get_application(app_id)
             else:
-                return list_all_applications()
+                # List applications
+                user_id = query_parameters.get('userId')
+                
+                if user_id:
+                    return list_user_applications(user_id)
+                else:
+                    return list_all_applications()
         
         elif http_method == 'POST':
             # Create new application
             body = json.loads(event.get('body', '{}'))
-            user_id = get_user_id_from_event(event)
+            # For POC: Get userId from body instead of Cognito
+            user_id = body.get('userId') or get_user_id_from_event(event)
             
             if not user_id:
-                return error_response(401, 'Unauthorized')
+                return error_response(401, 'Unauthorized - userId required')
             
             return create_application(user_id, body)
+        
+        elif http_method == 'PUT':
+            # Update application
+            if not app_id:
+                return error_response(400, 'Application ID required')
+            
+            body = json.loads(event.get('body', '{}'))
+            # For POC: Get userId from body instead of Cognito
+            user_id = body.get('userId') or get_user_id_from_event(event)
+            
+            if not user_id:
+                return error_response(401, 'Unauthorized - userId required')
+            
+            return update_application(app_id, user_id, body)
+        
+        elif http_method == 'DELETE':
+            # Delete application
+            if not app_id:
+                return error_response(400, 'Application ID required')
+            
+            # For POC: Get userId from query params instead of Cognito
+            user_id = query_parameters.get('userId') or get_user_id_from_event(event)
+            
+            if not user_id:
+                return error_response(401, 'Unauthorized - userId required')
+            
+            return delete_application(app_id, user_id)
         
         else:
             return error_response(405, f'Method {http_method} not allowed')
@@ -149,6 +186,95 @@ def create_application(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         return error_response(500, 'Error creating application')
 
 
+def get_application(app_id: str) -> Dict[str, Any]:
+    """Get a single application by ID"""
+    try:
+        # Get application from DynamoDB
+        app_item = get_item(f'APP#{app_id}', 'METADATA')
+        
+        if not app_item:
+            return error_response(404, 'Application not found')
+        
+        # Clean and return application
+        app_data = clean_dynamodb_item(app_item)
+        return success_response(app_data)
+    
+    except Exception as e:
+        print(f"Error getting application: {str(e)}")
+        return error_response(500, 'Error getting application')
+
+
+def update_application(app_id: str, user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    """Update an existing application"""
+    try:
+        # Get existing application
+        app_item = get_item(f'APP#{app_id}', 'METADATA')
+        
+        if not app_item:
+            return error_response(404, 'Application not found')
+        
+        # Check ownership
+        if app_item.get('userId') != user_id:
+            return error_response(403, 'You do not have permission to update this application')
+        
+        # Validate request data (partial update)
+        app_request = CreateApplicationRequest(**data)
+        
+        # Update fields
+        timestamp = get_timestamp()
+        app_item.update({
+            'name': app_request.name,
+            'description': app_request.description,
+            'appUrl': str(app_request.appUrl),
+            'githubUrl': str(app_request.githubUrl) if app_request.githubUrl else None,
+            'tags': app_request.tags,
+            'updatedAt': timestamp
+        })
+        
+        # Save to DynamoDB
+        put_item(app_item)
+        
+        # Return cleaned application
+        app_data = clean_dynamodb_item(app_item)
+        return success_response(app_data)
+    
+    except ValidationError as e:
+        print(f"Validation error: {str(e)}")
+        errors = {}
+        for error in e.errors():
+            field = '.'.join(str(loc) for loc in error['loc'])
+            errors[field] = error['msg']
+        return error_response(400, 'Validation failed', errors)
+    
+    except Exception as e:
+        print(f"Error updating application: {str(e)}")
+        return error_response(500, 'Error updating application')
+
+
+def delete_application(app_id: str, user_id: str) -> Dict[str, Any]:
+    """Delete an application"""
+    try:
+        # Get existing application
+        app_item = get_item(f'APP#{app_id}', 'METADATA')
+        
+        if not app_item:
+            return error_response(404, 'Application not found')
+        
+        # Check ownership
+        if app_item.get('userId') != user_id:
+            return error_response(403, 'You do not have permission to delete this application')
+        
+        # Delete from DynamoDB
+        from shared.dynamodb_utils import delete_item
+        delete_item(f'APP#{app_id}', 'METADATA')
+        
+        return success_response({'message': 'Application deleted successfully'})
+    
+    except Exception as e:
+        print(f"Error deleting application: {str(e)}")
+        return error_response(500, 'Error deleting application')
+
+
 def get_user_id_from_event(event: Dict[str, Any]) -> str:
     """Extract user ID from Cognito authorizer context"""
     request_context = event.get('requestContext', {})
@@ -168,7 +294,7 @@ def success_response(data: Any, status_code: int = 200) -> Dict[str, Any]:
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
         },
         'body': json.dumps({
             'data': data,
@@ -185,7 +311,7 @@ def error_response(status_code: int, message: str, details: Dict[str, Any] = Non
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+            'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
         },
         'body': json.dumps({
             'data': None,

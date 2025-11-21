@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
-import { useApplication, useUpdateApplication } from "@/hooks/useData";
+import { useApplication } from "@/hooks/useApplication";
 import { useMockAuth } from "@/contexts/MockAuthContext";
 import ApplicationForm from "@/components/ApplicationForm";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -14,16 +14,14 @@ export default function EditApplicationPage() {
   const { currentUserId, isAuthenticated } = useMockAuth();
   const [updateError, setUpdateError] = useState<string | null>(null);
 
-  // Fetch application data
+  // Fetch application data and get update function
   const {
-    data: application,
+    application,
     isLoading,
     error: fetchError,
+    updateApplication,
+    isUpdating,
   } = useApplication(appId);
-
-  // Update mutation
-  const { mutate: updateApplication, isPending: isUpdating } =
-    useUpdateApplication();
 
   // Check authentication
   if (!isAuthenticated || !currentUserId) {
@@ -87,33 +85,23 @@ export default function EditApplicationPage() {
     // Clear any previous errors
     setUpdateError(null);
 
-    updateApplication(
-      { appId, data },
-      {
-        onSuccess: () => {
-          // TODO: Show success toast notification when toast system is implemented
-          // For now, log success to console
-          console.log("Application updated successfully");
-
-          // Navigate back to gallery on success
-          navigate({ to: "/" });
-        },
-        onError: (error) => {
-          console.error("Failed to update application:", error);
-          // Set error message for display
-          setUpdateError(
-            error instanceof Error
-              ? error.message
-              : "Failed to update application. Please try again."
-          );
-        },
-      }
-    );
+    try {
+      await updateApplication({ ...data, userId: currentUserId! });
+      console.log("Application updated successfully");
+      navigate({ to: `/profile/${currentUserId}` });
+    } catch (error) {
+      console.error("Failed to update application:", error);
+      setUpdateError(
+        error instanceof Error
+          ? error.message
+          : "Failed to update application. Please try again."
+      );
+    }
   };
 
   // Handle cancel
   const handleCancel = () => {
-    navigate({ to: "/" });
+    navigate({ to: `/profile/${currentUserId}` });
   };
 
   // Prepare initial data for the form

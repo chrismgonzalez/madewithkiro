@@ -58,6 +58,7 @@ Run `make help` to see all available commands:
 - **Database**: DynamoDB (single-table design)
 - **Authentication**: AWS Cognito
 - **API**: API Gateway with Cognito authorizer
+- **Data Fetching**: TanStack Query (React Query) for caching and state management
 - **Hosting**: S3 + CloudFront
 - **DNS**: Route 53 (optional custom domain)
 - **SSL/TLS**: ACM Certificate (automatic)
@@ -116,6 +117,109 @@ The application uses two environments:
 
 Configuration is managed in `samconfig.toml`.
 
+### Environment Variables
+
+The frontend requires the following environment variables:
+
+**Development (`.env.development`):**
+
+```bash
+VITE_API_BASE_URL=https://your-dev-api-gateway-url.execute-api.region.amazonaws.com
+VITE_TEST_USER_ID=test-user-001
+```
+
+**Production (`.env.production`):**
+
+```bash
+VITE_API_BASE_URL=https://your-prod-api-gateway-url.execute-api.region.amazonaws.com
+VITE_TEST_USER_ID=test-user-001
+```
+
+After deploying the backend, get your API Gateway URL:
+
+```bash
+make outputs-dev
+```
+
+Then update your `.env.development` file with the `ApiGatewayUrl` output value.
+
+### Seeding Test Data
+
+The backend includes a seed script to populate DynamoDB with test data for development:
+
+**Seed database with test data:**
+
+```bash
+make seed-db
+```
+
+This creates:
+
+- 1 test user profile (userId: `test-user-001`)
+- 10+ sample applications with various tags
+
+**Clean and reseed database:**
+
+```bash
+make seed-db-clean
+```
+
+This deletes all existing data before seeding fresh data.
+
+**Note:** The seed script checks for existing data and skips seeding if data already exists (unless using the `--clean` flag).
+
+## API Integration
+
+The frontend integrates with the backend API using:
+
+### TanStack Query (React Query)
+
+The application uses TanStack Query for data fetching, caching, and synchronization:
+
+- **Automatic caching**: API responses are cached for 5 minutes
+- **Background refetching**: Data is automatically refreshed in the background
+- **Optimistic updates**: UI updates immediately before server confirmation
+- **Request deduplication**: Multiple identical requests are automatically deduplicated
+- **Automatic retries**: Failed requests are retried with exponential backoff
+
+### API Services
+
+The frontend includes service modules that abstract API communication:
+
+- **`apiClient.ts`**: Core HTTP client with retry logic and error handling
+- **`profileService.ts`**: Profile-related API operations (get, create, update)
+- **`applicationService.ts`**: Application-related API operations (list, create)
+
+### Custom Hooks
+
+React hooks provide a clean interface for components to interact with the API:
+
+- **`useProfile(userId)`**: Fetch and update user profiles with optimistic updates
+- **`useApplications(userId?)`**: Fetch applications (all or by user) with optimistic creation
+- **`useData()`**: Legacy hook using mock data (still used by application editing feature)
+
+Example usage:
+
+```typescript
+import { useProfile } from "@/hooks/useProfile";
+
+function ProfilePage() {
+  const { profile, isLoading, error, updateProfile } =
+    useProfile("test-user-001");
+
+  if (isLoading) return <LoadingSpinner />;
+  if (error) return <ErrorMessage error={error} />;
+
+  return <ProfileView profile={profile} onUpdate={updateProfile} />;
+}
+```
+
+**Note:** Some features (like application editing) still use mock data services. These will be migrated to real API services in future updates. The mock services are located in:
+
+- `src/services/mockData.ts`
+- `src/services/mockDataService.ts`
+- `src/hooks/useData.ts` (legacy hook)
+
 ## Testing
 
 ```bash
@@ -123,6 +227,29 @@ make test
 ```
 
 Runs both frontend and backend tests.
+
+### Frontend Tests
+
+The frontend includes comprehensive test coverage:
+
+- **Unit tests**: Service functions, utilities, and hooks
+- **Component tests**: UI components with user interactions
+- **Integration tests**: Complete user flows with mocked API
+- **Property-based tests**: Correctness properties validated with fast-check
+
+Run frontend tests only:
+
+```bash
+bun run test
+```
+
+### Backend Tests
+
+The backend includes tests for Lambda functions and DynamoDB operations:
+
+```bash
+cd backend && uv run pytest
+```
 
 ## Monitoring
 
