@@ -532,4 +532,284 @@ Each task follows this pattern to ensure proper SDLC practices.
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
 - [ ] 15. Final checkpoint - Ensure all tests pass
+
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 16. Extend mock data service with delete operations (BDD/TDD)
+- [ ] 16.1 Write acceptance tests for application deletion service
+
+  - **GIVEN** I am the owner of an application
+  - **WHEN** I request to delete the application
+  - **THEN** the application should be removed from mock data
+  - **GIVEN** I am not the owner of an application
+  - **WHEN** I attempt to delete the application
+  - **THEN** I should receive an authorization error
+  - **GIVEN** I delete an application
+  - **WHEN** the deletion succeeds
+  - **THEN** subsequent queries for that application should return null
+  - **GIVEN** I delete an application
+  - **WHEN** the deletion succeeds
+  - **THEN** the application should not appear in any user's application list
+  - _Requirements: 11.5, 14.1, 14.2, 14.5, 15.2, 15.3, 15.4_
+
+- [ ]\* 16.2 Write property test for delete authorization check
+
+  - **Property 37: Delete authorization check**
+  - **Validates: Requirements 14.1, 15.2, 15.3, 15.4**
+
+- [ ]\* 16.3 Write property test for deletion cache invalidation
+
+  - **Property 38: Deletion cache invalidation**
+  - **Validates: Requirements 14.3, 14.5**
+
+- [ ] 16.4 Implement mock data service delete operations (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Implement deleteApplicationFromStore(appId) in mockData.ts
+  - **GREEN**: Find application by ID and remove from array using splice
+  - **GREEN**: Throw error if application not found
+  - **GREEN**: Implement deleteApplication(appId, userId) in mockDataService.ts
+  - **GREEN**: Add ownership validation (throw error if userId doesn't match)
+  - **GREEN**: Call deleteApplicationFromStore after validation
+  - **GREEN**: Return Promise<void>
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 11.5, 14.1, 14.2, 14.5, 15.2, 15.3, 15.4_
+
+- [ ] 17. Add Tanstack Query mutation hook for deletion (BDD/TDD)
+- [ ] 17.1 Write acceptance tests for delete mutation hook
+
+  - **GIVEN** I have an application to delete
+  - **WHEN** I call the delete mutation
+  - **THEN** the mutation should succeed
+  - **GIVEN** an application is deleted successfully
+  - **WHEN** the mutation completes
+  - **THEN** relevant queries should be invalidated
+  - **GIVEN** an application is deleted successfully
+  - **WHEN** the mutation completes
+  - **THEN** the specific application query should be removed from cache
+  - **GIVEN** an application deletion fails
+  - **WHEN** the mutation completes
+  - **THEN** I should receive an error
+  - _Requirements: 11.5, 13.2, 13.3, 14.3_
+
+- [ ] 17.2 Implement useDeleteApplication mutation hook (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Create useDeleteApplication hook using useMutation
+  - **GREEN**: Call mockDataService.deleteApplication in mutationFn
+  - **GREEN**: Invalidate ["applications"] query on success
+  - **GREEN**: Invalidate ["applications", "user", userId] query on success
+  - **GREEN**: Remove ["application", appId] query from cache on success
+  - **GREEN**: Handle errors in onError callback
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 11.5, 13.2, 13.3, 14.3_
+
+- [ ] 18. Create DeleteConfirmDialog component (BDD/TDD)
+- [ ] 18.1 Write acceptance tests for DeleteConfirmDialog
+
+  - **GIVEN** the delete confirmation dialog is open
+  - **WHEN** the dialog renders
+  - **THEN** I should see the application name in the message
+  - **GIVEN** the delete confirmation dialog is open
+  - **WHEN** the dialog renders
+  - **THEN** I should see a warning about permanent deletion
+  - **GIVEN** I click cancel in the confirmation dialog
+  - **WHEN** the button is clicked
+  - **THEN** the dialog should close without deleting
+  - **GIVEN** I click confirm in the confirmation dialog
+  - **WHEN** the button is clicked
+  - **THEN** the onConfirm callback should be called
+  - **GIVEN** deletion is in progress
+  - **WHEN** the dialog renders
+  - **THEN** the confirm button should be disabled and show loading state
+  - _Requirements: 11.4, 12.1, 12.2, 12.3, 12.4, 12.5_
+
+- [ ]\* 18.2 Write property test for delete confirmation display
+
+  - **Property 30: Delete confirmation display**
+  - **Validates: Requirements 11.4, 12.1**
+
+- [ ] 18.3 Implement DeleteConfirmDialog component (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Create DeleteConfirmDialog component using shadcn/ui AlertDialog
+  - **GREEN**: Accept isOpen, onClose, onConfirm, applicationName, isDeleting props
+  - **GREEN**: Display application name in dialog description
+  - **GREEN**: Display warning text about permanent deletion
+  - **GREEN**: Render Cancel button that calls onClose
+  - **GREEN**: Render Confirm button that calls onConfirm
+  - **GREEN**: Disable Confirm button when isDeleting is true
+  - **GREEN**: Show "Deleting..." text when isDeleting is true
+  - **GREEN**: Ensure all buttons are 44x44px minimum (mobile-friendly)
+  - **GREEN**: Use destructive variant for Confirm button
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 11.4, 12.1, 12.2, 12.3, 12.4, 12.5, 16.2, 16.3_
+
+- [ ] 19. Add delete button to ApplicationCard (BDD/TDD)
+- [ ] 19.1 Write acceptance tests for delete button visibility
+
+  - **GIVEN** I am authenticated and viewing my own application card
+  - **WHEN** the card renders
+  - **THEN** I should see a delete button
+  - **GIVEN** I am authenticated and viewing another user's application card
+  - **WHEN** the card renders
+  - **THEN** I should NOT see a delete button
+  - **GIVEN** I am unauthenticated
+  - **WHEN** I view any application card
+  - **THEN** I should NOT see a delete button
+  - **GIVEN** I click the delete button on my application
+  - **WHEN** the button is clicked
+  - **THEN** I should see a confirmation dialog
+  - _Requirements: 11.1, 11.2, 11.3, 11.4_
+
+- [ ]\* 19.2 Write property test for delete button visibility for owners
+
+  - **Property 28: Delete button visibility for owners**
+  - **Validates: Requirements 11.1**
+
+- [ ]\* 19.3 Write property test for delete button hidden for non-owners
+
+  - **Property 29: Delete button hidden for non-owners**
+  - **Validates: Requirements 11.2, 11.3**
+
+- [ ] 19.4 Update ApplicationCard component (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Add state for delete confirmation dialog (showDeleteDialog)
+  - **GREEN**: Conditionally render delete button when currentUserId === application.userId
+  - **GREEN**: Delete button opens confirmation dialog (setShowDeleteDialog(true))
+  - **GREEN**: Ensure delete button is 44x44px minimum (mobile-friendly)
+  - **GREEN**: Use Trash2 icon from lucide-react
+  - **GREEN**: Show icon only on mobile, icon + text on desktop
+  - **GREEN**: Use destructive variant for delete button
+  - **GREEN**: Group edit and delete buttons together with 8px gap
+  - **GREEN**: Render DeleteConfirmDialog component
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 11.1, 11.2, 11.3, 11.4, 16.1_
+
+- [ ] 20. Checkpoint - Ensure all tests pass
+
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 21. Implement delete confirmation and execution (BDD/TDD)
+- [ ] 21.1 Write acceptance tests for delete confirmation flow
+
+  - **GIVEN** I click delete on my application
+  - **WHEN** the confirmation dialog opens
+  - **THEN** I should see the application name
+  - **GIVEN** I click cancel in the confirmation dialog
+  - **WHEN** the button is clicked
+  - **THEN** the dialog should close and the application should remain
+  - **GIVEN** I click confirm in the confirmation dialog
+  - **WHEN** the button is clicked
+  - **THEN** the application should be deleted
+  - **GIVEN** I confirm deletion
+  - **WHEN** the deletion is processing
+  - **THEN** I should see a loading indicator
+  - _Requirements: 11.4, 11.5, 12.1, 12.3, 12.4, 12.5_
+
+- [ ]\* 21.2 Write property test for deletion with confirmation
+
+  - **Property 31: Deletion with confirmation**
+  - **Validates: Requirements 11.5, 12.3**
+
+- [ ]\* 21.3 Write property test for deletion cancellation
+
+  - **Property 32: Deletion cancellation**
+  - **Validates: Requirements 12.4**
+
+- [ ] 21.4 Implement delete confirmation flow (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Wire up useDeleteApplication mutation in ApplicationCard
+  - **GREEN**: Implement handleDeleteConfirm that calls mutation
+  - **GREEN**: Pass isDeleting state to DeleteConfirmDialog
+  - **GREEN**: Close dialog on successful deletion
+  - **GREEN**: Keep dialog open on error and show error message
+  - **GREEN**: Verify application remains when cancel is clicked
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 11.4, 11.5, 12.1, 12.3, 12.4, 12.5_
+
+- [ ] 22. Implement deletion feedback and UI updates (BDD/TDD)
+- [ ] 22.1 Write acceptance tests for deletion feedback
+
+  - **GIVEN** I successfully delete an application
+  - **WHEN** the deletion completes
+  - **THEN** I should see a success message
+  - **GIVEN** I successfully delete an application
+  - **WHEN** I view the gallery
+  - **THEN** the application should no longer appear
+  - **GIVEN** I successfully delete an application
+  - **WHEN** I view my profile page
+  - **THEN** the application should no longer appear
+  - **GIVEN** a deletion fails
+  - **WHEN** the error occurs
+  - **THEN** I should see an error message
+  - **GIVEN** a deletion fails
+  - **WHEN** the error occurs
+  - **THEN** the application should still appear in the gallery
+  - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
+
+- [ ]\* 22.2 Write property test for deletion success feedback
+
+  - **Property 33: Deletion success feedback**
+  - **Validates: Requirements 13.1**
+
+- [ ]\* 22.3 Write property test for deletion removes from gallery
+
+  - **Property 34: Deletion removes from gallery**
+  - **Validates: Requirements 13.2**
+
+- [ ]\* 22.4 Write property test for deletion removes from profile
+
+  - **Property 35: Deletion removes from profile**
+  - **Validates: Requirements 13.3**
+
+- [ ]\* 22.5 Write property test for deletion error handling
+
+  - **Property 36: Deletion error handling**
+  - **Validates: Requirements 13.4, 13.5**
+
+- [ ] 22.6 Implement deletion feedback (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Show success toast/message on successful deletion
+  - **GREEN**: Verify cache invalidation removes app from gallery immediately
+  - **GREEN**: Verify cache invalidation removes app from profile immediately
+  - **GREEN**: Show error message on deletion failure
+  - **GREEN**: Verify application remains in gallery on error
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
+
+- [ ] 23. Ensure mobile responsiveness for delete features (BDD/TDD)
+- [ ] 23.1 Write acceptance tests for mobile delete experience
+
+  - **GIVEN** I view my application card on a 320px viewport
+  - **WHEN** the card renders
+  - **THEN** the delete button should be at least 44x44px
+  - **GIVEN** I tap the delete button on mobile
+  - **WHEN** the button is tapped
+  - **THEN** I should see appropriate touch feedback
+  - **GIVEN** I view the delete confirmation dialog on mobile
+  - **WHEN** the dialog renders
+  - **THEN** all buttons should be at least 44x44px
+  - **GIVEN** I view the delete confirmation dialog on mobile
+  - **WHEN** the dialog renders
+  - **THEN** the application name and warning should be easily readable
+  - _Requirements: 16.1, 16.2, 16.3, 16.4_
+
+- [ ] 23.2 Implement mobile responsiveness for deletion (RED → GREEN → REFACTOR)
+
+  - **RED**: Run acceptance tests and watch them fail
+  - **GREEN**: Ensure delete button on ApplicationCard is 44x44px minimum
+  - **GREEN**: Test delete button on 320px viewport
+  - **GREEN**: Verify touch feedback on delete button
+  - **GREEN**: Test DeleteConfirmDialog on 320px viewport
+  - **GREEN**: Verify all dialog buttons meet 44x44px requirement
+  - **GREEN**: Verify text readability on mobile
+  - **GREEN**: Test button spacing (8px minimum between edit and delete)
+  - **REFACTOR**: Ensure all tests pass, improve code quality
+  - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5_
+
+- [ ] 24. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.

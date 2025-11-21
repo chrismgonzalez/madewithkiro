@@ -2,15 +2,16 @@
 
 ## Overview
 
-The Application Editing feature extends the MadeWithKiro platform to enable application owners to modify their previously submitted applications. This design builds on the existing MVP architecture, reusing the ApplicationForm component in edit mode and adding authorization checks to ensure only owners can edit their applications.
+The Application Editing feature extends the MadeWithKiro platform to enable application owners to modify and delete their previously submitted applications. This design builds on the existing MVP architecture, reusing the ApplicationForm component in edit mode and adding authorization checks to ensure only owners can edit or delete their applications.
 
 ### Key Design Principles
 
 1. **Component Reuse**: Leverage existing ApplicationForm component with edit mode support
-2. **Authorization First**: Validate ownership before allowing any edit operations
+2. **Authorization First**: Validate ownership before allowing any edit or delete operations
 3. **Optimistic Updates**: Update UI immediately while persisting changes
-4. **Mobile-First**: Maintain responsive design for editing on any device
+4. **Mobile-First**: Maintain responsive design for editing and deleting on any device
 5. **Graceful Degradation**: Handle errors without losing user data
+6. **Confirmation Required**: Always confirm destructive actions like deletion
 
 ## Architecture
 
@@ -64,26 +65,57 @@ flowchart TD
     M --> N[Navigate to Gallery]
 ```
 
+### Deletion Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Card as ApplicationCard
+    participant Dialog as ConfirmDialog
+    participant Service as mockDataService
+    participant Store as mockData
+    participant Cache as QueryClient
+
+    User->>Card: Click Delete Button
+    Card->>Dialog: Show confirmation
+    Dialog->>User: Display warning with app name
+    User->>Dialog: Click Confirm
+    Dialog->>Card: onConfirm()
+    Card->>Service: deleteApplication(appId, userId)
+    Service->>Service: Verify ownership
+    Service->>Store: Remove from applications array
+    Store->>Service: Confirm deletion
+    Service->>Card: Success
+    Card->>Cache: Invalidate queries
+    Cache->>Cache: Remove from cache
+    Card->>User: Show success message
+    Card->>Card: Remove from UI
+```
+
 ## Components and Interfaces
 
 ### 1. ApplicationCard Enhancement
 
-**Add Edit Button:**
+**Add Edit and Delete Buttons:**
 
 ```typescript
 interface ApplicationCardProps {
   application: Application;
   currentUserId?: string; // From auth context
   onEdit?: (appId: string) => void;
+  onDelete?: (appId: string) => void;
 }
 ```
 
 **Changes:**
 
 - Add conditional edit button when `currentUserId === application.userId`
+- Add conditional delete button when `currentUserId === application.userId`
 - Edit button navigates to `/edit/:appId`
-- Button only visible to authenticated users viewing their own apps
-- Mobile-friendly button with 44x44px minimum touch target
+- Delete button opens confirmation dialog
+- Buttons only visible to authenticated users viewing their own apps
+- Mobile-friendly buttons with 44x44px minimum touch target
+- Group edit and delete buttons together for better UX
 
 ### 2. EditApplicationPage (New Component)
 
@@ -133,7 +165,7 @@ interface ApplicationFormProps {
 
 ### 4. Service Layer Updates
 
-**Add Update Operation:**
+**Add Update and Delete Operations:**
 
 ```typescript
 // mockDataService.ts
@@ -154,6 +186,24 @@ export async function updateApplication(
   // Update application
   const updated = updateApplicationInStore(appId, data);
   return Promise.resolve(updated);
+}
+
+export async function deleteApplication(
+  appId: string,
+  userId: string
+): Promise<void> {
+  // Validate ownership
+  const existing = getApplicationById(appId);
+  if (!existing) {
+    throw new Error("Application not found");
+  }
+  if (existing.userId !== userId) {
+    throw new Error("Unauthorized: You can only delete your own applications");
+  }
+
+  // Delete application
+  deleteApplicationFromStore(appId);
+  return Promise.resolve();
 }
 
 export async function getApplicationById(
@@ -191,6 +241,15 @@ export function updateApplicationInStore(
   return updated;
 }
 
+export function deleteApplicationFromStore(appId: string): void {
+  const index = applications.findIndex((app) => app.appId === appId);
+  if (index === -1) {
+    throw new Error("Application not found");
+  }
+
+  applications.splice(index, 1);
+}
+
 export function getApplicationById(appId: string): Application | undefined {
   return applications.find((app) => app.appId === appId);
 }
@@ -198,7 +257,7 @@ export function getApplicationById(appId: string): Application | undefined {
 
 ### 5. Tanstack Query Integration
 
-**Add Mutation Hook:**
+**Add Mutation Hooks:**
 
 ```typescript
 // hooks/useApplications.ts
@@ -232,6 +291,30 @@ export const useUpdateApplication = () => {
   });
 };
 
+export const useDeleteApplication = () => {
+  const queryClient = useQueryClient();
+  const { currentUserId } = useMockAuth();
+
+  return useMutation({
+    mutationFn: (appId: string) =>
+      mockDataService.deleteApplication(appId, currentUserId!),
+
+    onSuccess: (_, appId) => {
+      // Invalidate and refetch relevant queries
+      queryClient.invalidateQueries({ queryKey: ["applications"] });
+      queryClient.invalidateQueries({
+        queryKey: ["applications", "user", currentUserId],
+      });
+      // Remove the specific application from cache
+      queryClient.removeQueries({ queryKey: ["application", appId] });
+    },
+
+    onError: (error) => {
+      console.error("Failed to delete application:", error);
+    },
+  });
+};
+
 export const useApplication = (appId: string) => {
   return useQuery({
     queryKey: ["application", appId],
@@ -252,6 +335,41 @@ export const useApplication = (appId: string) => {
   component: EditApplicationPage,
   // Protected route - requires authentication
 }
+```
+
+### 7. Delete Confirmation Dialog
+
+**Purpose:** Reusable confirmation dialog for destructive actions
+
+```typescript
+interface DeleteConfirmDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  applicationName: string;
+  isDeleting: boolean;
+}
+```
+
+**Implementation:**
+
+- Use shadcn/ui AlertDialog component
+- Display application name in confirmation message
+- Show clear warning about permanent deletion
+- Disable confirm button while deleting
+- Show loading state during deletion
+- Mobile-friendly with 44x44px touch targets
+
+**Example Usage:**
+
+```typescript
+<DeleteConfirmDialog
+  isOpen={showDeleteDialog}
+  onClose={() => setShowDeleteDialog(false)}
+  onConfirm={handleDeleteConfirm}
+  applicationName={application.name}
+  isDeleting={isDeleting}
+/>
 ```
 
 ## Data Models
@@ -455,6 +573,78 @@ _For any_ form field with a validation error, when the user corrects the error, 
 
 **Validates: Requirements 8.5**
 
+### Property 28: Delete button visibility for owners
+
+_For any_ application card and authenticated user, when the user ID matches the application owner ID, the rendered card should contain a delete button.
+
+**Validates: Requirements 11.1**
+
+### Property 29: Delete button hidden for non-owners
+
+_For any_ application card and authenticated user, when the user ID does not match the application owner ID, the rendered card should NOT contain a delete button.
+
+**Validates: Requirements 11.2, 11.3**
+
+### Property 30: Delete confirmation display
+
+_For any_ delete button click, the system should display a confirmation dialog before proceeding with deletion.
+
+**Validates: Requirements 11.4, 12.1**
+
+### Property 31: Deletion with confirmation
+
+_For any_ application deletion that is confirmed, the application should be permanently removed from the system.
+
+**Validates: Requirements 11.5, 12.3**
+
+### Property 32: Deletion cancellation
+
+_For any_ deletion confirmation dialog, if the user cancels, the application should remain in the system unchanged.
+
+**Validates: Requirements 12.4**
+
+### Property 33: Deletion success feedback
+
+_For any_ successful deletion, the system should display a success message to the user.
+
+**Validates: Requirements 13.1**
+
+### Property 34: Deletion removes from gallery
+
+_For any_ successful deletion, the application should no longer appear in the gallery view.
+
+**Validates: Requirements 13.2**
+
+### Property 35: Deletion removes from profile
+
+_For any_ successful deletion, the application should no longer appear in the owner's profile page.
+
+**Validates: Requirements 13.3**
+
+### Property 36: Deletion error handling
+
+_For any_ failed deletion, the system should display an error message and the application should remain in the system.
+
+**Validates: Requirements 13.4, 13.5**
+
+### Property 37: Delete authorization check
+
+_For any_ delete request, the system should only allow the deletion if the authenticated user ID matches the application owner ID.
+
+**Validates: Requirements 14.1, 15.2, 15.3, 15.4**
+
+### Property 38: Deletion cache invalidation
+
+_For any_ successful deletion, subsequent queries should not return the deleted application.
+
+**Validates: Requirements 14.3, 14.5**
+
+### Property 39: Deletion referential integrity
+
+_For any_ successful deletion, the system should maintain referential integrity and not leave orphaned references.
+
+**Validates: Requirements 14.4**
+
 ## Error Handling
 
 ### Authorization Errors
@@ -520,29 +710,41 @@ _For any_ form field with a validation error, when the user corrects the error, 
 **Component Tests:**
 
 - ApplicationCard edit button visibility based on ownership
+- ApplicationCard delete button visibility based on ownership
+- DeleteConfirmDialog displays application name
+- DeleteConfirmDialog shows warning message
 - EditApplicationPage authorization checks
 - ApplicationForm in edit mode with initialData
 - Form validation with various invalid inputs
 - Cancel functionality restores original data
 - Success message display after update
+- Success message display after deletion
 
 **Service Layer Tests:**
 
 - updateApplication validates ownership
 - updateApplication preserves immutable fields
 - updateApplication updates updatedAt timestamp
+- deleteApplication validates ownership
+- deleteApplication removes application from store
 - getApplicationById returns correct application
-- Authorization errors thrown for non-owners
+- Authorization errors thrown for non-owners (edit and delete)
 
 **Example Unit Tests:**
 
 - Edit button shown when currentUserId matches application.userId
-- Edit button hidden when currentUserId doesn't match
-- Edit button hidden when user is not authenticated
+- Delete button shown when currentUserId matches application.userId
+- Edit and delete buttons hidden when currentUserId doesn't match
+- Buttons hidden when user is not authenticated
+- Delete confirmation dialog shows application name
+- Confirmation dialog displays warning text
 - Form pre-populated with application data
 - Cancel button restores original form values
 - Validation errors displayed for invalid data
 - Success message shown after successful update
+- Success message shown after successful deletion
+- Application removed from gallery after deletion
+- Application removed from profile after deletion
 
 ### Property-Based Testing
 
@@ -683,6 +885,46 @@ fc.assert(
 );
 ```
 
+_Property 37: Delete authorization check_
+
+```typescript
+// Feature: application-editing, Property 37: Delete authorization check
+fc.assert(
+  fc.property(applicationArbitrary, fc.uuid(), async (app, nonOwnerUserId) => {
+    fc.pre(app.userId !== nonOwnerUserId); // Ensure different users
+
+    try {
+      await deleteApplication(app.appId, nonOwnerUserId);
+      return false; // Should have thrown error
+    } catch (error) {
+      return error.message.includes("Unauthorized");
+    }
+  }),
+  { numRuns: 100 }
+);
+```
+
+_Property 38: Deletion cache invalidation_
+
+```typescript
+// Feature: application-editing, Property 38: Deletion cache invalidation
+fc.assert(
+  fc.property(applicationArbitrary, async (app) => {
+    // Ensure app exists
+    const before = await getApplicationById(app.appId);
+    fc.pre(before !== null);
+
+    // Delete the application
+    await deleteApplication(app.appId, app.userId);
+
+    // Verify it's gone
+    const after = await getApplicationById(app.appId);
+    return after === null;
+  }),
+  { numRuns: 100 }
+);
+```
+
 ### Integration Testing
 
 **End-to-End Edit Flow:**
@@ -694,11 +936,27 @@ fc.assert(
 - Verify update in gallery
 - Verify update in profile page
 
+**End-to-End Delete Flow:**
+
+- Navigate to application card
+- Click delete button
+- See confirmation dialog with app name
+- Cancel deletion (verify app remains)
+- Click delete button again
+- Confirm deletion
+- Verify success message
+- Verify app removed from gallery
+- Verify app removed from profile page
+- Verify app cannot be retrieved by ID
+
 **Authorization Flow:**
 
 - Attempt to edit as non-owner (should fail)
 - Attempt to edit as owner (should succeed)
 - Attempt to edit while unauthenticated (should redirect)
+- Attempt to delete as non-owner (should fail)
+- Attempt to delete as owner (should succeed)
+- Attempt to delete while unauthenticated (should fail)
 
 **Visibility Change Flow:**
 
@@ -713,16 +971,18 @@ fc.assert(
 src/
   components/
     __tests__/
-      ApplicationCard.test.tsx (add edit button tests)
+      ApplicationCard.test.tsx (add edit and delete button tests)
       EditApplicationPage.test.tsx (new)
+      DeleteConfirmDialog.test.tsx (new)
   services/
     __tests__/
-      mockDataService.test.ts (add update tests)
+      mockDataService.test.ts (add update and delete tests)
   __tests__/
     property/
-      application-editing.property.test.ts (new)
+      application-editing.property.test.ts (new - includes deletion properties)
     integration/
       edit-flow.test.tsx (new)
+      delete-flow.test.tsx (new)
 ```
 
 ## Mobile Responsiveness
@@ -756,20 +1016,67 @@ src/
 </div>
 ```
 
-### Edit Button on Cards
+### Edit and Delete Buttons on Cards
 
 **Mobile Touch Targets:**
 
-- Edit button minimum 44x44px
-- Adequate spacing from other buttons
+- Edit and delete buttons minimum 44x44px each
+- Adequate spacing between buttons (8px minimum)
 - Clear visual feedback on tap
 - Icon-only on mobile, text on desktop
+- Group buttons together in a button group
 
 ```tsx
-<Button className="min-h-[44px] min-w-[44px]">
-  <Edit className="h-4 w-4 sm:mr-2" />
-  <span className="hidden sm:inline">Edit</span>
-</Button>
+<div className="flex gap-2">
+  <Button className="min-h-[44px] min-w-[44px]">
+    <Edit className="h-4 w-4 sm:mr-2" />
+    <span className="hidden sm:inline">Edit</span>
+  </Button>
+  <Button variant="destructive" className="min-h-[44px] min-w-[44px]">
+    <Trash2 className="h-4 w-4 sm:mr-2" />
+    <span className="hidden sm:inline">Delete</span>
+  </Button>
+</div>
+```
+
+### Delete Confirmation Dialog on Mobile
+
+**Mobile Optimizations:**
+
+- Full-screen or near-full-screen on mobile
+- Large, clear buttons (44x44px minimum)
+- Adequate spacing between confirm and cancel
+- Clear visual distinction (destructive styling for confirm)
+- Application name prominently displayed
+- Warning text easily readable
+
+```tsx
+<AlertDialog>
+  <AlertDialogContent className="sm:max-w-[425px]">
+    <AlertDialogHeader>
+      <AlertDialogTitle>Delete Application?</AlertDialogTitle>
+      <AlertDialogDescription className="space-y-2">
+        <p>
+          Are you sure you want to delete <strong>{applicationName}</strong>?
+        </p>
+        <p className="text-destructive">
+          This action cannot be undone. The application will be permanently
+          removed.
+        </p>
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+      <AlertDialogCancel className="min-h-[44px]">Cancel</AlertDialogCancel>
+      <AlertDialogAction
+        className="min-h-[44px]"
+        variant="destructive"
+        disabled={isDeleting}
+      >
+        {isDeleting ? "Deleting..." : "Delete"}
+      </AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
 ```
 
 ## Performance Considerations
@@ -861,7 +1168,7 @@ const handleSubmit = async (data: ApplicationFormData) => {
 
 ## Future Backend Integration
 
-### API Endpoint
+### API Endpoints
 
 ```typescript
 // PUT /api/applications/:appId
@@ -874,6 +1181,16 @@ interface UpdateApplicationEndpoint {
   };
   body: UpdateApplicationRequest;
   response: Application;
+}
+
+// DELETE /api/applications/:appId
+interface DeleteApplicationEndpoint {
+  method: "DELETE";
+  path: "/api/applications/:appId";
+  headers: {
+    Authorization: "Bearer <token>";
+  };
+  response: { success: boolean };
 }
 ```
 
@@ -902,9 +1219,22 @@ export async function updateApplication(
 
   return response.json();
 }
+
+export async function deleteApplication(appId: string): Promise<void> {
+  const response = await fetch(`/api/applications/${appId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${getAuthToken()}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to delete application");
+  }
+}
 ```
 
-2. **Update Mutation Hook:**
+2. **Update Mutation Hooks:**
 
 ```typescript
 export const useUpdateApplication = () => {
@@ -918,6 +1248,15 @@ export const useUpdateApplication = () => {
       appId: string;
       data: UpdateApplicationRequest;
     }) => apiService.updateApplication(appId, data),
+    // ... rest of mutation config
+  });
+};
+
+export const useDeleteApplication = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (appId: string) => apiService.deleteApplication(appId),
     // ... rest of mutation config
   });
 };
@@ -957,3 +1296,7 @@ export const useUpdateApplication = () => {
 - Monitor edit frequency per user
 - Identify common validation errors
 - Measure edit completion rate
+- Track deletion frequency per user
+- Monitor deletion confirmation vs cancellation rate
+- Measure time from delete click to confirmation
+- Track reasons for deletion (future enhancement)

@@ -48,8 +48,7 @@ parameter_overrides = [
   # Use localhost for local development, or update to CloudFront URL after first deployment
   # After deployment, get CloudFront URL from outputs and update this
   "CognitoCallbackURL=http://localhost:5173",
-  "DomainName=",
-  "HostedZoneId=",
+  # DomainName and HostedZoneId omitted - will use template defaults (empty strings)
 ]
 tags = ["Environment=dev", "Application=MadeWithKiro"]
 
