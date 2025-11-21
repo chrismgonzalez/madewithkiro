@@ -3,10 +3,10 @@ import {
   createRoute,
   createRootRoute,
   Outlet,
-  useLocation,
 } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MockAuthProvider } from "@/contexts/MockAuthContext";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import Layout from "@/components/Layout";
 import GalleryPage from "@/pages/GalleryPage";
 import ProfilePage from "@/pages/ProfilePage";
@@ -25,16 +25,16 @@ const queryClient = new QueryClient({
 // Root route with providers and layout
 const rootRoute = createRootRoute({
   component: () => {
-    const location = useLocation();
-
     return (
-      <QueryClientProvider client={queryClient}>
-        <MockAuthProvider>
-          <Layout currentPath={location.pathname}>
-            <Outlet />
-          </Layout>
-        </MockAuthProvider>
-      </QueryClientProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <QueryClientProvider client={queryClient}>
+          <MockAuthProvider>
+            <Layout>
+              <Outlet />
+            </Layout>
+          </MockAuthProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     );
   },
 });

@@ -4,3 +4,4 @@
  */
 
 export { useApplications, useProfile, useUserApplications } from "./useData";
+export { useMediaQuery } from "./useMediaQuery";

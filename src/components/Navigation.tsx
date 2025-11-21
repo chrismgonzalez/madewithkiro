@@ -1,158 +1,111 @@
-import { useState } from "react";
-import { Menu, LogIn, LogOut } from "lucide-react";
+import { LogIn, Plus } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useMockAuth } from "@/contexts/MockAuthContext";
-import { cn } from "@/lib/utils";
+import UserAvatar from "@/components/UserAvatar";
+import ModeToggle from "@/components/ModeToggle";
 
-interface NavigationProps {
-  currentPath?: string;
-}
-
-export default function Navigation({ currentPath = "/" }: NavigationProps) {
+export default function Navigation() {
   const { isAuthenticated, toggleAuth } = useMockAuth();
-  const [isOpen, setIsOpen] = useState(false);
-
-  const isActive = (path: string) => {
-    if (path === "/" && currentPath === "/") return true;
-    if (path !== "/" && currentPath.startsWith(path)) return true;
-    return false;
-  };
-
-  // Define all possible nav links
-  const allNavLinks = [
-    { to: "/", label: "Gallery", requiresAuth: true },
-    { to: "/profile/user-001", label: "Profile", requiresAuth: true },
-    { to: "/add-app", label: "Add App", requiresAuth: true },
-  ];
-
-  // Filter nav links based on authentication status
-  const navLinks = allNavLinks.filter(
-    (link) => !link.requiresAuth || isAuthenticated
-  );
-
-  const NavLink = ({
-    to,
-    label,
-    onClick,
-  }: {
-    to: string;
-    label: string;
-    onClick?: () => void;
-  }) => {
-    const active = isActive(to);
-    return (
-      <Link
-        to={to}
-        onClick={onClick}
-        aria-current={active ? "page" : undefined}
-        className={cn(
-          "min-h-[44px] min-w-[44px] flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium transition-colors",
-          active
-            ? "bg-primary text-primary-foreground active"
-            : "text-foreground hover:bg-accent hover:text-accent-foreground"
-        )}
-      >
-        {label}
-      </Link>
-    );
-  };
 
   return (
     <nav className="w-full">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-3 sm:px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo and App Name - Clickable to go home */}
           <Link
             to="/"
-            className="flex items-center gap-3 hover:opacity-80 transition-opacity group"
+            className="flex items-center gap-2 sm:gap-3 hover:opacity-80 transition-opacity group"
           >
-            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-primary-foreground font-bold text-lg shadow-lg group-hover:shadow-xl transition-shadow">
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-primary-foreground font-bold text-base sm:text-lg shadow-lg group-hover:shadow-xl transition-shadow">
               K
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+            <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
               MadeWithKiro
             </span>
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-2">
-            {navLinks.map((link) => (
-              <NavLink key={link.to} to={link.to} label={link.label} />
-            ))}
+            {/* Add App Button - Desktop */}
+            {isAuthenticated && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      asChild
+                      size="icon"
+                      className="min-h-[44px] min-w-[44px]"
+                    >
+                      <Link to="/add-app" aria-label="Add new app">
+                        <Plus className="h-5 w-5" />
+                      </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Add App</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
 
-            {/* Auth Toggle Button */}
-            <Button
-              variant="outline"
-              onClick={toggleAuth}
-              className="min-h-[44px] min-w-[44px] gap-2"
-            >
-              {isAuthenticated ? (
-                <>
-                  <LogOut className="h-4 w-4" />
-                  Sign Out
-                </>
-              ) : (
-                <>
-                  <LogIn className="h-4 w-4" />
-                  Sign In
-                </>
-              )}
-            </Button>
+            {/* Theme Toggle - Only for unauthenticated users */}
+            {!isAuthenticated && <ModeToggle />}
+
+            {/* Auth Toggle Button or User Avatar */}
+            {isAuthenticated ? (
+              <UserAvatar />
+            ) : (
+              <Button
+                variant="outline"
+                onClick={toggleAuth}
+                className="min-h-[44px] min-w-[44px] gap-2"
+              >
+                <LogIn className="h-4 w-4" />
+                Sign In
+              </Button>
+            )}
           </div>
 
           {/* Mobile Navigation */}
-          <div className="md:hidden flex items-center gap-2">
-            {/* Auth Toggle Button - Mobile */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleAuth}
-              className="min-h-[44px] min-w-[44px]"
-              aria-label={isAuthenticated ? "Sign Out" : "Sign In"}
-            >
-              {isAuthenticated ? (
-                <LogOut className="h-5 w-5" />
-              ) : (
-                <LogIn className="h-5 w-5" />
-              )}
-            </Button>
+          <div className="md:hidden flex items-center gap-1 sm:gap-2">
+            {/* Add App Button - Mobile */}
+            {isAuthenticated && (
+              <Button
+                asChild
+                size="icon"
+                variant="ghost"
+                className="min-h-[44px] min-w-[44px] h-11 w-11"
+              >
+                <Link to="/add-app" aria-label="Add new app">
+                  <Plus className="h-5 w-5" />
+                </Link>
+              </Button>
+            )}
 
-            {/* Hamburger Menu */}
-            <Sheet open={isOpen} onOpenChange={setIsOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="min-h-[44px] min-w-[44px]"
-                  aria-label="Open menu"
-                >
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right">
-                <SheetHeader>
-                  <SheetTitle>Navigation</SheetTitle>
-                </SheetHeader>
-                <div className="flex flex-col gap-2 mt-6">
-                  {navLinks.map((link) => (
-                    <NavLink
-                      key={link.to}
-                      to={link.to}
-                      label={link.label}
-                      onClick={() => setIsOpen(false)}
-                    />
-                  ))}
-                </div>
-              </SheetContent>
-            </Sheet>
+            {/* Theme Toggle - Mobile - Only for unauthenticated users */}
+            {!isAuthenticated && <ModeToggle />}
+
+            {/* Auth Toggle Button or User Avatar - Mobile */}
+            {isAuthenticated ? (
+              <UserAvatar />
+            ) : (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleAuth}
+                className="min-h-[44px] min-w-[44px] h-11 w-11"
+                aria-label="Sign In"
+              >
+                <LogIn className="h-5 w-5" />
+              </Button>
+            )}
           </div>
         </div>
       </div>

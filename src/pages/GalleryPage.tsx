@@ -1,7 +1,17 @@
 import ApplicationGallery from "@/components/ApplicationGallery";
+import LandingPage from "@/pages/LandingPage";
+import { useMockAuth } from "@/contexts/MockAuthContext";
 import { Sparkles } from "lucide-react";
 
 export default function GalleryPage() {
+  const { isAuthenticated } = useMockAuth();
+
+  // Show landing page for unauthenticated users
+  if (!isAuthenticated) {
+    return <LandingPage />;
+  }
+
+  // Show gallery for authenticated users
   return (
     <div>
       <div className="mb-6 sm:mb-8 space-y-2 sm:space-y-3">

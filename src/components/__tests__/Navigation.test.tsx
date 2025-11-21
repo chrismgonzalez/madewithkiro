@@ -6,7 +6,7 @@ import Navigation from "../Navigation";
 
 describe("Navigation - Acceptance Tests", () => {
   describe("GIVEN I view the navigation", () => {
-    it("WHEN the component renders THEN I should see logo, app name, and links to Gallery, Profile, Add App", () => {
+    it("WHEN the component renders THEN I should see logo and app name", () => {
       // Arrange & Act
       render(<Navigation />);
 
@@ -15,19 +15,11 @@ describe("Navigation - Acceptance Tests", () => {
         screen.getByText(/MadeWithKiro|Made With Kiro/i)
       ).toBeInTheDocument();
 
-      // Assert - Should have link to Gallery
-      const galleryLink = screen.getByRole("link", { name: /gallery/i });
-      expect(galleryLink).toBeInTheDocument();
-      expect(galleryLink).toHaveAttribute("href", "/");
-
-      // Assert - Should have link to Profile
-      const profileLink = screen.getByRole("link", { name: /profile/i });
-      expect(profileLink).toBeInTheDocument();
-
-      // Assert - Should have link to Add App
-      const addAppLink = screen.getByRole("link", { name: /add app/i });
-      expect(addAppLink).toBeInTheDocument();
-      expect(addAppLink).toHaveAttribute("href", "/add-app");
+      // Assert - Logo should link to home
+      const logoLink = screen.getByRole("link", {
+        name: /madewithkiro|made with kiro/i,
+      });
+      expect(logoLink).toHaveAttribute("href", "/");
     });
 
     it("WHEN the component renders THEN I should see a mock authentication toggle button showing current state", () => {
@@ -47,77 +39,38 @@ describe("Navigation - Acceptance Tests", () => {
     });
   });
 
-  describe("GIVEN I am on mobile", () => {
-    it("WHEN I view the navigation THEN I should see a hamburger menu button", () => {
+  describe("GIVEN I am unauthenticated", () => {
+    it("WHEN I view the navigation THEN I should see sign in button and theme toggle", () => {
       // Arrange & Act
       render(<Navigation />);
 
-      // Assert - Should have hamburger menu button
-      const menuButton = screen.getByRole("button", {
-        name: /menu|navigation|open menu/i,
+      // Assert - Should see sign in button
+      const signInButtons = screen.getAllByRole("button", { name: /sign in/i });
+      expect(signInButtons.length).toBeGreaterThanOrEqual(1);
+
+      // Assert - Should see theme toggle
+      const themeToggle = screen.getAllByRole("button", {
+        name: /toggle theme/i,
       });
-      expect(menuButton).toBeInTheDocument();
+      expect(themeToggle.length).toBeGreaterThanOrEqual(1);
     });
   });
 
-  describe("GIVEN I click the hamburger menu", () => {
-    it("WHEN the menu opens THEN I should see all navigation links", async () => {
-      // Arrange
-      const user = userEvent.setup();
-      render(<Navigation />);
-
-      // Act - Click hamburger menu
-      const menuButton = screen.getByRole("button", {
-        name: /menu|navigation|open menu/i,
+  describe("GIVEN I am authenticated", () => {
+    it("WHEN I view the navigation THEN I should see the add app button and user avatar", () => {
+      // Arrange & Act
+      render(<Navigation />, {
+        mockAuthState: { isAuthenticated: true, currentUserId: "user-001" },
       });
-      await user.click(menuButton);
 
-      // Assert - Should see all navigation links in the opened menu
-      await waitFor(() => {
-        const links = screen.getAllByRole("link", {
-          name: /gallery|profile|add app/i,
-        });
-        expect(links.length).toBeGreaterThanOrEqual(3);
-      });
-    });
-  });
+      // Assert - Should see add app link
+      const addAppLink = screen.getByRole("link", { name: /add new app/i });
+      expect(addAppLink).toBeInTheDocument();
+      expect(addAppLink).toHaveAttribute("href", "/add-app");
 
-  describe("GIVEN I am on a specific route", () => {
-    it("WHEN I view the navigation THEN the active route should be highlighted", () => {
-      // Arrange & Act
-      // Note: This test assumes we're on the gallery route (/)
-      render(<Navigation currentPath="/" />);
-
-      // Assert - Gallery link should be highlighted/active
-      const galleryLink = screen.getByRole("link", { name: /gallery/i });
-      expect(galleryLink).toHaveClass(/active|current/i);
-
-      // Or check for aria-current attribute
-      expect(galleryLink).toHaveAttribute("aria-current", "page");
-    });
-
-    it("WHEN I am on the profile route THEN the profile link should be highlighted", () => {
-      // Arrange & Act
-      render(<Navigation currentPath="/profile/user123" />);
-
-      // Assert - Profile link should be highlighted
-      const profileLink = screen.getByRole("link", { name: /profile/i });
-      expect(
-        profileLink.classList.contains("active") ||
-          profileLink.getAttribute("aria-current") === "page"
-      ).toBe(true);
-    });
-
-    it("WHEN I am on the add app route THEN the add app link should be highlighted", () => {
-      // Arrange & Act
-      render(<Navigation currentPath="/add-app" />);
-
-      // Assert - Add App link should be highlighted
-      const addAppLink = screen.getByRole("link", { name: /add app/i });
-      expect(
-        addAppLink.classList.contains("active") ||
-          addAppLink.getAttribute("aria-current") === "page"
-      ).toBe(true);
+      // Assert - Should see user avatar button
+      const avatarButton = screen.getByRole("button", { name: /user menu/i });
+      expect(avatarButton).toBeInTheDocument();
     });
   });
 
