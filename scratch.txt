@@ -1,0 +1,117 @@
+# SAM Template Dev Deployment Readiness Check
+
+## ✅ Template Validation
+- SAM template is valid (sam validate passed)
+- All required resources defined
+- CloudFront will be created for dev environment
+
+## ✅ Backend Structure
+- Lambda handlers exist:
+  - backend/profile/handler.py
+  - backend/application/handler.py
+- Shared utilities in place
+- Tests exist
+
+## ⚠️ Configuration Issues to Address
+
+### 1. CognitoCallbackURL Parameter
+**Current:** `CognitoCallbackURL=http://localhost:5173`
+**Issue:** This won't work after deployment - Cognito needs the CloudFront URL
+**Solution:** Two-step deployment:
+  1. First deploy with localhost
+  2. Get CloudFront URL from outputs
+  3. Update samconfig.toml with CloudFront URL
+  4. Redeploy OR manually update Cognito callback URLs in AWS Console
+
+### 2. Frontend Environment Variables
+**Need to create `.env` file with:**
+- VITE_API_BASE_URL (from ApiUrl output)
+- VITE_COGNITO_USER_POOL_ID (from UserPoolId output)
+- VITE_COGNITO_CLIENT_ID (from UserPoolClientId output)
+- VITE_COGNITO_REGION (us-west-2)
+- VITE_COGNITO_DOMAIN (from UserPoolDomain output)
+
+### 3. CloudFront Domain Usage
+**For dev without custom domain:**
+- DomainName="" ✅ (already set)
+- CertificateArn="" ✅ (already set)
+- HostedZoneId="" ✅ (already set)
+- Will use CloudFront default domain (*.cloudfront.net)
+
+## 📋 Deployment Steps
+
+### Step 1: Initial Deployment
+```bash
+make deploy-dev
+```
+
+### Step 2: Get CloudFront URL
+```bash
+make outputs-dev
+# Look for: CloudFrontUrl or CloudFrontDomainName
+```
+
+### Step 3: Update Cognito Callback (Option A - Redeploy)
+Edit samconfig.toml:
+```toml
+"CognitoCallbackURL=https://<cloudfront-domain>.cloudfront.net",
+```
+Then redeploy:
+```bash
+make deploy-dev
+```
+
+### Step 3: Update Cognito Callback (Option B - Manual)
+Go to AWS Console → Cognito → User Pools → App Client
+Add CloudFront URL to:
+- Callback URLs
+- Sign out URLs
+
+### Step 4: Generate .env File
+```bash
+make setup-env-dev
+```
+
+### Step 5: Build and Upload Frontend
+```bash
+make upload-frontend-dev
+```
+
+### Step 6: Invalidate CloudFront Cache
+```bash
+make invalidate-cloudfront-dev
+```
+
+## 🎯 Ready to Deploy?
+
+**YES** - The template is valid and ready for initial deployment.
+
+**BUT** - You'll need to follow the multi-step process above because:
+1. Cognito callback URL needs CloudFront domain (chicken-and-egg problem)
+2. Frontend needs API/Cognito config from stack outputs
+3. CloudFront cache needs invalidation after frontend upload
+
+## 🚀 Quick Start Command
+
+```bash
+# Deploy infrastructure
+make deploy-dev
+
+# After deployment completes, check outputs
+make outputs-dev
+
+# Update samconfig.toml with CloudFront URL, then:
+make deploy-dev
+
+# Generate .env and upload frontend
+make setup-env-dev
+make upload-frontend-dev
+make invalidate-cloudfront-dev
+```
+
+## 📝 Notes
+
+- Region: us-west-2 (configured in samconfig.toml)
+- Stack name: madewithkiro-dev
+- No custom domain (using CloudFront default)
+- All resources will be tagged with Environment=dev
