@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -12,11 +11,18 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group";
+import { Separator } from "@/components/ui/separator";
+import {
   applicationSchema,
   type ApplicationFormData,
 } from "@/utils/validation";
 import { z } from "zod";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ExternalLink, Github, Tag } from "lucide-react";
 
 interface ApplicationFormProps {
   onSubmit: (data: ApplicationFormData) => void | Promise<void>;
@@ -101,8 +107,9 @@ export default function ApplicationForm({
 
   const validateField = (
     field: keyof ApplicationFormData,
-    value: string | string[]
+    value: string | string[] | undefined
   ) => {
+    if (value === undefined) return;
     try {
       // Validate single field
       const fieldSchema = applicationSchema.shape[field];
@@ -214,18 +221,21 @@ export default function ApplicationForm({
             <Label htmlFor="name">
               Application Name <span className="text-red-500">*</span>
             </Label>
-            <Input
-              id="name"
-              type="text"
-              value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-              onBlur={() => handleBlur("name")}
-              className={hasFieldError("name") ? "border-red-500" : ""}
-              aria-invalid={hasFieldError("name")}
-              aria-describedby={
-                hasFieldError("name") ? "name-error" : undefined
-              }
-            />
+            <InputGroup>
+              <InputGroupInput
+                id="name"
+                type="text"
+                placeholder="My Awesome App"
+                value={formData.name}
+                onChange={(e) => handleInputChange("name", e.target.value)}
+                onBlur={() => handleBlur("name")}
+                className={hasFieldError("name") ? "border-red-500" : ""}
+                aria-invalid={hasFieldError("name")}
+                aria-describedby={
+                  hasFieldError("name") ? "name-error" : undefined
+                }
+              />
+            </InputGroup>
             {hasFieldError("name") && (
               <p id="name-error" className="text-sm text-red-500">
                 {getFieldError("name")}
@@ -257,72 +267,110 @@ export default function ApplicationForm({
             )}
           </div>
 
-          {/* Live App URL */}
-          <div className="space-y-2">
-            <Label htmlFor="appUrl">
-              Live App URL <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="appUrl"
-              type="url"
-              value={formData.appUrl}
-              onChange={(e) => handleInputChange("appUrl", e.target.value)}
-              onBlur={() => handleBlur("appUrl")}
-              className={hasFieldError("appUrl") ? "border-red-500" : ""}
-              aria-invalid={hasFieldError("appUrl")}
-              aria-describedby={
-                hasFieldError("appUrl") ? "appUrl-error" : undefined
-              }
-              placeholder="https://example.com"
-            />
-            {hasFieldError("appUrl") && (
-              <p id="appUrl-error" className="text-sm text-red-500">
-                {getFieldError("appUrl")}
-              </p>
-            )}
+          <Separator />
+
+          {/* URLs Section */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Application Links
+            </h3>
+
+            {/* Live App URL */}
+            <div className="space-y-2">
+              <Label htmlFor="appUrl">
+                Live App URL <span className="text-red-500">*</span>
+              </Label>
+              <InputGroup>
+                <InputGroupAddon>
+                  <InputGroupText>https://</InputGroupText>
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="appUrl"
+                  type="url"
+                  placeholder="example.com"
+                  value={formData.appUrl}
+                  onChange={(e) => handleInputChange("appUrl", e.target.value)}
+                  onBlur={() => handleBlur("appUrl")}
+                  className={hasFieldError("appUrl") ? "border-red-500" : ""}
+                  aria-invalid={hasFieldError("appUrl")}
+                  aria-describedby={
+                    hasFieldError("appUrl") ? "appUrl-error" : undefined
+                  }
+                />
+                <InputGroupAddon>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                </InputGroupAddon>
+              </InputGroup>
+              {hasFieldError("appUrl") && (
+                <p id="appUrl-error" className="text-sm text-red-500">
+                  {getFieldError("appUrl")}
+                </p>
+              )}
+            </div>
+
+            {/* GitHub URL */}
+            <div className="space-y-2">
+              <Label htmlFor="githubUrl">
+                GitHub Repository URL (Optional)
+              </Label>
+              <InputGroup>
+                <InputGroupAddon>
+                  <Github className="h-4 w-4 text-muted-foreground" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="githubUrl"
+                  type="url"
+                  placeholder="github.com/username/repo"
+                  value={formData.githubUrl}
+                  onChange={(e) =>
+                    handleInputChange("githubUrl", e.target.value)
+                  }
+                  onBlur={() => handleBlur("githubUrl")}
+                  className={hasFieldError("githubUrl") ? "border-red-500" : ""}
+                  aria-invalid={hasFieldError("githubUrl")}
+                  aria-describedby={
+                    hasFieldError("githubUrl") ? "githubUrl-error" : undefined
+                  }
+                />
+              </InputGroup>
+              {hasFieldError("githubUrl") && (
+                <p id="githubUrl-error" className="text-sm text-red-500">
+                  {getFieldError("githubUrl")}
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* GitHub URL */}
-          <div className="space-y-2">
-            <Label htmlFor="githubUrl">GitHub Repository URL</Label>
-            <Input
-              id="githubUrl"
-              type="url"
-              value={formData.githubUrl}
-              onChange={(e) => handleInputChange("githubUrl", e.target.value)}
-              onBlur={() => handleBlur("githubUrl")}
-              className={hasFieldError("githubUrl") ? "border-red-500" : ""}
-              aria-invalid={hasFieldError("githubUrl")}
-              aria-describedby={
-                hasFieldError("githubUrl") ? "githubUrl-error" : undefined
-              }
-              placeholder="https://github.com/username/repo"
-            />
-            {hasFieldError("githubUrl") && (
-              <p id="githubUrl-error" className="text-sm text-red-500">
-                {getFieldError("githubUrl")}
-              </p>
-            )}
-          </div>
+          <Separator />
 
           {/* Tags */}
           <div className="space-y-2">
             <Label htmlFor="tags">
               Tags <span className="text-red-500">*</span>
             </Label>
-            <Input
-              id="tags"
-              type="text"
-              value={tagsInput}
-              onChange={(e) => handleTagsInputChange(e.target.value)}
-              onBlur={() => handleBlur("tags")}
-              className={hasFieldError("tags") ? "border-red-500" : ""}
-              aria-invalid={hasFieldError("tags")}
-              aria-describedby={
-                hasFieldError("tags") ? "tags-error" : undefined
-              }
-              placeholder="react, typescript, aws (comma-separated)"
-            />
+            <InputGroup>
+              <InputGroupAddon>
+                <Tag className="h-4 w-4 text-muted-foreground" />
+              </InputGroupAddon>
+              <InputGroupInput
+                id="tags"
+                type="text"
+                value={tagsInput}
+                onChange={(e) => handleTagsInputChange(e.target.value)}
+                onBlur={() => handleBlur("tags")}
+                className={hasFieldError("tags") ? "border-red-500" : ""}
+                aria-invalid={hasFieldError("tags")}
+                aria-describedby={
+                  hasFieldError("tags") ? "tags-error" : undefined
+                }
+                placeholder="react, typescript, aws"
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupText className="text-xs text-muted-foreground">
+                  comma-separated
+                </InputGroupText>
+              </InputGroupAddon>
+            </InputGroup>
             {hasFieldError("tags") && (
               <p id="tags-error" className="text-sm text-red-500">
                 {getFieldError("tags")}

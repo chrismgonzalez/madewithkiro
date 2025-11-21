@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -10,9 +9,16 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group";
+import { Separator } from "@/components/ui/separator";
 import { profileSchema, type ProfileFormData } from "@/utils/validation";
 import { z } from "zod";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Github, Linkedin } from "lucide-react";
 
 interface ProfileFormProps {
   onSubmit: (data: ProfileFormData) => void | Promise<void>;
@@ -177,78 +183,98 @@ export default function ProfileForm({
             </Alert>
           )}
 
-          {/* First Name */}
-          <div className="space-y-2">
-            <Label htmlFor="firstName">
-              First Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="firstName"
-              type="text"
-              value={formData.firstName}
-              onChange={(e) => handleInputChange("firstName", e.target.value)}
-              onBlur={() => handleBlur("firstName")}
-              className={hasFieldError("firstName") ? "border-red-500" : ""}
-              aria-invalid={hasFieldError("firstName")}
-              aria-describedby={
-                hasFieldError("firstName") ? "firstName-error" : undefined
-              }
-            />
-            {hasFieldError("firstName") && (
-              <p id="firstName-error" className="text-sm text-red-500">
-                {getFieldError("firstName")}
-              </p>
-            )}
+          {/* Name Fields - Side by Side on Desktop */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            {/* First Name */}
+            <div className="space-y-2">
+              <Label htmlFor="firstName">
+                First Name <span className="text-red-500">*</span>
+              </Label>
+              <InputGroup>
+                <InputGroupInput
+                  id="firstName"
+                  type="text"
+                  placeholder="John"
+                  value={formData.firstName}
+                  onChange={(e) =>
+                    handleInputChange("firstName", e.target.value)
+                  }
+                  onBlur={() => handleBlur("firstName")}
+                  className={hasFieldError("firstName") ? "border-red-500" : ""}
+                  aria-invalid={hasFieldError("firstName")}
+                  aria-describedby={
+                    hasFieldError("firstName") ? "firstName-error" : undefined
+                  }
+                />
+              </InputGroup>
+              {hasFieldError("firstName") && (
+                <p id="firstName-error" className="text-sm text-red-500">
+                  {getFieldError("firstName")}
+                </p>
+              )}
+            </div>
+
+            {/* Last Name */}
+            <div className="space-y-2">
+              <Label htmlFor="lastName">
+                Last Name <span className="text-red-500">*</span>
+              </Label>
+              <InputGroup>
+                <InputGroupInput
+                  id="lastName"
+                  type="text"
+                  placeholder="Doe"
+                  value={formData.lastName}
+                  onChange={(e) =>
+                    handleInputChange("lastName", e.target.value)
+                  }
+                  onBlur={() => handleBlur("lastName")}
+                  className={hasFieldError("lastName") ? "border-red-500" : ""}
+                  aria-invalid={hasFieldError("lastName")}
+                  aria-describedby={
+                    hasFieldError("lastName") ? "lastName-error" : undefined
+                  }
+                />
+              </InputGroup>
+              {hasFieldError("lastName") && (
+                <p id="lastName-error" className="text-sm text-red-500">
+                  {getFieldError("lastName")}
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Last Name */}
-          <div className="space-y-2">
-            <Label htmlFor="lastName">
-              Last Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              id="lastName"
-              type="text"
-              value={formData.lastName}
-              onChange={(e) => handleInputChange("lastName", e.target.value)}
-              onBlur={() => handleBlur("lastName")}
-              className={hasFieldError("lastName") ? "border-red-500" : ""}
-              aria-invalid={hasFieldError("lastName")}
-              aria-describedby={
-                hasFieldError("lastName") ? "lastName-error" : undefined
-              }
-            />
-            {hasFieldError("lastName") && (
-              <p id="lastName-error" className="text-sm text-red-500">
-                {getFieldError("lastName")}
-              </p>
-            )}
-          </div>
+          <Separator />
 
           {/* AWS Builder Handle */}
           <div className="space-y-2">
             <Label htmlFor="awsBuilderHandle">
-              AWS Builder Handle <span className="text-red-500">*</span>
+              AWS Builder Center Handle <span className="text-red-500">*</span>
             </Label>
-            <Input
-              id="awsBuilderHandle"
-              type="text"
-              placeholder="@"
-              value={formData.awsBuilderHandle}
-              onChange={(e) =>
-                handleInputChange("awsBuilderHandle", e.target.value)
-              }
-              onBlur={() => handleBlur("awsBuilderHandle")}
-              className={
-                hasFieldError("awsBuilderHandle") ? "border-red-500" : ""
-              }
-              aria-invalid={hasFieldError("awsBuilderHandle")}
-              aria-describedby={
-                hasFieldError("awsBuilderHandle")
-                  ? "awsBuilderHandle-error"
-                  : undefined
-              }
-            />
+            <InputGroup>
+              <InputGroupAddon>
+                <InputGroupText>@</InputGroupText>
+              </InputGroupAddon>
+              <InputGroupInput
+                id="awsBuilderHandle"
+                type="text"
+                placeholder="your-handle"
+                value={formData.awsBuilderHandle}
+                onChange={(e) =>
+                  handleInputChange("awsBuilderHandle", e.target.value)
+                }
+                onBlur={() => handleBlur("awsBuilderHandle")}
+                className={
+                  hasFieldError("awsBuilderHandle") ? "border-red-500" : ""
+                }
+                aria-invalid={hasFieldError("awsBuilderHandle")}
+                aria-describedby={
+                  hasFieldError("awsBuilderHandle")
+                    ? "awsBuilderHandle-error"
+                    : undefined
+                }
+              />
+            </InputGroup>
             {hasFieldError("awsBuilderHandle") && (
               <p id="awsBuilderHandle-error" className="text-sm text-red-500">
                 {getFieldError("awsBuilderHandle")}
@@ -256,60 +282,81 @@ export default function ProfileForm({
             )}
           </div>
 
-          {/* LinkedIn Username */}
-          <div className="space-y-2">
-            <Label htmlFor="linkedInUsername">LinkedIn Username</Label>
-            <Input
-              id="linkedInUsername"
-              type="text"
-              value={formData.linkedInUsername}
-              onChange={(e) =>
-                handleInputChange("linkedInUsername", e.target.value)
-              }
-              onBlur={() => handleBlur("linkedInUsername")}
-              className={
-                hasFieldError("linkedInUsername") ? "border-red-500" : ""
-              }
-              aria-invalid={hasFieldError("linkedInUsername")}
-              aria-describedby={
-                hasFieldError("linkedInUsername")
-                  ? "linkedInUsername-error"
-                  : undefined
-              }
-            />
-            {hasFieldError("linkedInUsername") && (
-              <p id="linkedInUsername-error" className="text-sm text-red-500">
-                {getFieldError("linkedInUsername")}
-              </p>
-            )}
-          </div>
+          <Separator />
 
-          {/* GitHub Username */}
-          <div className="space-y-2">
-            <Label htmlFor="githubUsername">GitHub Username</Label>
-            <Input
-              id="githubUsername"
-              type="text"
-              value={formData.githubUsername}
-              onChange={(e) =>
-                handleInputChange("githubUsername", e.target.value)
-              }
-              onBlur={() => handleBlur("githubUsername")}
-              className={
-                hasFieldError("githubUsername") ? "border-red-500" : ""
-              }
-              aria-invalid={hasFieldError("githubUsername")}
-              aria-describedby={
-                hasFieldError("githubUsername")
-                  ? "githubUsername-error"
-                  : undefined
-              }
-            />
-            {hasFieldError("githubUsername") && (
-              <p id="githubUsername-error" className="text-sm text-red-500">
-                {getFieldError("githubUsername")}
-              </p>
-            )}
+          {/* Social Links Section */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium text-muted-foreground">
+              Social Links (Optional)
+            </h3>
+
+            {/* LinkedIn Username */}
+            <div className="space-y-2">
+              <Label htmlFor="linkedInUsername">LinkedIn Username</Label>
+              <InputGroup>
+                <InputGroupAddon>
+                  <Linkedin className="h-4 w-4 text-muted-foreground" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="linkedInUsername"
+                  type="text"
+                  placeholder="your-username"
+                  value={formData.linkedInUsername}
+                  onChange={(e) =>
+                    handleInputChange("linkedInUsername", e.target.value)
+                  }
+                  onBlur={() => handleBlur("linkedInUsername")}
+                  className={
+                    hasFieldError("linkedInUsername") ? "border-red-500" : ""
+                  }
+                  aria-invalid={hasFieldError("linkedInUsername")}
+                  aria-describedby={
+                    hasFieldError("linkedInUsername")
+                      ? "linkedInUsername-error"
+                      : undefined
+                  }
+                />
+              </InputGroup>
+              {hasFieldError("linkedInUsername") && (
+                <p id="linkedInUsername-error" className="text-sm text-red-500">
+                  {getFieldError("linkedInUsername")}
+                </p>
+              )}
+            </div>
+
+            {/* GitHub Username */}
+            <div className="space-y-2">
+              <Label htmlFor="githubUsername">GitHub Username</Label>
+              <InputGroup>
+                <InputGroupAddon>
+                  <Github className="h-4 w-4 text-muted-foreground" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  id="githubUsername"
+                  type="text"
+                  placeholder="your-username"
+                  value={formData.githubUsername}
+                  onChange={(e) =>
+                    handleInputChange("githubUsername", e.target.value)
+                  }
+                  onBlur={() => handleBlur("githubUsername")}
+                  className={
+                    hasFieldError("githubUsername") ? "border-red-500" : ""
+                  }
+                  aria-invalid={hasFieldError("githubUsername")}
+                  aria-describedby={
+                    hasFieldError("githubUsername")
+                      ? "githubUsername-error"
+                      : undefined
+                  }
+                />
+              </InputGroup>
+              {hasFieldError("githubUsername") && (
+                <p id="githubUsername-error" className="text-sm text-red-500">
+                  {getFieldError("githubUsername")}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Form Actions */}
