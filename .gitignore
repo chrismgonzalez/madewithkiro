@@ -61,3 +61,5 @@ env/
 
 # AWS credentials
 .aws/
+
+scratch.txt
