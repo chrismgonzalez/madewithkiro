@@ -4,22 +4,12 @@ import { filterApplicationsByTags } from "@/services/mockDataService";
 import ApplicationCard from "./ApplicationCard";
 import LoadingSpinner from "./LoadingSpinner";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Filter, X } from "lucide-react";
+import { X, Filter as FilterIcon } from "lucide-react";
 
 export default function ApplicationGallery() {
   const { data: applications, isLoading, error } = useApplications();
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Extract unique tags from visible applications
   const availableTags = useMemo(() => {
@@ -65,143 +55,101 @@ export default function ApplicationGallery() {
     );
   }
 
-  // Filter content component (reusable for both desktop and mobile)
-  const FilterContent = () => (
-    <div className="space-y-4">
-      {/* Active Filters Display */}
-      {selectedTags.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Active Filters</span>
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Filter Section */}
+      <div className="space-y-3 sm:space-y-4">
+        {/* Header with results count and clear button */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <FilterIcon className="h-4 w-4" />
+            <span>
+              {filteredApplications.length}{" "}
+              {filteredApplications.length === 1 ? "app" : "apps"}
+              {selectedTags.length > 0 && ` filtered`}
+            </span>
+          </div>
+          {selectedTags.length > 0 && (
             <Button
               variant="ghost"
+              size="sm"
               onClick={handleClearFilters}
-              className="min-h-[44px] text-xs"
+              className="h-8 px-2 text-xs"
             >
-              Clear All
+              Clear all
+              <X className="ml-1 h-3 w-3" />
             </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {selectedTags.map((tag) => (
-              <Badge
-                key={tag}
-                variant="secondary"
-                className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
-                onClick={() => handleTagToggle(tag)}
-              >
-                {tag}
-                <X className="ml-1 h-3 w-3" />
-              </Badge>
-            ))}
-          </div>
+          )}
         </div>
-      )}
 
-      {/* Tag Checkboxes */}
-      <div className="space-y-2">
-        <span className="text-sm font-medium">Available Tags</span>
-        <div className="space-y-2">
-          {availableTags.map((tag) => (
-            <div key={tag} className="flex items-center space-x-2 min-h-[44px]">
-              <Checkbox
-                id={`tag-${tag}`}
-                checked={selectedTags.includes(tag)}
-                onCheckedChange={() => handleTagToggle(tag)}
-                aria-label={tag}
-              />
-              <Label
-                htmlFor={`tag-${tag}`}
-                className="text-sm font-normal cursor-pointer flex-1 py-3"
-              >
-                {tag}
-              </Label>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <main className="container mx-auto px-4 py-8">
-      {/* Filter Button and Active Filters - Mobile */}
-      <div className="lg:hidden mb-4 flex items-center gap-2">
-        <Sheet open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-          <SheetTrigger asChild>
-            <Button variant="outline" className="gap-2 min-h-[44px]">
-              <Filter className="h-4 w-4" />
-              Filters
-              {selectedTags.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                  {selectedTags.length}
-                </Badge>
-              )}
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-80">
-            <SheetHeader>
-              <SheetTitle>Filter Applications</SheetTitle>
-            </SheetHeader>
-            <div className="mt-6">
-              <FilterContent />
-            </div>
-          </SheetContent>
-        </Sheet>
-
-        {/* Active filters preview on mobile */}
-        {selectedTags.length > 0 && (
-          <div className="flex-1 flex flex-wrap gap-1 overflow-x-auto">
-            {selectedTags.slice(0, 3).map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
-            {selectedTags.length > 3 && (
-              <Badge variant="secondary" className="text-xs">
-                +{selectedTags.length - 3}
-              </Badge>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Filter Sidebar - Desktop Only */}
-        <aside className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-4 space-y-4">
-            <h2 className="text-lg font-semibold">Filters</h2>
-            <FilterContent />
-          </div>
-        </aside>
-
-        {/* Application Grid */}
-        <div className="flex-1">
-          {filteredApplications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <p className="text-muted-foreground text-lg mb-2">
-                {selectedTags.length > 0
-                  ? "No applications match your filters"
-                  : "No applications available"}
-              </p>
-              {selectedTags.length > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={handleClearFilters}
-                  className="mt-4 min-h-[44px]"
+        {/* Scrollable badge filters */}
+        <div className="relative">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+            {availableTags.map((tag) => {
+              const isSelected = selectedTags.includes(tag);
+              return (
+                <Badge
+                  key={tag}
+                  variant={isSelected ? "default" : "outline"}
+                  className={`
+                    cursor-pointer min-h-[44px] px-4 py-2 text-sm whitespace-nowrap
+                    transition-all duration-200 select-none
+                    ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "hover:bg-accent hover:text-accent-foreground"
+                    }
+                  `}
+                  onClick={() => handleTagToggle(tag)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleTagToggle(tag);
+                    }
+                  }}
+                  aria-pressed={isSelected}
+                  aria-label={`Filter by ${tag}`}
                 >
-                  Clear Filters
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-              {filteredApplications.map((app) => (
-                <ApplicationCard key={app.appId} application={app} />
-              ))}
-            </div>
+                  {tag}
+                  {isSelected && <X className="ml-1.5 h-3 w-3" />}
+                </Badge>
+              );
+            })}
+          </div>
+          {/* Fade effect for scroll indication */}
+          {availableTags.length > 3 && (
+            <div className="absolute right-0 top-0 bottom-2 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none" />
           )}
         </div>
       </div>
-    </main>
+
+      {/* Application Grid */}
+      {filteredApplications.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-muted-foreground text-lg mb-2">
+            {selectedTags.length > 0
+              ? "No applications match your filters"
+              : "No applications available"}
+          </p>
+          {selectedTags.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={handleClearFilters}
+              className="mt-4 min-h-[44px]"
+            >
+              Clear Filters
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {filteredApplications.map((app) => (
+            <ApplicationCard key={app.appId} application={app} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
