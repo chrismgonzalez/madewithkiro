@@ -7,23 +7,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useMockAuth } from "@/contexts/MockAuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import UserAvatar from "@/components/UserAvatar";
 import ModeToggle from "@/components/ModeToggle";
 
 export default function Navigation() {
-  const { isAuthenticated, toggleAuth } = useMockAuth();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   const handleSignIn = () => {
-    // If not authenticated, sign in and navigate to gallery
-    if (!isAuthenticated) {
-      toggleAuth();
-      // Navigate to gallery view after a brief delay to ensure state updates
-      setTimeout(() => {
-        navigate({ to: "/" });
-      }, 0);
-    }
+    // Navigate to auth page
+    navigate({ to: "/auth" });
   };
 
   return (
@@ -70,7 +64,7 @@ export default function Navigation() {
             {/* Theme Toggle - Only for unauthenticated users */}
             {!isAuthenticated && <ModeToggle />}
 
-            {/* Auth Toggle Button or User Avatar */}
+            {/* Auth Button or User Avatar */}
             {isAuthenticated ? (
               <UserAvatar />
             ) : (
@@ -104,7 +98,7 @@ export default function Navigation() {
             {/* Theme Toggle - Mobile - Only for unauthenticated users */}
             {!isAuthenticated && <ModeToggle />}
 
-            {/* Auth Toggle Button or User Avatar - Mobile */}
+            {/* Auth Button or User Avatar - Mobile */}
             {isAuthenticated ? (
               <UserAvatar />
             ) : (

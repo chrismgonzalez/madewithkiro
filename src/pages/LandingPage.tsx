@@ -1,11 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useMockAuth } from "@/contexts/MockAuthContext";
+import { Link } from "@tanstack/react-router";
 import { Sparkles, Users, Rocket } from "lucide-react";
 
 export default function LandingPage() {
-  const { toggleAuth } = useMockAuth();
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-16rem)] px-3 sm:px-4">
       {/* Hero Section */}
@@ -33,10 +31,10 @@ export default function LandingPage() {
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2 md:justify-center">
           <Button
             size="lg"
-            onClick={toggleAuth}
+            asChild
             className="min-h-[52px] sm:min-h-[56px] text-base sm:text-lg px-8 sm:px-12 w-full sm:w-auto"
           >
-            Sign In to Get Started
+            <Link to="/auth">Sign In to Get Started</Link>
           </Button>
           <Button
             size="lg"

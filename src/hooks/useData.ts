@@ -15,7 +15,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMockAuth } from "../contexts/MockAuthContext";
+import { useAuth } from "../contexts/AuthContext";
 import * as mockDataService from "../services/mockDataService";
 import type {
   UserProfile,
@@ -31,7 +31,7 @@ import type {
  * @returns Query result with applications data
  */
 export function useApplications() {
-  const { isAuthenticated } = useMockAuth();
+  const { isAuthenticated } = useAuth();
 
   return useQuery<Application[]>({
     queryKey: ["applications", isAuthenticated],
@@ -62,7 +62,7 @@ export function useProfile(userId: string) {
  * @returns Query result with user's applications data
  */
 export function useUserApplications(userId: string) {
-  const { isAuthenticated } = useMockAuth();
+  const { isAuthenticated } = useAuth();
 
   return useQuery<Application[]>({
     queryKey: ["applications", "user", userId, isAuthenticated],
@@ -94,7 +94,8 @@ export function useApplication(appId: string) {
  */
 export function useUpdateApplication() {
   const queryClient = useQueryClient();
-  const { currentUserId } = useMockAuth();
+  const { user } = useAuth();
+  const currentUserId = user?.userId;
 
   return useMutation({
     mutationFn: ({
@@ -130,7 +131,8 @@ export function useUpdateApplication() {
  */
 export function useDeleteApplication() {
   const queryClient = useQueryClient();
-  const { currentUserId } = useMockAuth();
+  const { user } = useAuth();
+  const currentUserId = user?.userId;
 
   return useMutation({
     mutationFn: (appId: string) =>

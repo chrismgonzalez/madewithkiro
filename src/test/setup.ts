@@ -5,6 +5,23 @@ import * as matchers from "@testing-library/jest-dom/matchers";
 // Extend Vitest's expect with jest-dom matchers
 expect.extend(matchers);
 
+// Mock AWS Amplify globally to prevent import errors
+vi.mock("aws-amplify", () => ({
+  Amplify: {
+    configure: vi.fn(),
+  },
+  Auth: {
+    federatedSignIn: vi.fn(),
+    signOut: vi.fn(),
+    currentSession: vi.fn(),
+    currentAuthenticatedUser: vi.fn(),
+    userAttributes: vi.fn(),
+  },
+  Hub: {
+    listen: vi.fn(() => vi.fn()),
+  },
+}));
+
 // Mock environment variables for testing
 vi.stubEnv("VITE_API_BASE_URL", "https://api.test.com");
 vi.stubEnv("VITE_COGNITO_USER_POOL_ID", "us-east-1_testpool");

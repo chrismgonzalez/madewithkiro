@@ -1,12 +1,13 @@
 import ApplicationForm from "@/components/ApplicationForm";
 import { useNavigate } from "@tanstack/react-router";
 import { useApplications } from "@/hooks/useApplications";
-import { useMockAuth } from "@/contexts/MockAuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import type { ApplicationFormData } from "@/utils/validation";
 
 export default function AddApplicationPage() {
   const navigate = useNavigate();
-  const { currentUserId } = useMockAuth();
+  const { user } = useAuth();
+  const currentUserId = user?.userId;
   const { createApplication } = useApplications();
 
   const handleSubmit = async (data: ApplicationFormData) => {

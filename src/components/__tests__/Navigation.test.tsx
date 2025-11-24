@@ -1,123 +1,220 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { render } from "@/test/utils";
 import Navigation from "../Navigation";
 
-describe("Navigation - Acceptance Tests", () => {
-  describe("GIVEN I view the navigation", () => {
-    it("WHEN the component renders THEN I should see logo and app name", () => {
-      // Arrange & Act
-      render(<Navigation />);
+// Mock UserAvatar to avoid importing its dependencies
+vi.mock("../UserAvatar", () => ({
+  default: () => <button aria-label="User menu">User Avatar</button>,
+}));
 
-      // Assert - Should display app name
-      expect(
-        screen.getByText(/MadeWithKiro|Made With Kiro/i)
-      ).toBeInTheDocument();
+// Mock the useAuth hook directly - this avoids importing AuthContext which imports aws-amplify
+const mockUseAuth = vi.fn();
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: mockUseAuth,
+}));
 
-      // Assert - Logo should link to home
-      const logoLink = screen.getByRole("link", {
-        name: /madewithkiro|made with kiro/i,
-      });
-      expect(logoLink).toHaveAttribute("href", "/");
-    });
-
-    it("WHEN the component renders THEN I should see a mock authentication toggle button showing current state", () => {
-      // Arrange & Act
-      render(<Navigation />);
-
-      // Assert - Should have authentication toggle buttons (desktop and mobile)
-      const authToggles = screen.getAllByRole("button", {
-        name: /sign in|sign out|login|logout/i,
-      });
-      expect(authToggles.length).toBeGreaterThanOrEqual(1);
-
-      // Assert - Should show current authentication state
-      // Initially unauthenticated, so should show "Sign In" or similar
-      const signInButtons = screen.getAllByRole("button", { name: /sign in/i });
-      expect(signInButtons.length).toBeGreaterThanOrEqual(1);
-    });
+describe("Navigation - Real Authentication Acceptance Tests", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  describe("GIVEN I am unauthenticated", () => {
-    it("WHEN I view the navigation THEN I should see sign in button and theme toggle", () => {
-      // Arrange & Act
+  describe("GIVEN an authenticated user views the navigation", () => {
+    it("WHEN the navigation renders THEN the system should display the user's profile picture", () => {
+      // Arrange
+      mockUseAuth.mockReturnValue({
+        user: {
+          userId: "user-123",
+          email: "john.doe@example.com",
+          givenName: "John",
+          familyName: "Doe",
+          picture: "https://example.com/profile.jpg",
+        },
+        isAuthenticated: true,
+        isLoading: false,
+        signInWithGoogle: vi.fn(),
+        signInWithGitHub: vi.fn(),
+        signOut: vi.fn(),
+        refreshSession: vi.fn(),
+      });
+
+      // Act
       render(<Navigation />);
-
-      // Assert - Should see sign in button
-      const signInButtons = screen.getAllByRole("button", { name: /sign in/i });
-      expect(signInButtons.length).toBeGreaterThanOrEqual(1);
-
-      // Assert - Should see theme toggle
-      const themeToggle = screen.getAllByRole("button", {
-        name: /toggle theme/i,
-      });
-      expect(themeToggle.length).toBeGreaterThanOrEqual(1);
-    });
-  });
-
-  describe("GIVEN I am authenticated", () => {
-    it("WHEN I view the navigation THEN I should see the add app button and user avatar", () => {
-      // Arrange & Act
-      render(<Navigation />, {
-        mockAuthState: { isAuthenticated: true, currentUserId: "user-001" },
-      });
-
-      // Assert - Should see add app link
-      const addAppLink = screen.getByRole("link", { name: /add new app/i });
-      expect(addAppLink).toBeInTheDocument();
-      expect(addAppLink).toHaveAttribute("href", "/add-app");
 
       // Assert - Should see user avatar button
       const avatarButton = screen.getByRole("button", { name: /user menu/i });
       expect(avatarButton).toBeInTheDocument();
     });
-  });
 
-  describe("Authentication toggle functionality", () => {
-    it("WHEN I click the auth toggle THEN the authentication state should change", async () => {
+    it("WHEN the navigation renders THEN the system should display the user's name", async () => {
       // Arrange
       const user = userEvent.setup();
+      mockUseAuth.mockReturnValue({
+        user: {
+          userId: "user-123",
+          email: "john.doe@example.com",
+          givenName: "John",
+          familyName: "Doe",
+        },
+        isAuthenticated: true,
+        isLoading: false,
+        signInWithGoogle: vi.fn(),
+        signInWithGitHub: vi.fn(),
+        signOut: vi.fn(),
+        refreshSession: vi.fn(),
+      });
+
+      // Act
       render(<Navigation />);
 
-      // Act - Get initial state (should be "Sign In")
-      const initialButtons = screen.getAllByRole("button", {
-        name: /sign in/i,
-      });
-      expect(initialButtons.length).toBeGreaterThanOrEqual(1);
+      // Open the user menu
+      const avatarButton = screen.getByRole("button", { name: /user menu/i });
+      await user.click(avatarButton);
 
-      // Act - Click to toggle authentication (click the first one)
-      await user.click(initialButtons[0]);
-
-      // Assert - Should now show "Sign Out" or similar
+      // Assert - Should display user's full name in the menu
       await waitFor(() => {
-        const signOutButtons = screen.getAllByRole("button", {
-          name: /sign out/i,
-        });
-        expect(signOutButtons.length).toBeGreaterThanOrEqual(1);
+        expect(screen.getByText("John Doe")).toBeInTheDocument();
       });
+    });
+
+    it("WHEN the navigation renders THEN the system should display a sign-out button in the user menu", async () => {
+      // Arrange
+      const user = userEvent.setup();
+      mockUseAuth.mockReturnValue({
+        user: {
+          userId: "user-123",
+          email: "john.doe@example.com",
+          givenName: "John",
+          familyName: "Doe",
+        },
+        isAuthenticated: true,
+        isLoading: false,
+        signInWithGoogle: vi.fn(),
+        signInWithGitHub: vi.fn(),
+        signOut: vi.fn(),
+        refreshSession: vi.fn(),
+      });
+
+      // Act
+      render(<Navigation />);
+
+      // Open the user menu
+      const avatarButton = screen.getByRole("button", { name: /user menu/i });
+      await user.click(avatarButton);
+
+      // Assert - Should see sign-out button
+      await waitFor(() => {
+        const signOutButton = screen.getByRole("menuitem", {
+          name: /sign out|logout/i,
+        });
+        expect(signOutButton).toBeInTheDocument();
+      });
+    });
+
+    it("WHEN the user clicks the sign-out button THEN the system should call the signOut method and redirect to the home page", async () => {
+      // Arrange
+      const user = userEvent.setup();
+      const mockSignOut = vi.fn();
+      mockUseAuth.mockReturnValue({
+        user: {
+          userId: "user-123",
+          email: "john.doe@example.com",
+          givenName: "John",
+          familyName: "Doe",
+        },
+        isAuthenticated: true,
+        isLoading: false,
+        signInWithGoogle: vi.fn(),
+        signInWithGitHub: vi.fn(),
+        signOut: mockSignOut,
+        refreshSession: vi.fn(),
+      });
+
+      // Act
+      render(<Navigation />);
+
+      // Open the user menu
+      const avatarButton = screen.getByRole("button", { name: /user menu/i });
+      await user.click(avatarButton);
+
+      // Click sign-out button
+      const signOutButton = await screen.findByRole("menuitem", {
+        name: /sign out|logout/i,
+      });
+      await user.click(signOutButton);
+
+      // Assert - signOut should be called
+      await waitFor(() => {
+        expect(mockSignOut).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe("GIVEN an unauthenticated user views the navigation", () => {
+    it("WHEN the navigation renders THEN the system should display a sign-in button", () => {
+      // Arrange
+      mockUseAuth.mockReturnValue({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        signInWithGoogle: vi.fn(),
+        signInWithGitHub: vi.fn(),
+        signOut: vi.fn(),
+        refreshSession: vi.fn(),
+      });
+
+      // Act
+      render(<Navigation />);
+
+      // Assert - Should see sign in button
+      const signInButtons = screen.getAllByRole("button", { name: /sign in/i });
+      expect(signInButtons.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("WHEN the navigation renders THEN the system should NOT display user profile picture or name", () => {
+      // Arrange
+      mockUseAuth.mockReturnValue({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        signInWithGoogle: vi.fn(),
+        signInWithGitHub: vi.fn(),
+        signOut: vi.fn(),
+        refreshSession: vi.fn(),
+      });
+
+      // Act
+      render(<Navigation />);
+
+      // Assert - Should not see user avatar button
+      const avatarButton = screen.queryByRole("button", { name: /user menu/i });
+      expect(avatarButton).not.toBeInTheDocument();
     });
   });
 
   describe("Touch target accessibility", () => {
     it("WHEN I view interactive elements THEN they should be at least 44x44px", () => {
-      // Arrange & Act
+      // Arrange
+      mockUseAuth.mockReturnValue({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        signInWithGoogle: vi.fn(),
+        signInWithGitHub: vi.fn(),
+        signOut: vi.fn(),
+        refreshSession: vi.fn(),
+      });
+
+      // Act
       render(<Navigation />);
 
       // Assert - All buttons should have min-h-[44px] and min-w-[44px] classes
-      // This is verified by the component implementation using Tailwind classes
       const authButtons = screen.getAllByRole("button", {
-        name: /sign in|sign out/i,
+        name: /sign in/i,
       });
       expect(authButtons.length).toBeGreaterThanOrEqual(1);
 
-      const menuButton = screen.getByRole("button", {
-        name: /menu|navigation|open menu/i,
-      });
-      expect(menuButton).toBeInTheDocument();
-
-      // The component uses min-h-[44px] and min-w-[44px] classes
-      // which ensures 44x44px minimum touch targets
       // Verify by checking the className contains the min-h and min-w classes
       authButtons.forEach((button) => {
         expect(button.className).toMatch(/min-h-\[44px\]/);

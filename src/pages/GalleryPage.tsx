@@ -1,10 +1,10 @@
 import ApplicationGallery from "@/components/ApplicationGallery";
 import LandingPage from "@/pages/LandingPage";
-import { useMockAuth } from "@/contexts/MockAuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Sparkles } from "lucide-react";
 
 export default function GalleryPage() {
-  const { isAuthenticated } = useMockAuth();
+  const { isAuthenticated } = useAuth();
 
   // Show landing page for unauthenticated users
   if (!isAuthenticated) {

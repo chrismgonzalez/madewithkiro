@@ -12,8 +12,13 @@ Parameters:
     Description: Environment name
 
   CognitoCallbackURL:
-    Type: String
-    Description: Callback URL for Cognito authentication
+    Type: CommaDelimitedList
+    Description: Callback URLs for Cognito authentication (comma-separated)
+    Default: http://localhost:5173/auth/callback
+
+  CognitoLogoutURL:
+    Type: CommaDelimitedList
+    Description: Logout redirect URLs for Cognito (comma-separated)
     Default: http://localhost:5173
 
   DomainName:
@@ -31,6 +36,26 @@ Parameters:
     Description: ARN of ACM Certificate in us-east-1 (required for custom domain with CloudFront). Leave empty if no custom domain.
     Default: ""
 
+  GoogleClientIdParameter:
+    Type: String
+    Description: SSM Parameter name containing Google OAuth Client ID
+    Default: /madewithkiro/google-client-id
+
+  GoogleClientSecretParameter:
+    Type: String
+    Description: SSM Parameter name containing Google OAuth Client Secret
+    Default: /madewithkiro/google-client-secret
+
+  GitHubClientIdParameter:
+    Type: String
+    Description: SSM Parameter name containing GitHub OAuth Client ID
+    Default: /madewithkiro/github-client-id
+
+  GitHubClientSecretParameter:
+    Type: String
+    Description: SSM Parameter name containing GitHub OAuth Client Secret
+    Default: /madewithkiro/github-client-secret
+
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref DomainName, ""]]
   HasCertificate: !Not [!Equals [!Ref CertificateArn, ""]]
@@ -41,6 +66,9 @@ Conditions:
   CreateCloudFront: !Or
     - !Equals [!Ref Environment, "dev"]
     - !Equals [!Ref Environment, "prod"]
+  # Check if OAuth parameters exist in SSM (we'll assume they do if parameter names are provided)
+  HasGoogleOAuth: !Not [!Equals [!Ref GoogleClientIdParameter, ""]]
+  HasGitHubOAuth: !Not [!Equals [!Ref GitHubClientIdParameter, ""]]
 
 Globals:
   Function:
@@ -104,24 +132,15 @@ Resources:
     Type: AWS::Cognito::UserPool
     Properties:
       UserPoolName: !Sub MadeWithKiro-${Environment}
+      # Social auth only - no password policy needed
       AutoVerifiedAttributes:
         - email
-      UsernameAttributes:
-        - email
-      UsernameConfiguration:
-        CaseSensitive: false
-      Policies:
-        PasswordPolicy:
-          MinimumLength: 8
-          RequireUppercase: true
-          RequireLowercase: true
-          RequireNumbers: true
-          RequireSymbols: true
+      # Standard attributes for social auth
       Schema:
         - Name: email
           AttributeDataType: String
           Required: true
-          Mutable: false
+          Mutable: true
         - Name: given_name
           AttributeDataType: String
           Required: false
@@ -130,20 +149,66 @@ Resources:
           AttributeDataType: String
           Required: false
           Mutable: true
-      AccountRecoverySetting:
-        RecoveryMechanisms:
-          - Name: verified_email
-            Priority: 1
-      UserAttributeUpdateSettings:
-        AttributesRequireVerificationBeforeUpdate:
-          - email
+        - Name: picture
+          AttributeDataType: String
+          Required: false
+          Mutable: true
       UserPoolTags:
         Environment: !Ref Environment
         Application: MadeWithKiro
 
+  # Google Identity Provider
+  GoogleIdentityProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasGoogleOAuth
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      ProviderName: Google
+      ProviderType: Google
+      ProviderDetails:
+        client_id: !Sub "{{resolve:ssm:${GoogleClientIdParameter}}}"
+        client_secret: !Sub "{{resolve:ssm:${GoogleClientSecretParameter}}}"
+        authorize_scopes: "profile email openid"
+      AttributeMapping:
+        email: email
+        given_name: given_name
+        family_name: family_name
+        picture: picture
+        username: sub
+
+  # GitHub Identity Provider
+  # Note: GitHub uses OAuth 2.0, not OIDC, but Cognito requires OIDC type
+  GitHubIdentityProvider:
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Condition: HasGitHubOAuth
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      ProviderName: GitHub
+      ProviderType: OIDC
+      ProviderDetails:
+        client_id: !Sub "{{resolve:ssm:${GitHubClientIdParameter}}}"
+        client_secret: !Sub "{{resolve:ssm:${GitHubClientSecretParameter}}}"
+        authorize_scopes: "read:user user:email"
+        attributes_request_method: GET
+        oidc_issuer: "https://github.com"
+        authorize_url: "https://github.com/login/oauth/authorize"
+        token_url: "https://github.com/login/oauth/access_token"
+        attributes_url: "https://api.github.com/user"
+        jwks_uri: "https://token.actions.githubusercontent.com/.well-known/jwks"
+        attributes_url_add_attributes: "false"
+      AttributeMapping:
+        email: email
+        name: name
+        picture: avatar_url
+        username: sub
+
   # Cognito User Pool Client
+  # Note: Must be created after identity providers
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
+    DependsOn:
+      - GoogleIdentityProvider
+      - GitHubIdentityProvider
     Properties:
       ClientName: !Sub MadeWithKiro-Client-${Environment}
       UserPoolId: !Ref CognitoUserPool
@@ -159,13 +224,13 @@ Resources:
         - email
         - openid
         - profile
+        - aws.cognito.signin.user.admin
       AllowedOAuthFlowsUserPoolClient: true
-      CallbackURLs:
-        - !Ref CognitoCallbackURL
-      LogoutURLs:
-        - !Ref CognitoCallbackURL
+      CallbackURLs: !Ref CognitoCallbackURL
+      LogoutURLs: !Ref CognitoLogoutURL
       SupportedIdentityProviders:
-        - COGNITO
+        - Google
+        - GitHub
       RefreshTokenValidity: 30
       AccessTokenValidity: 60
       IdTokenValidity: 60
@@ -180,6 +245,52 @@ Resources:
     Properties:
       Domain: !Sub madewithkiro-${Environment}-${AWS::AccountId}
       UserPoolId: !Ref CognitoUserPool
+
+  # Cognito Identity Pool
+  CognitoIdentityPool:
+    Type: AWS::Cognito::IdentityPool
+    Properties:
+      IdentityPoolName: !Sub MadeWithKiro-${Environment}
+      AllowUnauthenticatedIdentities: false
+      CognitoIdentityProviders:
+        - ClientId: !Ref CognitoUserPoolClient
+          ProviderName: !GetAtt CognitoUserPool.ProviderName
+
+  # Cognito Identity Pool Roles
+  CognitoIdentityPoolRoles:
+    Type: AWS::Cognito::IdentityPoolRoleAttachment
+    Properties:
+      IdentityPoolId: !Ref CognitoIdentityPool
+      Roles:
+        authenticated: !GetAtt CognitoAuthenticatedRole.Arn
+
+  # IAM Role for Authenticated Users
+  CognitoAuthenticatedRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub MadeWithKiro-CognitoAuthRole-${Environment}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: cognito-identity.amazonaws.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                cognito-identity.amazonaws.com:aud: !Ref CognitoIdentityPool
+              ForAnyValue:StringLike:
+                cognito-identity.amazonaws.com:amr: authenticated
+      Policies:
+        - PolicyName: CognitoAuthenticatedPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cognito-identity:GetCredentialsForIdentity
+                  - cognito-identity:GetId
+                Resource: "*"
 
   # API Gateway
   MadeWithKiroApi:
@@ -449,11 +560,23 @@ Outputs:
     Export:
       Name: !Sub ${AWS::StackName}-UserPoolClientId
 
+  IdentityPoolId:
+    Description: Cognito Identity Pool ID
+    Value: !Ref CognitoIdentityPool
+    Export:
+      Name: !Sub ${AWS::StackName}-IdentityPoolId
+
   UserPoolDomain:
     Description: Cognito User Pool Domain
-    Value: !Sub https://madewithkiro-${Environment}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com
+    Value: !Sub madewithkiro-${Environment}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com
     Export:
       Name: !Sub ${AWS::StackName}-UserPoolDomain
+
+  CognitoRegion:
+    Description: AWS Region for Cognito
+    Value: !Ref AWS::Region
+    Export:
+      Name: !Sub ${AWS::StackName}-CognitoRegion
 
   TableName:
     Description: DynamoDB Table Name

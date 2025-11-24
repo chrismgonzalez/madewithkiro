@@ -174,17 +174,53 @@ export class ApiClient {
   }
 
   /**
-   * Build request headers
+   * Get current authentication token
    *
-   * Adds standard headers (Content-Type, Accept) to all requests.
+   * Retrieves the current access token from Cognito session using authService.
+   * Returns null if user is not authenticated.
    *
-   * @returns Headers object with standard headers
+   * @returns Access token or null
    * @private
    */
-  private buildHeaders(): Headers {
+  private async getAuthToken(): Promise<string | null> {
+    try {
+      const { authService } = await import("./authService");
+      return await authService.getAccessToken();
+    } catch (error) {
+      // User not authenticated or session expired
+      return null;
+    }
+  }
+
+  /**
+   * Build request headers with authentication
+   *
+   * Adds standard headers (Content-Type, Accept) and Authorization header
+   * if user is authenticated.
+   *
+   * @param requiresAuth - Whether this request requires authentication
+   * @returns Headers object with standard and auth headers
+   * @private
+   */
+  private async buildHeaders(requiresAuth: boolean = true): Promise<Headers> {
     const headers = new Headers();
     headers.set("Content-Type", "application/json");
     headers.set("Accept", "application/json");
+
+    // Add auth token if available (default to true for all requests)
+    if (requiresAuth) {
+      const token = await this.getAuthToken();
+      console.log(
+        "Auth token retrieved:",
+        token ? `${token.substring(0, 20)}...` : "null"
+      );
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      } else {
+        console.warn("No auth token available for authenticated request");
+      }
+    }
+
     return headers;
   }
 
@@ -312,9 +348,43 @@ export class ApiClient {
   }
 
   /**
-   * Make an HTTP request with retry logic
+   * Handle 401 Unauthorized responses
+   *
+   * Attempts to refresh the session using authService and retry the request.
+   * Redirects to auth page if refresh fails.
+   *
+   * @template T - The expected response data type
+   * @param options - Original request options
+   * @returns API response after retry
+   * @throws ApiClientError if refresh fails
+   * @private
+   */
+  private async handleUnauthorized<T>(
+    options: RequestOptions
+  ): Promise<ApiResponse<T>> {
+    try {
+      // Try to refresh the session using authService
+      const { authService } = await import("./authService");
+      const refreshed = await authService.refreshSession();
+
+      if (!refreshed) {
+        throw new Error("Session refresh failed");
+      }
+
+      // Retry the original request
+      return this.makeRequest<T>(options, 0);
+    } catch (error) {
+      // Refresh failed, redirect to auth
+      window.location.href = "/auth";
+      throw new ApiClientError("Authentication required", "UNAUTHORIZED", 401);
+    }
+  }
+
+  /**
+   * Make an HTTP request with retry logic and authentication support
    *
    * Handles retries with exponential backoff for transient failures.
+   * Handles authentication tokens and 401 responses.
    *
    * @template T - The expected response data type
    * @param options - Request options
@@ -327,7 +397,7 @@ export class ApiClient {
     options: RequestOptions,
     attempt: number = 0
   ): Promise<ApiResponse<T>> {
-    const { method, endpoint, data, params, signal } = options;
+    const { method, endpoint, data, params, requiresAuth, signal } = options;
 
     try {
       // Check if already aborted before making request
@@ -335,9 +405,9 @@ export class ApiClient {
         throw new DOMException("The operation was aborted.", "AbortError");
       }
 
-      // Build URL and headers
+      // Build URL and headers (with auth if required)
       const url = this.buildURL(endpoint, params);
-      const headers = this.buildHeaders();
+      const headers = await this.buildHeaders(requiresAuth);
 
       // Make fetch request
       const response = await fetch(url, {
@@ -350,6 +420,11 @@ export class ApiClient {
       // Check if aborted after fetch completes
       if (signal?.aborted) {
         throw new DOMException("The operation was aborted.", "AbortError");
+      }
+
+      // Handle 401 Unauthorized (token expired or invalid)
+      if (response.status === 401 && requiresAuth && attempt === 0) {
+        return this.handleUnauthorized<T>(options);
       }
 
       // Handle response
@@ -458,7 +533,13 @@ export class ApiClient {
     data?: unknown,
     signal?: AbortSignal
   ): Promise<ApiResponse<T>> {
-    return this.request<T>({ method: "POST", endpoint, data, signal });
+    return this.request<T>({
+      method: "POST",
+      endpoint,
+      data,
+      signal,
+      requiresAuth: true,
+    });
   }
 
   /**

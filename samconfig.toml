@@ -15,7 +15,7 @@ lint = true
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
-region = "us-east-1"
+region = "us-west-2"
 
 [default.package.parameters]
 resolve_s3 = true
@@ -39,15 +39,19 @@ cached = true
 parallel = true
 
 [dev.deploy.parameters]
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_NAMED_IAM"
 confirm_changeset = false
 resolve_s3 = true
 region = "us-west-2"
 parameter_overrides = [
   "Environment=dev",
-  # Use localhost for local development, or update to CloudFront URL after first deployment
-  # After deployment, get CloudFront URL from outputs and update this
-  "CognitoCallbackURL=http://localhost:5173",
+  # Multiple callback URLs: local development + deployed dev environment
+  # Format: comma-separated list (no spaces) - must include /auth/callback path
+  "CognitoCallbackURL=http://localhost:5173/auth/callback,https://dh1nph2ldx21y.cloudfront.net/auth/callback",
+  # Logout URLs redirect to home page (unauthenticated)
+  "CognitoLogoutURL=http://localhost:5173,https://dh1nph2ldx21y.cloudfront.net",
+  "GoogleClientId=227466642868-kvvclsq0die12cqosbpdr899kq285a4j.apps.googleusercontent.com",
+  "GitHubClientId=Ov23liqbWD9B8NfgmIZV",
   # DomainName and HostedZoneId omitted - will use template defaults (empty strings)
 ]
 tags = ["Environment=dev", "Application=MadeWithKiro"]

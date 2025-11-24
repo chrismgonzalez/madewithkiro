@@ -4,11 +4,13 @@ import ApplicationCard from "./ApplicationCard";
 import LoadingSpinner from "./LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "@tanstack/react-router";
 import {
   X,
   Filter as FilterIcon,
   ChevronLeft,
   ChevronRight,
+  Plus,
 } from "lucide-react";
 
 // Helper function to filter applications by tags
@@ -168,13 +170,15 @@ export default function ApplicationGallery() {
 
       {/* Application Grid */}
       {filteredApplications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
           <p className="text-muted-foreground text-lg mb-2">
             {selectedTags.length > 0
               ? "No applications match your filters"
+              : applications?.length === 0
+              ? "No applications yet"
               : "No applications available"}
           </p>
-          {selectedTags.length > 0 && (
+          {selectedTags.length > 0 ? (
             <Button
               variant="outline"
               onClick={handleClearFilters}
@@ -182,7 +186,19 @@ export default function ApplicationGallery() {
             >
               Clear Filters
             </Button>
-          )}
+          ) : applications?.length === 0 ? (
+            <div className="space-y-3">
+              <p className="text-muted-foreground">
+                Be the first to showcase your Kiro creation!
+              </p>
+              <Button asChild size="lg" className="min-h-[44px]">
+                <Link to="/add-app">
+                  <Plus className="h-5 w-5 mr-2" />
+                  Create First Application
+                </Link>
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <>

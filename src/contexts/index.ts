@@ -1,1 +1,1 @@
-export { MockAuthProvider, useMockAuth } from "./MockAuthContext";
+export { AuthProvider, useAuth } from "./AuthContext";

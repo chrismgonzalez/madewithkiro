@@ -115,7 +115,7 @@ deploy-certificate: ## Deploy ACM certificate in us-east-1 (required for prod cu
 	@echo "$(YELLOW)Add this ARN to samconfig.toml prod parameters:$(NC)"
 	@echo "  CertificateArn=<ARN_FROM_ABOVE>"
 
-deploy-dev: sam-build ## Deploy to development environment
+deploy-dev: sam-build validate-oauth-dev ## Deploy to development environment
 	@echo "$(BLUE)Deploying to development environment...$(NC)"
 	sam deploy --config-env dev --no-confirm-changeset
 	@echo ""
@@ -124,7 +124,7 @@ deploy-dev: sam-build ## Deploy to development environment
 	@echo "$(YELLOW)Fetching stack outputs...$(NC)"
 	@aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs' --output table 2>/dev/null || echo "$(RED)Could not fetch outputs. Run: aws cloudformation describe-stacks --stack-name madewithkiro-dev$(NC)"
 
-deploy-prod: sam-build ## Deploy to production environment
+deploy-prod: sam-build validate-oauth-prod ## Deploy to production environment
 	@echo "$(BLUE)Deploying to production environment...$(NC)"
 	@echo "$(RED)⚠️  WARNING: Deploying to PRODUCTION$(NC)"
 	@read -p "Are you sure? [y/N] " -n 1 -r; \
@@ -141,7 +141,7 @@ deploy-prod: sam-build ## Deploy to production environment
 
 build-dev: ## Build frontend for dev environment
 	@echo "$(BLUE)Building frontend for dev environment...$(NC)"
-	@cp .env.dev .env.production.local
+	@cp .env.development .env.production.local
 	@bun run build
 	@rm -f .env.production.local
 	@echo "$(GREEN)✓ Frontend built for dev$(NC)"
@@ -278,6 +278,58 @@ setup-env-dev: ## Generate .env file from dev stack outputs
 
 setup-env-prod: ## Generate .env file from prod stack outputs
 	@./scripts/setup-env.sh prod
+
+setup-ssm-dev: ## Store OAuth credentials in SSM Parameter Store (dev)
+	@echo "$(BLUE)Setting up SSM parameters for dev environment...$(NC)"
+	@if [ -z "$$GOOGLE_CLIENT_ID" ] || [ -z "$$GOOGLE_CLIENT_SECRET" ] || [ -z "$$GITHUB_CLIENT_ID" ] || [ -z "$$GITHUB_CLIENT_SECRET" ]; then \
+		echo "$(RED)✗ Missing required environment variables$(NC)"; \
+		echo ""; \
+		echo "$(YELLOW)Please set the following environment variables:$(NC)"; \
+		echo "  export GOOGLE_CLIENT_ID='your-google-client-id'"; \
+		echo "  export GOOGLE_CLIENT_SECRET='your-google-client-secret'"; \
+		echo "  export GITHUB_CLIENT_ID='your-github-client-id'"; \
+		echo "  export GITHUB_CLIENT_SECRET='your-github-client-secret'"; \
+		echo ""; \
+		echo "$(YELLOW)Then run: make setup-ssm-dev$(NC)"; \
+		exit 1; \
+	fi
+	@./scripts/setup-ssm-parameters.sh dev
+	@echo "$(GREEN)✓ SSM parameters configured for dev$(NC)"
+
+setup-ssm-prod: ## Store OAuth credentials in SSM Parameter Store (prod)
+	@echo "$(BLUE)Setting up SSM parameters for prod environment...$(NC)"
+	@echo "$(RED)⚠️  WARNING: Setting up PRODUCTION OAuth credentials$(NC)"
+	@if [ -z "$$GOOGLE_CLIENT_ID" ] || [ -z "$$GOOGLE_CLIENT_SECRET" ] || [ -z "$$GITHUB_CLIENT_ID" ] || [ -z "$$GITHUB_CLIENT_SECRET" ]; then \
+		echo "$(RED)✗ Missing required environment variables$(NC)"; \
+		echo ""; \
+		echo "$(YELLOW)Please set the following environment variables:$(NC)"; \
+		echo "  export GOOGLE_CLIENT_ID='your-google-client-id'"; \
+		echo "  export GOOGLE_CLIENT_SECRET='your-google-client-secret'"; \
+		echo "  export GITHUB_CLIENT_ID='your-github-client-id'"; \
+		echo "  export GITHUB_CLIENT_SECRET='your-github-client-secret'"; \
+		echo ""; \
+		echo "$(YELLOW)Then run: make setup-ssm-prod$(NC)"; \
+		exit 1; \
+	fi
+	@read -p "Are you sure? [y/N] " -n 1 -r; \
+	echo; \
+	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+		./scripts/setup-ssm-parameters.sh prod; \
+		echo "$(GREEN)✓ SSM parameters configured for prod$(NC)"; \
+	else \
+		echo "$(YELLOW)Setup cancelled$(NC)"; \
+	fi
+
+
+validate-oauth-dev: ## Validate OAuth credentials are configured in SSM (dev)
+	@echo "$(BLUE)Validating OAuth credentials for dev environment...$(NC)"
+	@./scripts/setup-ssm-parameters.sh dev --validate-only
+	@echo "$(GREEN)✓ OAuth credentials validated$(NC)"
+
+validate-oauth-prod: ## Validate OAuth credentials are configured in SSM (prod)
+	@echo "$(BLUE)Validating OAuth credentials for prod environment...$(NC)"
+	@./scripts/setup-ssm-parameters.sh prod --validate-only
+	@echo "$(GREEN)✓ OAuth credentials validated$(NC)"
 
 invalidate-cloudfront-dev: ## Invalidate CloudFront cache (dev)
 	@echo "$(BLUE)Invalidating CloudFront cache for dev...$(NC)"

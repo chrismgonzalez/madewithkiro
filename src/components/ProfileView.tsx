@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useProfile } from "@/hooks/useProfile";
 import { useApplications } from "@/hooks/useApplications";
-import { useMockAuth } from "@/contexts/MockAuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { applicationService } from "@/services/applicationService";
 import ProfileForm from "./ProfileForm";
 import LoadingSpinner from "./LoadingSpinner";
@@ -32,7 +32,9 @@ import {
   Package,
   Edit,
   Trash2,
+  Plus,
 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +50,8 @@ export default function ProfileView({ userId }: ProfileViewProps) {
   const [deleteAppName, setDeleteAppName] = useState<string>("");
 
   // Get authentication state
-  const { isAuthenticated, currentUserId } = useMockAuth();
+  const { isAuthenticated, user } = useAuth();
+  const currentUserId = user?.userId;
 
   // Determine if viewing own profile
   const isOwnProfile = isAuthenticated && currentUserId === userId;
@@ -295,11 +298,21 @@ export default function ProfileView({ userId }: ProfileViewProps) {
             <LoadingSpinner message="Loading applications..." />
           ) : applications.length === 0 ? (
             <Card>
-              <CardContent className="text-center py-12">
+              <CardContent className="text-center py-12 space-y-4">
                 <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground text-lg">
-                  This user hasn't created any applications yet.
+                  {isOwnProfile
+                    ? "You don't have any applications yet"
+                    : "This user hasn't created any applications yet"}
                 </p>
+                {isOwnProfile && (
+                  <Button asChild size="lg" className="min-h-[44px] mt-4">
+                    <Link to="/add-app">
+                      <Plus className="h-5 w-5 mr-2" />
+                      Create Your First Application
+                    </Link>
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (

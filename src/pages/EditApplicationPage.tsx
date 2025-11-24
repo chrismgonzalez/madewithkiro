@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { useApplication } from "@/hooks/useApplication";
-import { useMockAuth } from "@/contexts/MockAuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import ApplicationForm from "@/components/ApplicationForm";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -11,7 +11,8 @@ import type { ApplicationFormData } from "@/utils/validation";
 export default function EditApplicationPage() {
   const { appId } = useParams({ strict: false }) as { appId: string };
   const navigate = useNavigate();
-  const { currentUserId, isAuthenticated } = useMockAuth();
+  const { user, isAuthenticated } = useAuth();
+  const currentUserId = user?.userId;
   const [updateError, setUpdateError] = useState<string | null>(null);
 
   // Fetch application data and get update function

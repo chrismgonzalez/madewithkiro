@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { LogOut, User, Moon, Sun, Monitor } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useTheme } from "next-themes";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -19,25 +19,27 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import { useMockAuth } from "@/contexts/MockAuthContext";
-import { useProfile } from "@/hooks/useProfile";
+import { useAuth } from "@/contexts/AuthContext";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 export default function UserAvatar() {
-  const { currentUserId, toggleAuth } = useMockAuth();
+  const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const isDesktop = useMediaQuery("(min-width: 768px)");
+  const navigate = useNavigate();
 
-  // Fetch user profile from API
-  const { profile: user, isLoading } = useProfile(currentUserId || "");
-
-  if (!currentUserId) return null;
-  if (isLoading) return null; // Don't show avatar while loading
   if (!user) return null;
 
-  const initials = `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-  const fullName = `${user.firstName} ${user.lastName}`;
+  const initials =
+    user.givenName && user.familyName
+      ? `${user.givenName[0]}${user.familyName[0]}`.toUpperCase()
+      : user.email[0].toUpperCase();
+
+  const fullName =
+    user.givenName && user.familyName
+      ? `${user.givenName} ${user.familyName}`
+      : user.email;
 
   const themeOptions = [
     { value: "light", label: "Light", icon: Sun },
@@ -45,8 +47,18 @@ export default function UserAvatar() {
     { value: "system", label: "System", icon: Monitor },
   ];
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate({ to: "/" });
+    } catch (error) {
+      console.error("Sign out error:", error);
+    }
+  };
+
   const avatarContent = (
     <Avatar className="h-10 w-10 sm:h-11 sm:w-11">
+      {user.picture && <AvatarImage src={user.picture} alt={fullName} />}
       <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground font-semibold text-sm">
         {initials}
       </AvatarFallback>
@@ -68,16 +80,14 @@ export default function UserAvatar() {
           <DropdownMenuLabel>
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-medium">{fullName}</p>
-              <p className="text-xs text-muted-foreground">
-                @{user.awsBuilderHandle}
-              </p>
+              <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
             <Link
               to="/profile/$userId"
-              params={{ userId: currentUserId }}
+              params={{ userId: user.userId }}
               className="flex items-center cursor-pointer"
             >
               <User className="mr-2 h-4 w-4" />
@@ -106,11 +116,11 @@ export default function UserAvatar() {
           })}
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={toggleAuth}
+            onClick={handleSignOut}
             className="flex items-center cursor-pointer text-destructive focus:text-destructive"
           >
             <LogOut className="mr-2 h-4 w-4" />
-            <span>Logout</span>
+            <span>Sign Out</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -131,6 +141,9 @@ export default function UserAvatar() {
         <DrawerHeader className="text-center pb-4 sm:pb-6">
           <div className="flex flex-col items-center gap-2 sm:gap-3">
             <Avatar className="h-14 w-14 sm:h-16 sm:w-16">
+              {user.picture && (
+                <AvatarImage src={user.picture} alt={fullName} />
+              )}
               <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground font-semibold text-base sm:text-lg">
                 {initials}
               </AvatarFallback>
@@ -140,7 +153,7 @@ export default function UserAvatar() {
                 {fullName}
               </DrawerTitle>
               <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[280px]">
-                @{user.awsBuilderHandle}
+                {user.email}
               </p>
             </div>
           </div>
@@ -148,7 +161,7 @@ export default function UserAvatar() {
         <div className="px-3 sm:px-4 space-y-3">
           <Link
             to="/profile/$userId"
-            params={{ userId: currentUserId }}
+            params={{ userId: user.userId }}
             onClick={() => setOpen(false)}
             className="flex items-center justify-center gap-2 sm:gap-3 min-h-[52px] sm:min-h-[56px] px-3 sm:px-4 py-3 rounded-lg bg-accent hover:bg-accent/80 transition-colors"
           >
@@ -184,13 +197,13 @@ export default function UserAvatar() {
 
           <button
             onClick={() => {
-              toggleAuth();
+              handleSignOut();
               setOpen(false);
             }}
             className="flex items-center justify-center gap-2 sm:gap-3 min-h-[52px] sm:min-h-[56px] px-3 sm:px-4 py-3 rounded-lg bg-destructive/10 hover:bg-destructive/20 transition-colors text-destructive w-full"
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
-            <span className="text-sm sm:text-base font-medium">Logout</span>
+            <span className="text-sm sm:text-base font-medium">Sign Out</span>
           </button>
         </div>
       </DrawerContent>

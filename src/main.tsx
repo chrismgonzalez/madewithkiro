@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import "./index.css";
 import { router } from "./router";
 import { queryClient } from "./config/queryClient";
+import "./config/amplify"; // Initialize AWS Amplify
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

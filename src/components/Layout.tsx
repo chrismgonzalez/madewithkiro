@@ -33,6 +33,18 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             <div className="flex gap-4 sm:gap-6">
               <a
+                href="/terms"
+                className="text-xs sm:text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                Terms
+              </a>
+              <a
+                href="/privacy"
+                className="text-xs sm:text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                Privacy
+              </a>
+              <a
                 href="https://github.com/chrismgonzalez/madewithkiro"
                 target="_blank"
                 rel="noopener noreferrer"
