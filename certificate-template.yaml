@@ -7,10 +7,18 @@ Parameters:
     Description: Domain name for the certificate
     Default: madewithkiro.com
 
+  CognitoCustomDomain:
+    Type: String
+    Description: Custom domain for Cognito (e.g., auth.madewithkiro.com). Leave empty to skip Cognito certificate.
+    Default: auth.madewithkiro.com
+
   HostedZoneId:
     Type: String
     Description: Route 53 Hosted Zone ID for DNS validation
     Default: Z00541582Q16QTXW4013F
+
+Conditions:
+  CreateCognitoCertificate: !Not [!Equals [!Ref CognitoCustomDomain, ""]]
 
 Resources:
   # ACM Certificate in us-east-1 for CloudFront
@@ -30,9 +38,25 @@ Resources:
         - Key: Application
           Value: MadeWithKiro
 
+  # ACM Certificate in us-east-1 for Cognito Custom Domain
+  CognitoCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: CreateCognitoCertificate
+    Properties:
+      DomainName: !Ref CognitoCustomDomain
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref CognitoCustomDomain
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: Name
+          Value: !Sub ${CognitoCustomDomain}-cognito-cert
+        - Key: Application
+          Value: MadeWithKiro
+
 Outputs:
   CertificateArn:
-    Description: ARN of the ACM Certificate (use this in main stack)
+    Description: ARN of the ACM Certificate for CloudFront (use this in main stack)
     Value: !Ref Certificate
     Export:
       Name: MadeWithKiro-Certificate-Arn
@@ -42,3 +66,17 @@ Outputs:
     Value: !Ref DomainName
     Export:
       Name: MadeWithKiro-Certificate-Domain
+
+  CognitoCertificateArn:
+    Condition: CreateCognitoCertificate
+    Description: ARN of the ACM Certificate for Cognito Custom Domain (use this in main stack)
+    Value: !Ref CognitoCertificate
+    Export:
+      Name: MadeWithKiro-Cognito-Certificate-Arn
+
+  CognitoCertificateDomainName:
+    Condition: CreateCognitoCertificate
+    Description: Domain name of the Cognito certificate
+    Value: !Ref CognitoCustomDomain
+    Export:
+      Name: MadeWithKiro-Cognito-Certificate-Domain

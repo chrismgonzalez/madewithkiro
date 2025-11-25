@@ -55,7 +55,10 @@ parameter_overrides = [
   # Environment-specific SSM parameter paths for dev
   "GoogleClientIdParameter=/madewithkiro/dev/google-client-id",
   "GoogleClientSecretParameter=/madewithkiro/dev/google-client-secret",
-  # DomainName and HostedZoneId omitted - will use template defaults (empty strings)
+  # Cognito Custom Domain Configuration for Dev
+  "CognitoCustomDomain=auth-dev.madewithkiro.com",
+  "CognitoCertificateArn=arn:aws:acm:us-east-1:633458675472:certificate/28a5f528-69f7-4fa3-a831-aa0e5c21a24f",
+  "HostedZoneId=Z00541582Q16QTXW4013F",
 ]
 tags = ["Environment=dev", "Application=MadeWithKiro"]
 
@@ -85,5 +88,8 @@ parameter_overrides = [
   "DomainName=madewithkiro.com",
   "HostedZoneId=Z00541582Q16QTXW4013F",
   "CertificateArn=arn:aws:acm:us-east-1:633458675472:certificate/28a5f528-69f7-4fa3-a831-aa0e5c21a24f",
+  # Cognito Custom Domain Configuration for Prod
+  "CognitoCustomDomain=auth.madewithkiro.com",
+  "CognitoCertificateArn=arn:aws:acm:us-east-1:633458675472:certificate/28a5f528-69f7-4fa3-a831-aa0e5c21a24f",
 ]
 tags = ["Environment=prod", "Application=MadeWithKiro"]

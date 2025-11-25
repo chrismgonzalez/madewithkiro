@@ -36,6 +36,16 @@ Parameters:
     Description: ARN of ACM Certificate in us-east-1 (required for custom domain with CloudFront). Leave empty if no custom domain.
     Default: ""
 
+  CognitoCustomDomain:
+    Type: String
+    Description: Custom domain for Cognito (e.g., auth.madewithkiro.com). Leave empty to use default Cognito domain.
+    Default: ""
+
+  CognitoCertificateArn:
+    Type: String
+    Description: ARN of ACM Certificate in us-east-1 for Cognito custom domain. Required if CognitoCustomDomain is set.
+    Default: ""
+
   GoogleClientIdParameter:
     Type: String
     Description: SSM Parameter name containing Google OAuth Client ID (environment-specific)
@@ -47,6 +57,8 @@ Parameters:
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref DomainName, ""]]
   HasCertificate: !Not [!Equals [!Ref CertificateArn, ""]]
+  HasCognitoCustomDomain: !Not [!Equals [!Ref CognitoCustomDomain, ""]]
+  HasCognitoCertificate: !Not [!Equals [!Ref CognitoCertificateArn, ""]]
   CreateHostedZone: !And
     - !Condition HasCustomDomain
     - !Equals [!Ref HostedZoneId, ""]
@@ -203,12 +215,32 @@ Resources:
         AccessToken: minutes
         IdToken: minutes
 
-  # Cognito User Pool Domain
+  # Cognito User Pool Domain (Default or Custom)
   CognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     Properties:
-      Domain: !Sub madewithkiro-${Environment}-${AWS::AccountId}
+      Domain: !If
+        - HasCognitoCustomDomain
+        - !Ref CognitoCustomDomain
+        - !Sub madewithkiro-${Environment}-${AWS::AccountId}
       UserPoolId: !Ref CognitoUserPool
+      CustomDomainConfig: !If
+        - HasCognitoCustomDomain
+        - CertificateArn: !Ref CognitoCertificateArn
+        - !Ref AWS::NoValue
+
+  # Route 53 Record for Cognito Custom Domain
+  CognitoDomainRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: HasCognitoCustomDomain
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref CognitoCustomDomain
+      Type: A
+      AliasTarget:
+        HostedZoneId: Z2FDTNDATAQYW2 # CloudFront hosted zone ID (constant for Cognito custom domains)
+        DNSName: !GetAtt CognitoUserPoolDomain.CloudFrontDistribution
+        EvaluateTargetHealth: false
 
   # Cognito Identity Pool
   CognitoIdentityPool:
@@ -642,7 +674,7 @@ Resources:
             Override: true
           # Content-Security-Policy - Restrict resource loading to prevent XSS
           ContentSecurityPolicy:
-            ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://us-assets.i.posthog.com https://eu-assets.i.posthog.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.execute-api.us-east-1.amazonaws.com https://*.execute-api.us-east-2.amazonaws.com https://*.execute-api.us-west-1.amazonaws.com https://*.execute-api.us-west-2.amazonaws.com https://*.execute-api.eu-west-1.amazonaws.com https://*.execute-api.eu-central-1.amazonaws.com https://*.execute-api.ap-southeast-1.amazonaws.com https://*.execute-api.ap-northeast-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://cognito-idp.us-east-2.amazonaws.com https://cognito-idp.us-west-1.amazonaws.com https://cognito-idp.us-west-2.amazonaws.com https://cognito-idp.eu-west-1.amazonaws.com https://cognito-idp.eu-central-1.amazonaws.com https://cognito-identity.us-east-1.amazonaws.com https://cognito-identity.us-east-2.amazonaws.com https://cognito-identity.us-west-1.amazonaws.com https://cognito-identity.us-west-2.amazonaws.com https://cognito-identity.eu-west-1.amazonaws.com https://cognito-identity.eu-central-1.amazonaws.com https://*.auth.us-east-1.amazoncognito.com https://*.auth.us-east-2.amazoncognito.com https://*.auth.us-west-1.amazoncognito.com https://*.auth.us-west-2.amazoncognito.com https://*.auth.eu-west-1.amazoncognito.com https://*.auth.eu-central-1.amazoncognito.com https://us.i.posthog.com https://eu.i.posthog.com https://us-assets.i.posthog.com https://eu-assets.i.posthog.com; script-src-elem 'self' 'unsafe-inline' https://us-assets.i.posthog.com https://eu-assets.i.posthog.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+            ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://us-assets.i.posthog.com https://eu-assets.i.posthog.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.execute-api.us-west-2.amazonaws.com https://cognito-idp.us-west-2.amazonaws.com https://cognito-identity.us-west-2.amazonaws.com https://auth-dev.madewithkiro.com https://auth.madewithkiro.com https://us.i.posthog.com https://us-assets.i.posthog.com; script-src-elem 'self' 'unsafe-inline' https://us-assets.i.posthog.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
             Override: true
 
   # Route 53 Record for Custom Domain
@@ -688,9 +720,21 @@ Outputs:
 
   UserPoolDomain:
     Description: Cognito User Pool Domain
-    Value: !Sub madewithkiro-${Environment}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com
+    Value: !If
+      - HasCognitoCustomDomain
+      - !Ref CognitoCustomDomain
+      - !Sub madewithkiro-${Environment}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com
     Export:
       Name: !Sub ${AWS::StackName}-UserPoolDomain
+
+  CognitoHostedUIUrl:
+    Description: Cognito Hosted UI URL (use this for OAuth login)
+    Value: !If
+      - HasCognitoCustomDomain
+      - !Sub https://${CognitoCustomDomain}
+      - !Sub https://madewithkiro-${Environment}-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com
+    Export:
+      Name: !Sub ${AWS::StackName}-CognitoHostedUIUrl
 
   CognitoRegion:
     Description: AWS Region for Cognito
