@@ -104,7 +104,6 @@ describe("useApplications - Request Cancellation", () => {
   describe("Requirement 13.3: Cancel previous request on filter change", () => {
     it("GIVEN a filter is applied WHEN a new filter is applied before the previous completes THEN the previous request should be cancelled", async () => {
       // Arrange
-      let firstRequestCompleted = false;
       let secondRequestCompleted = false;
 
       vi.mocked(applicationService.listApplications)
@@ -112,7 +111,6 @@ describe("useApplications - Request Cancellation", () => {
           () =>
             new Promise((resolve) => {
               setTimeout(() => {
-                firstRequestCompleted = true;
                 resolve(mockApplications);
               }, 500);
             })

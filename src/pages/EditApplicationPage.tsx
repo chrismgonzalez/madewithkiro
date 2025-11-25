@@ -75,14 +75,11 @@ export default function EditApplicationPage() {
     );
   }
 
-  // Handle form submission
   const handleSubmit = async (data: ApplicationFormData) => {
-    // Clear any previous errors
     setUpdateError(null);
 
     try {
-      await updateApplication({ ...data, userId: currentUserId! });
-      console.log("Application updated successfully");
+      await updateApplication(data);
       navigate({ to: `/profile/${currentUserId}` });
     } catch (error) {
       console.error("Failed to update application:", error);

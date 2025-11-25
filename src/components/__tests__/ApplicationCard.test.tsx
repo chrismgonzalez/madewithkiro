@@ -1,6 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { render } from "@/test/utils";
 import ApplicationCard from "../ApplicationCard";
 import { getAllApplications } from "@/services/mockData";
@@ -9,7 +8,6 @@ describe("ApplicationCard - Acceptance Tests", () => {
   // Use mock data for testing
   const mockApps = getAllApplications(true);
   const publicApp = mockApps.find((app) => app.visibility === "public")!;
-  const privateApp = mockApps.find((app) => app.visibility === "private")!;
   const appWithGithub = mockApps.find((app) => app.githubUrl)!;
   const appWithoutGithub = mockApps.find((app) => !app.githubUrl)!;
 

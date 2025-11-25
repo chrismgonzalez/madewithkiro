@@ -63,6 +63,7 @@ export function useApplications(userId?: string) {
       const optimisticApp: Application & { isPending?: boolean } = {
         ...newApp,
         appId: tempId,
+        userId: userId || "",
         userName: "You",
         createdAt: new Date().toISOString(),
         isPending: true,

@@ -125,7 +125,6 @@ describe("useProfile - Request Cancellation", () => {
 
       vi.mocked(profileService.getProfile).mockResolvedValue(mockProfile);
 
-      let firstUpdateCompleted = false;
       let secondUpdateCompleted = false;
 
       vi.mocked(profileService.updateProfile)
@@ -133,7 +132,6 @@ describe("useProfile - Request Cancellation", () => {
           () =>
             new Promise((resolve) => {
               setTimeout(() => {
-                firstUpdateCompleted = true;
                 resolve({ ...mockProfile, firstName: "First" });
               }, 500);
             })
@@ -158,7 +156,7 @@ describe("useProfile - Request Cancellation", () => {
       });
 
       // Start first update
-      const update1Promise = result.current.updateProfile({
+      result.current.updateProfile({
         firstName: "First",
         lastName: "User",
         awsBuilderHandle: "test-builder",

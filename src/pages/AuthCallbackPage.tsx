@@ -33,10 +33,6 @@ export default function AuthCallbackPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("AuthCallbackPage mounted");
-    console.log("Current user:", user);
-
-    // Check for OAuth errors in URL parameters
     if (searchParams.error) {
       const errorMessage = getErrorMessage(
         searchParams.error,
@@ -46,23 +42,17 @@ export default function AuthCallbackPage() {
       return;
     }
 
-    // If user is already authenticated, check profile immediately
     if (user?.userId) {
-      console.log("User already authenticated, checking profile");
       handleSuccessfulAuth();
       return;
     }
 
-    // Listen for Hub signedIn event
-    console.log("Setting up Hub listener");
     const hubListener = Hub.listen("auth", ({ payload: { event } }) => {
-      console.log("Hub event received:", event);
       if (event === "signedIn") {
         handleSuccessfulAuth();
       }
     });
 
-    // Cleanup listener on unmount
     return () => hubListener();
   }, [searchParams.error, searchParams.error_description, user]);
 
@@ -73,46 +63,30 @@ export default function AuthCallbackPage() {
    * otherwise navigates to the intended destination.
    */
   const handleSuccessfulAuth = async () => {
-    console.log("handleSuccessfulAuth called");
-
-    // Get user directly from Amplify
     let userId: string | undefined;
     try {
       await getCurrentUser();
       const attributes = await fetchUserAttributes();
       userId = attributes.sub;
-      console.log("User ID from Amplify:", userId);
     } catch (error) {
       console.error("Error getting current user:", error);
     }
 
     if (!userId) {
-      console.log("No user ID, redirecting to home");
       navigate({ to: "/", replace: true });
       return;
     }
 
-    // Check if profile exists
     try {
-      console.log("Checking if profile exists for user:", userId);
-      const profile = await profileService.getProfile(userId);
-      console.log("Profile found:", profile);
+      await profileService.getProfile(userId);
 
-      // Profile exists, redirect to intended destination
       const redirectTo = sessionStorage.getItem("redirect_after_auth") || "/";
       sessionStorage.removeItem("redirect_after_auth");
-      console.log("Redirecting to:", redirectTo);
       navigate({ to: redirectTo, replace: true });
     } catch (error: any) {
-      console.log("Error checking profile:", error);
-      console.log("Error status:", error.status);
-
-      // Profile doesn't exist (404), redirect to profile creation
       if (error.status === 404) {
-        console.log("Profile not found (404), redirecting to create-profile");
         navigate({ to: "/create-profile", replace: true });
       } else {
-        // Other error, go home
         console.error("Unexpected error, redirecting to home:", error);
         navigate({ to: "/", replace: true });
       }

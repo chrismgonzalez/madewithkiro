@@ -54,11 +54,9 @@ class ApplicationService {
    * ```typescript
    * // Get all applications
    * const allApps = await applicationService.listApplications();
-   * console.log(`Found ${allApps.length} applications`);
    *
    * // Get applications for a specific user
    * const userApps = await applicationService.listApplications("user-123");
-   * console.log(`User has ${userApps.length} applications`);
    * ```
    */
   async listApplications(userId?: string): Promise<Application[]> {
@@ -105,10 +103,10 @@ class ApplicationService {
    *     githubUrl: "https://github.com/user/tasks", // optional
    *     tags: ["Productivity", "React", "TypeScript"]
    *   });
-   *   console.log("Created application with ID:", app.appId);
+   *   // Application created successfully
    * } catch (error) {
    *   if (error instanceof ApiClientError && error.details) {
-   *     console.log("Validation errors:", error.details);
+   *     // Handle validation errors
    *   }
    * }
    * ```

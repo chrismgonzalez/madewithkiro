@@ -63,8 +63,73 @@ env/
 .env.development
 .env.production
 .env.test
+.env.staging
+*.env
+!.env.example
 
-# AWS credentials
+# AWS credentials and configuration
 .aws/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+aws-credentials
+aws-config
+credentials
+config
+
+# Secrets and sensitive data
+secrets/
+secrets.json
+secrets.yaml
+secrets.yml
+*.secret
+*.secrets
+*-secrets.json
+*-secrets.yaml
+*-secrets.yml
+secret-*
+secrets-*
+
+# API keys and tokens
+*.apikey
+*.token
+api-keys.txt
+tokens.txt
+
+# OAuth and authentication secrets
+oauth-config.json
+client-secrets.json
+service-account*.json
+
+# Database credentials
+database.yml
+database.json
+db-config.json
+
+# SSH keys
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*.ppk
+
+# Local development secrets
+.secrets
+.credentials
+local-secrets/
+
+# Backup files that might contain secrets
+*.bak
+*.backup
+*.old
+*.orig
+*~
+
+# SAM/CloudFormation sensitive outputs
+samconfig.toml.bak
+outputs.json
+stack-outputs.json
 
 scratch.txt

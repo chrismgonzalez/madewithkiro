@@ -3,8 +3,7 @@
  * Requirements: 14.1, 14.2, 14.3
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
-import { z } from "zod";
+import { describe, it, expect } from "vitest";
 import type {
   UserProfile,
   CreateProfileRequest,

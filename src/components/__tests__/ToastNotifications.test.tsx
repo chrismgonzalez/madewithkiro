@@ -13,7 +13,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ProfileForm from "@/components/ProfileForm";
 import ApplicationForm from "@/components/ApplicationForm";
-import type { ProfileFormData, ApplicationFormData } from "@/utils/validation";
+import type { ProfileFormData } from "@/utils/validation";
 
 // Mock the toast utilities
 vi.mock("@/utils/toast", () => ({

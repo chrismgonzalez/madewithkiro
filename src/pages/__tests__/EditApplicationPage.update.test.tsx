@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/utils";
 import EditApplicationPage from "../EditApplicationPage";
 import * as mockDataService from "@/services/mockDataService";
-import { mockApplications } from "@/services/mockData";
 
 // Mock the router hooks
 const mockNavigate = vi.fn();

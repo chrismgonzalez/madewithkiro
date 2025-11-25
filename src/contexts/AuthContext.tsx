@@ -22,13 +22,13 @@ interface AuthUser {
   userId: string;
   /** User's email address */
   email: string;
-  /** User's first name (from Google or parsed from GitHub) */
+  /** User's first name (from Google) */
   givenName?: string;
-  /** User's last name (from Google or parsed from GitHub) */
+  /** User's last name (from Google) */
   familyName?: string;
   /** URL to user's profile picture */
   picture?: string;
-  /** Identity provider name (Google or GitHub) */
+  /** Identity provider name (Google) */
   provider?: string;
 }
 
@@ -44,8 +44,6 @@ interface AuthContextType {
   isLoading: boolean;
   /** Initiate Google OAuth sign-in flow */
   signInWithGoogle: () => Promise<void>;
-  /** Initiate GitHub OAuth sign-in flow */
-  signInWithGitHub: () => Promise<void>;
   /** Sign out the current user globally */
   signOut: () => Promise<void>;
   /** Refresh the current session and obtain new tokens */
@@ -108,10 +106,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await getCurrentUser();
       const attributes = await fetchUserAttributes();
 
-      console.log("Cognito user attributes:", attributes);
-
       const authUser: AuthUser = parseUserAttributes(attributes);
-      console.log("Parsed auth user:", authUser);
       setUser(authUser);
     } catch (error) {
       setUser(null);
@@ -149,18 +144,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Handle Google attributes (given_name, family_name)
-    let givenName = attributes.given_name;
-    let familyName = attributes.family_name;
-
-    // Handle GitHub attributes (name needs to be parsed)
-    if (!givenName && !familyName) {
-      const name = attributes.name;
-      if (name) {
-        const parsed = parseGitHubName(name);
-        givenName = parsed.givenName;
-        familyName = parsed.familyName;
-      }
-    }
+    const givenName = attributes.given_name;
+    const familyName = attributes.family_name;
 
     return {
       userId,
@@ -172,61 +157,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
-  /**
-   * Parse GitHub full name into given name and family name
-   *
-   * GitHub provides a single 'name' field which needs to be split.
-   * First word becomes given name, remaining words become family name.
-   * Handles edge cases like empty strings, single names, and extra whitespace.
-   *
-   * @param name - Full name from GitHub
-   * @returns Object with givenName and familyName
-   *
-   * @example
-   * ```typescript
-   * parseGitHubName("John Doe") // { givenName: "John", familyName: "Doe" }
-   * parseGitHubName("Madonna") // { givenName: "Madonna" }
-   * parseGitHubName("Maria Elena Garcia") // { givenName: "Maria", familyName: "Elena Garcia" }
-   * parseGitHubName("  ") // {}
-   * ```
-   */
-  const parseGitHubName = (
-    name: string
-  ): { givenName?: string; familyName?: string } => {
-    // Trim and split by whitespace
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-
-    // Handle empty or whitespace-only names
-    if (parts.length === 0) {
-      return {};
-    }
-
-    // Handle single name (mononym)
-    if (parts.length === 1) {
-      return { givenName: parts[0] };
-    }
-
-    // First part is given name, rest is family name
-    return {
-      givenName: parts[0],
-      familyName: parts.slice(1).join(" "),
-    };
-  };
-
   const signInWithGoogle = async () => {
     try {
       await signInWithRedirect({ provider: "Google" });
     } catch (error) {
       console.error("Google sign-in error:", error);
-      throw error;
-    }
-  };
-
-  const signInWithGitHub = async () => {
-    try {
-      await signInWithRedirect({ provider: { custom: "GitHub" } });
-    } catch (error) {
-      console.error("GitHub sign-in error:", error);
+      // Re-throw to allow UI to handle
       throw error;
     }
   };
@@ -262,7 +198,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!user,
         isLoading,
         signInWithGoogle,
-        signInWithGitHub,
         signOut,
         refreshSession,
       }}
@@ -283,7 +218,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
  *   - isAuthenticated: Boolean indicating if user is authenticated
  *   - isLoading: Boolean indicating if auth check is in progress
  *   - signInWithGoogle: Function to initiate Google OAuth flow
- *   - signInWithGitHub: Function to initiate GitHub OAuth flow
  *   - signOut: Function to sign out the current user
  *   - refreshSession: Function to refresh the current session
  *

@@ -81,10 +81,6 @@ describe("ApplicationCard - Deletion Feedback", () => {
         );
       });
 
-      // TODO: Verify success message is displayed when toast system is implemented
-      // For now, we verify the deletion was called successfully and logged
-      // In the future, we'll check for: screen.getByText(/deleted successfully/i)
-
       consoleLogSpy.mockRestore();
     });
   });
@@ -215,10 +211,6 @@ describe("ApplicationCard - Deletion Feedback", () => {
           expect.any(Error)
         );
       });
-
-      // TODO: Verify error message is displayed when toast system is implemented
-      // For now, we verify the error was logged
-      // In the future, we'll check for: screen.getByText(/failed to delete/i)
 
       consoleErrorSpy.mockRestore();
     });

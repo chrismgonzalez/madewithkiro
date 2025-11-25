@@ -192,7 +192,7 @@ logs-application: ## Tail Application Lambda logs (dev)
 
 outputs-dev: ## Show CloudFormation outputs for dev
 	@echo "$(BLUE)Development Environment Outputs:$(NC)"
-	@aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs' --output table 2>/dev/null || echo "$(RED)Stack not found. Deploy first with: make deploy-dev$(NC)"
+	@AWS_PROFILE=mwkprod aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs' --output table 2>/dev/null || echo "$(RED)Stack not found. Deploy first with: make deploy-dev$(NC)"
 
 outputs-prod: ## Show CloudFormation outputs for prod
 	@echo "$(BLUE)Production Environment Outputs:$(NC)"

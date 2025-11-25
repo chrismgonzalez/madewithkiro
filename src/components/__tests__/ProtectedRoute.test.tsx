@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { ProtectedRoute } from "../ProtectedRoute";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { Auth, Hub } from "aws-amplify";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { Auth } from "aws-amplify";
 import { ReactNode } from "react";
 
 // Mock AWS Amplify

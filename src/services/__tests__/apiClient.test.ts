@@ -217,8 +217,6 @@ describe("API Client - Acceptance Tests", () => {
 describe("Response Interceptor - Acceptance Tests", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   let apiClient: ApiClient;
-  let mockOnUnauthorized: ReturnType<typeof vi.fn>;
-  let mockOnError: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     // Mock the global fetch function
@@ -458,7 +456,6 @@ describe("Retry Logic - Acceptance Tests", () => {
         endpoint: "/test",
       });
 
-
       // THEN: Should retry and eventually succeed
       const result = await requestPromise;
       expect(result.data).toBe("success");
@@ -474,7 +471,6 @@ describe("Retry Logic - Acceptance Tests", () => {
         method: "GET",
         endpoint: "/test",
       });
-
 
       // THEN: Should throw error after all retries exhausted
       await expect(requestPromise).rejects.toThrow(ApiClientError);
@@ -508,7 +504,6 @@ describe("Retry Logic - Acceptance Tests", () => {
         method: "GET",
         endpoint: "/test",
       });
-
 
       // THEN: Should retry and succeed
       const result = await requestPromise;
@@ -544,7 +539,6 @@ describe("Retry Logic - Acceptance Tests", () => {
         endpoint: "/action",
       });
 
-
       // THEN: Should retry and succeed
       const result = await requestPromise;
       expect(result.data).toBe("success");
@@ -575,7 +569,6 @@ describe("Retry Logic - Acceptance Tests", () => {
         data: { invalid: "data" },
       });
 
-
       // THEN: Should not retry, fail immediately
       await expect(requestPromise).rejects.toThrow(ApiClientError);
       expect(fetchMock).toHaveBeenCalledTimes(1); // No retries
@@ -599,7 +592,6 @@ describe("Retry Logic - Acceptance Tests", () => {
         endpoint: "/missing",
       });
 
-
       // THEN: Should not retry
       await expect(requestPromise).rejects.toThrow(ApiClientError);
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -622,7 +614,6 @@ describe("Retry Logic - Acceptance Tests", () => {
         method: "GET",
         endpoint: "/protected",
       });
-
 
       // THEN: Should not retry
       await expect(requestPromise).rejects.toThrow(ApiClientError);
@@ -649,7 +640,6 @@ describe("Retry Logic - Acceptance Tests", () => {
         endpoint: "/test",
       });
 
-
       // THEN: Should throw error after all retries
       await expect(requestPromise).rejects.toThrow(ApiClientError);
       expect(fetchMock).toHaveBeenCalledTimes(3); // Initial + 2 retries for 5xx
@@ -673,7 +663,6 @@ describe("Retry Logic - Acceptance Tests", () => {
         method: "GET",
         endpoint: "/user",
       });
-
 
       // THEN: Should return successful response without retry indication
       const result = await requestPromise;

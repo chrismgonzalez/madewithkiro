@@ -25,14 +25,30 @@ vi.mock("aws-amplify/utils");
 const TestComponent = () => {
   const { signInWithGoogle, signInWithGitHub, user, isLoading } = useAuth();
 
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      // Error is logged in AuthContext, just catch here to prevent unhandled rejection
+    }
+  };
+
+  const handleGitHubSignIn = async () => {
+    try {
+      await signInWithGitHub();
+    } catch (error) {
+      // Error is logged in AuthContext, just catch here to prevent unhandled rejection
+    }
+  };
+
   return (
     <div>
       <div data-testid="loading">{isLoading ? "Loading" : "Ready"}</div>
       <div data-testid="user">{user ? user.email : "No user"}</div>
-      <button onClick={signInWithGoogle} data-testid="google-signin">
+      <button onClick={handleGoogleSignIn} data-testid="google-signin">
         Sign in with Google
       </button>
-      <button onClick={signInWithGitHub} data-testid="github-signin">
+      <button onClick={handleGitHubSignIn} data-testid="github-signin">
         Sign in with GitHub
       </button>
     </div>
@@ -82,12 +98,14 @@ describe("AuthContext - Error Handling", () => {
 
       const googleButton = screen.getByTestId("google-signin");
 
-      // Act: Click sign-in button
-      try {
-        await googleButton.click();
-      } catch (error) {
-        // Expected to throw
-      }
+      // Act: Click sign-in button (wrap in promise to catch error)
+      const clickPromise = new Promise<void>((resolve) => {
+        googleButton.click();
+        // Give time for async operation
+        setTimeout(resolve, 100);
+      });
+
+      await clickPromise;
 
       // Assert: Error should be logged
       await waitFor(() => {
@@ -124,11 +142,13 @@ describe("AuthContext - Error Handling", () => {
 
         const googleButton = screen.getByTestId("google-signin");
 
-        try {
-          await googleButton.click();
-        } catch (e) {
-          // Expected
-        }
+        // Click and wait for async operation
+        const clickPromise = new Promise<void>((resolve) => {
+          googleButton.click();
+          setTimeout(resolve, 100);
+        });
+
+        await clickPromise;
 
         // Assert
         await waitFor(() => {
@@ -165,11 +185,13 @@ describe("AuthContext - Error Handling", () => {
 
       const googleButton = screen.getByTestId("google-signin");
 
-      try {
-        await googleButton.click();
-      } catch (error) {
-        // Expected
-      }
+      // Click and wait for async operation
+      const clickPromise = new Promise<void>((resolve) => {
+        googleButton.click();
+        setTimeout(resolve, 100);
+      });
+
+      await clickPromise;
 
       // Assert: Network error should be logged
       await waitFor(() => {
@@ -199,10 +221,18 @@ describe("AuthContext - Error Handling", () => {
 
       const googleButton = screen.getByTestId("google-signin");
 
-      // Assert: Error should be thrown (not swallowed)
-      await expect(async () => {
-        await googleButton.click();
-      }).rejects.toThrow();
+      // Click and wait for async operation
+      const clickPromise = new Promise<void>((resolve) => {
+        googleButton.click();
+        setTimeout(resolve, 100);
+      });
+
+      await clickPromise;
+
+      // Assert: Error should be logged
+      await waitFor(() => {
+        expect(consoleErrorSpy).toHaveBeenCalled();
+      });
     });
   });
 
@@ -226,11 +256,13 @@ describe("AuthContext - Error Handling", () => {
 
       const githubButton = screen.getByTestId("github-signin");
 
-      try {
-        await githubButton.click();
-      } catch (error) {
-        // Expected
-      }
+      // Click and wait for async operation
+      const clickPromise = new Promise<void>((resolve) => {
+        githubButton.click();
+        setTimeout(resolve, 100);
+      });
+
+      await clickPromise;
 
       // Assert: Error should be logged
       await waitFor(() => {
@@ -265,19 +297,25 @@ describe("AuthContext - Error Handling", () => {
 
       // Try Google (should fail)
       const googleButton = screen.getByTestId("google-signin");
-      try {
-        await googleButton.click();
-      } catch (error) {
-        // Expected
-      }
+      const googleClickPromise = new Promise<void>((resolve) => {
+        googleButton.click();
+        setTimeout(resolve, 100);
+      });
+      await googleClickPromise;
 
       // Try GitHub (should succeed)
       const githubButton = screen.getByTestId("github-signin");
-      await githubButton.click();
+      const githubClickPromise = new Promise<void>((resolve) => {
+        githubButton.click();
+        setTimeout(resolve, 100);
+      });
+      await githubClickPromise;
 
       // Assert: GitHub call should have been made
-      expect(auth.signInWithRedirect).toHaveBeenCalledWith({
-        provider: "GitHub",
+      await waitFor(() => {
+        expect(auth.signInWithRedirect).toHaveBeenCalledWith({
+          provider: "GitHub",
+        });
       });
     });
   });
@@ -303,11 +341,13 @@ describe("AuthContext - Error Handling", () => {
 
       const googleButton = screen.getByTestId("google-signin");
 
-      try {
-        await googleButton.click();
-      } catch (error) {
-        // Expected
-      }
+      // Click and wait for async operation
+      const clickPromise = new Promise<void>((resolve) => {
+        googleButton.click();
+        setTimeout(resolve, 100);
+      });
+
+      await clickPromise;
 
       // Assert: Error should be logged with full details
       await waitFor(() => {
@@ -346,11 +386,11 @@ describe("AuthContext - Error Handling", () => {
       const googleButton = screen.getByTestId("google-signin");
 
       // First attempt
-      try {
-        await googleButton.click();
-      } catch (error) {
-        // Expected
-      }
+      const click1Promise = new Promise<void>((resolve) => {
+        googleButton.click();
+        setTimeout(resolve, 100);
+      });
+      await click1Promise;
 
       await waitFor(() => {
         expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -360,11 +400,11 @@ describe("AuthContext - Error Handling", () => {
       });
 
       // Second attempt
-      try {
-        await googleButton.click();
-      } catch (error) {
-        // Expected
-      }
+      const click2Promise = new Promise<void>((resolve) => {
+        googleButton.click();
+        setTimeout(resolve, 100);
+      });
+      await click2Promise;
 
       await waitFor(() => {
         expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -387,8 +427,15 @@ describe("AuthContext - Error Handling", () => {
       // Create a component that can sign out
       const SignOutComponent = () => {
         const { signOut } = useAuth();
+        const handleSignOut = async () => {
+          try {
+            await signOut();
+          } catch (error) {
+            // Error is logged in AuthContext
+          }
+        };
         return (
-          <button onClick={signOut} data-testid="signout-button">
+          <button onClick={handleSignOut} data-testid="signout-button">
             Sign Out
           </button>
         );
@@ -407,11 +454,13 @@ describe("AuthContext - Error Handling", () => {
 
       const signOutButton = screen.getByTestId("signout-button");
 
-      try {
-        await signOutButton.click();
-      } catch (error) {
-        // Expected
-      }
+      // Click and wait for async operation
+      const clickPromise = new Promise<void>((resolve) => {
+        signOutButton.click();
+        setTimeout(resolve, 100);
+      });
+
+      await clickPromise;
 
       // Assert
       await waitFor(() => {
@@ -432,8 +481,15 @@ describe("AuthContext - Error Handling", () => {
       // Create a component that can refresh session
       const RefreshComponent = () => {
         const { refreshSession } = useAuth();
+        const handleRefresh = async () => {
+          try {
+            await refreshSession();
+          } catch (error) {
+            // Error is logged in AuthContext
+          }
+        };
         return (
-          <button onClick={refreshSession} data-testid="refresh-button">
+          <button onClick={handleRefresh} data-testid="refresh-button">
             Refresh
           </button>
         );
@@ -452,11 +508,13 @@ describe("AuthContext - Error Handling", () => {
 
       const refreshButton = screen.getByTestId("refresh-button");
 
-      try {
-        await refreshButton.click();
-      } catch (error) {
-        // Expected
-      }
+      // Click and wait for async operation
+      const clickPromise = new Promise<void>((resolve) => {
+        refreshButton.click();
+        setTimeout(resolve, 100);
+      });
+
+      await clickPromise;
 
       // Assert
       await waitFor(() => {

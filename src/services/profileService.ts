@@ -58,10 +58,10 @@ class ProfileService {
    * ```typescript
    * try {
    *   const profile = await profileService.getProfile("user-123");
-   *   console.log(profile.firstName, profile.lastName);
+   *   // Use profile data
    * } catch (error) {
    *   if (error instanceof ApiClientError && error.status === 404) {
-   *     console.log("User not found");
+   *     // Handle user not found
    *   }
    * }
    * ```
@@ -106,10 +106,10 @@ class ProfileService {
    *     linkedInUsername: "john-doe", // optional
    *     githubUsername: "johndoe" // optional
    *   });
-   *   console.log("Created profile with ID:", profile.userId);
+   *   // Profile created successfully
    * } catch (error) {
    *   if (error instanceof ApiClientError && error.details) {
-   *     console.log("Validation errors:", error.details);
+   *     // Handle validation errors
    *   }
    * }
    * ```
@@ -152,7 +152,7 @@ class ProfileService {
    *     awsBuilderHandle: "janesmith",
    *     linkedInUsername: "jane-smith"
    *   });
-   *   console.log("Profile updated:", updated.updatedAt);
+   *   // Profile updated successfully
    * } catch (error) {
    *   if (error instanceof ApiClientError) {
    *     console.error("Update failed:", error.message);

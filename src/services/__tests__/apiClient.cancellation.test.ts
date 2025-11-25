@@ -25,7 +25,7 @@ describe("API Client - Request Cancellation", () => {
       // Arrange
       const controller = new AbortController();
       const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(
-        (url, options: any) =>
+        (_url, options: any) =>
           new Promise((resolve, reject) => {
             // Check if signal is already aborted
             if (options?.signal?.aborted) {
@@ -83,7 +83,7 @@ describe("API Client - Request Cancellation", () => {
       // Arrange
       const controller = new AbortController();
       const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(
-        (url, options: any) =>
+        (_url, options: any) =>
           new Promise((resolve, reject) => {
             if (options?.signal?.aborted) {
               reject(
@@ -240,7 +240,7 @@ describe("API Client - Request Cancellation", () => {
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation();
 
       vi.spyOn(global, "fetch").mockImplementation(
-        (url, options: any) =>
+        (_url, options: any) =>
           new Promise((resolve, reject) => {
             if (options?.signal?.aborted) {
               reject(
@@ -328,7 +328,7 @@ describe("API Client - Request Cancellation", () => {
       const controller = new AbortController();
 
       vi.spyOn(global, "fetch").mockImplementation(
-        (url, options: any) =>
+        (_url, options: any) =>
           new Promise((resolve, reject) => {
             if (options?.signal?.aborted) {
               reject(

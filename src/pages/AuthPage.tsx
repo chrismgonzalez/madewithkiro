@@ -15,7 +15,7 @@ import KiroIcon from "@/components/KiroIcon";
 /**
  * Authentication Page Component
  *
- * Provides social authentication options (Google and GitHub) for users to sign in.
+ * Provides Google OAuth authentication for users to sign in.
  * Handles OAuth errors from URL parameters and displays user-friendly error messages.
  * Shows loading states during authentication flows.
  *

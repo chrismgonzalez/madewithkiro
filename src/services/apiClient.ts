@@ -116,7 +116,7 @@ export class ApiClientError extends Error {
  * // Make a GET request
  * const response = await client.get<User>("/users/123");
  * if (response.data) {
- *   console.log(response.data);
+ *   // Use response data
  * }
  *
  * // Make a POST request with data
@@ -210,14 +210,8 @@ export class ApiClient {
     // Add auth token if available (default to true for all requests)
     if (requiresAuth) {
       const token = await this.getAuthToken();
-      console.log(
-        "Auth token retrieved:",
-        token ? `${token.substring(0, 20)}...` : "null"
-      );
       if (token) {
         headers.set("Authorization", `Bearer ${token}`);
-      } else {
-        console.warn("No auth token available for authenticated request");
       }
     }
 

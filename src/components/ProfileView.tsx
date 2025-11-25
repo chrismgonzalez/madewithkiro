@@ -90,7 +90,7 @@ export default function ProfileView({ userId }: ProfileViewProps) {
     if (!deleteAppId || !currentUserId) return;
 
     try {
-      await applicationService.deleteApplication(deleteAppId, currentUserId);
+      await applicationService.deleteApplication(deleteAppId);
       setDeleteAppId(null);
       setDeleteAppName("");
       // Refetch applications

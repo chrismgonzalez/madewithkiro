@@ -3,19 +3,21 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { AuthPage } from "../AuthPage";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { Auth } from "aws-amplify";
+import * as amplifyAuth from "aws-amplify/auth";
 
-// Mock AWS Amplify Auth
-vi.mock("aws-amplify", () => ({
-  Auth: {
-    federatedSignIn: vi.fn(),
-    currentAuthenticatedUser: vi.fn(),
-    userAttributes: vi.fn(),
-    signOut: vi.fn(),
-    currentSession: vi.fn(),
-  },
+// Mock AWS Amplify auth
+vi.mock("aws-amplify/auth", () => ({
+  signInWithRedirect: vi.fn(),
+  getCurrentUser: vi.fn(),
+  fetchUserAttributes: vi.fn(),
+  fetchAuthSession: vi.fn(),
+  signOut: vi.fn(),
+}));
+
+// Mock AWS Amplify utils
+vi.mock("aws-amplify/utils", () => ({
   Hub: {
-    listen: vi.fn(() => () => {}),
+    listen: vi.fn(() => vi.fn()),
   },
 }));
 
@@ -31,8 +33,8 @@ const renderAuthPage = () => {
 describe("AuthPage - Acceptance Tests", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Mock currentAuthenticatedUser to return null (not authenticated)
-    vi.mocked(Auth.currentAuthenticatedUser).mockRejectedValue(
+    // Mock getCurrentUser to return null (not authenticated)
+    vi.mocked(amplifyAuth.getCurrentUser).mockRejectedValue(
       new Error("Not authenticated")
     );
   });
@@ -100,9 +102,9 @@ describe("AuthPage - Acceptance Tests", () => {
       // Click the Google button
       await user.click(googleButton);
 
-      // Verify Auth.federatedSignIn was called with Google provider
+      // Verify signInWithRedirect was called with Google provider
       await waitFor(() => {
-        expect(Auth.federatedSignIn).toHaveBeenCalledWith({
+        expect(amplifyAuth.signInWithRedirect).toHaveBeenCalledWith({
           provider: "Google",
         });
       });
@@ -131,9 +133,9 @@ describe("AuthPage - Acceptance Tests", () => {
       // Click the GitHub button
       await user.click(githubButton);
 
-      // Verify Auth.federatedSignIn was called with GitHub provider
+      // Verify signInWithRedirect was called with GitHub provider
       await waitFor(() => {
-        expect(Auth.federatedSignIn).toHaveBeenCalledWith({
+        expect(amplifyAuth.signInWithRedirect).toHaveBeenCalledWith({
           provider: "GitHub",
         });
       });

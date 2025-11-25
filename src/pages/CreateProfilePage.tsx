@@ -16,9 +16,6 @@ export default function CreateProfilePage() {
   const { user } = useAuth();
 
   const handleSubmit = async (data: ProfileFormData) => {
-    console.log("CreateProfilePage handleSubmit called with data:", data);
-    console.log("Current user:", user);
-
     try {
       const profileData = {
         firstName: data.firstName,
@@ -28,12 +25,8 @@ export default function CreateProfilePage() {
         githubUsername: data.githubUsername,
       };
 
-      console.log("Creating profile with data:", profileData);
-      const result = await profileService.createProfile(profileData);
-      console.log("Profile created successfully:", result);
+      await profileService.createProfile(profileData);
 
-      // Redirect to user's profile
-      console.log("Redirecting to profile:", `/profile/${user?.userId}`);
       navigate({ to: `/profile/${user?.userId}` });
     } catch (error) {
       console.error("Failed to create profile:", error);

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { render } from "@/test/utils";
 import ApplicationCard from "@/components/ApplicationCard";
 import ApplicationForm from "@/components/ApplicationForm";
