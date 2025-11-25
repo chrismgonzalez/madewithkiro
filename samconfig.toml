@@ -69,7 +69,7 @@ cached = true
 parallel = true
 
 [prod.deploy.parameters]
-capabilities = "CAPABILITY_IAM"
+capabilities = "CAPABILITY_NAMED_IAM"
 confirm_changeset = true
 resolve_s3 = true
 region = "us-west-2"

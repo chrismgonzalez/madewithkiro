@@ -29,9 +29,13 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
     const useProxy = import.meta.env.VITE_POSTHOG_USE_PROXY === "true";
 
     if (apiKey && host) {
+      const assetHost = host.includes("eu.i.posthog.com")
+        ? "https://eu-assets.i.posthog.com"
+        : "https://us-assets.i.posthog.com";
+
       const config: any = {
         api_host: useProxy ? "/ingest" : host,
-        ui_host: host,
+        ui_host: assetHost,
         person_profiles: "identified_only",
         capture_pageview: false,
         capture_pageleave: true,
@@ -40,10 +44,6 @@ export function PostHogProvider({ children }: PostHogProviderProps) {
           setIsInitialized(true);
         },
       };
-
-      if (useProxy) {
-        config.api_host = "/ingest";
-      }
 
       posthog.init(apiKey, config);
     }
