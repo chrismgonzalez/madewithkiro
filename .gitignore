@@ -132,7 +132,4 @@ samconfig.toml.bak
 outputs.json
 stack-outputs.json
 
-scratch.txt
-
-# Documentation (temporary exclusion)
 docs/
