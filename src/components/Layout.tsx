@@ -1,12 +1,15 @@
 import { ReactNode } from "react";
 import Navigation from "@/components/Navigation";
 import { Heart } from "lucide-react";
+import { usePageTracking } from "@/hooks/usePageTracking";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
+  usePageTracking();
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/20">
       {/* Header with Navigation */}

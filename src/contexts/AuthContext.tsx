@@ -13,6 +13,7 @@ import {
   fetchAuthSession,
 } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
+import { analytics } from "@/utils/analytics";
 
 /**
  * Authenticated user information
@@ -108,6 +109,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const authUser: AuthUser = parseUserAttributes(attributes);
       setUser(authUser);
+
+      // Identify user in PostHog
+      analytics.identify(authUser.userId, {
+        email: authUser.email,
+        name: `${authUser.givenName || ""} ${authUser.familyName || ""}`.trim(),
+        provider: authUser.provider,
+      });
     } catch (error) {
       setUser(null);
     } finally {
@@ -169,6 +177,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     try {
+      // Reset PostHog user identity
+      analytics.reset();
+
       // Sign out locally - this clears tokens and session
       await amplifySignOut();
       setUser(null);
