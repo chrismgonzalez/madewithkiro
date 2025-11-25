@@ -7,21 +7,24 @@ import type { Application, CreateApplicationRequest } from "@/types";
  * Handles all application-related API operations including:
  * - Fetching all public applications
  * - Fetching applications by user
- * - Creating new applications
+ * - Creating new applications (requires authentication)
+ * - Updating applications (requires authentication and ownership)
+ * - Deleting applications (requires authentication and ownership)
+ *
+ * Authentication is handled automatically via JWT tokens in the Authorization header.
  *
  * @example
  * ```typescript
  * import { applicationService } from '@/services/applicationService';
  *
- * // Get all applications
+ * // Get all applications (public)
  * const allApps = await applicationService.listApplications();
  *
- * // Get applications for a specific user
+ * // Get applications for a specific user (public)
  * const userApps = await applicationService.listApplications("user-123");
  *
- * // Create a new application
+ * // Create a new application (requires authentication)
  * const newApp = await applicationService.createApplication({
- *   userId: "user-123",
  *   name: "My Awesome App",
  *   description: "A cool application built with Kiro",
  *   appUrl: "https://myapp.example.com",
@@ -86,16 +89,16 @@ class ApplicationService {
    * Create a new application
    *
    * Makes a POST request to `/applications` with the application data.
+   * User authentication is handled via JWT token in Authorization header.
    *
-   * @param data - The application data to create (name, description, appUrl, userId, tags required)
+   * @param data - The application data to create (name, description, appUrl, tags required)
    * @returns Promise resolving to the created application with generated appId
-   * @throws ApiClientError if the request fails (e.g., 400 for validation errors)
+   * @throws ApiClientError if the request fails (e.g., 400 for validation errors, 401 for unauthorized)
    *
    * @example
    * ```typescript
    * try {
    *   const app = await applicationService.createApplication({
-   *     userId: "user-123",
    *     name: "Task Manager",
    *     description: "A simple task management app",
    *     appUrl: "https://tasks.example.com",
@@ -111,7 +114,7 @@ class ApplicationService {
    * ```
    */
   async createApplication(
-    data: CreateApplicationRequest & { userId: string }
+    data: CreateApplicationRequest
   ): Promise<Application> {
     const response = await this.apiClient.post<Application>(
       "/applications",
@@ -168,15 +171,16 @@ class ApplicationService {
    * Update an existing application
    *
    * Makes a PUT request to `/applications/{appId}` with the updated data.
+   * User authentication is handled via JWT token in Authorization header.
    *
    * @param appId - The application ID
    * @param data - The updated application data
    * @returns Promise resolving to the updated application
-   * @throws ApiClientError if the request fails
+   * @throws ApiClientError if the request fails (401 for unauthorized, 403 for forbidden)
    */
   async updateApplication(
     appId: string,
-    data: Partial<CreateApplicationRequest> & { userId: string }
+    data: Partial<CreateApplicationRequest>
   ): Promise<Application> {
     const response = await this.apiClient.put<Application>(
       `/applications/${appId}`,
@@ -203,18 +207,15 @@ class ApplicationService {
    * Delete an application
    *
    * Makes a DELETE request to `/applications/{appId}`.
+   * User authentication is handled via JWT token in Authorization header.
    *
    * @param appId - The application ID
    * @returns Promise resolving when deletion is complete
-   * @throws ApiClientError if the request fails
+   * @throws ApiClientError if the request fails (401 for unauthorized, 403 for forbidden)
    */
-  async deleteApplication(appId: string, userId: string): Promise<void> {
-    // Pass userId as query parameter for DELETE requests
-    const params = { userId };
+  async deleteApplication(appId: string): Promise<void> {
     const response = await this.apiClient.delete<void>(
-      `/applications/${appId}`,
-      undefined,
-      params
+      `/applications/${appId}`
     );
 
     if (response.error) {

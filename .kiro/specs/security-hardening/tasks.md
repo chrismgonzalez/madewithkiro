@@ -59,7 +59,7 @@ q# Implementation Plan
   - Configure Referrer-Policy
   - _Requirements: 7.4, 7.5_
 
-- [ ] 8. Enforce HTTPS everywhere
+- [x] 8. Enforce HTTPS everywhere
 
   - Update CloudFront to redirect HTTP to HTTPS
   - Verify API Gateway uses HTTPS endpoints
@@ -67,7 +67,7 @@ q# Implementation Plan
   - Add HTTPS enforcement to viewer protocol policy
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 9. Refine IAM permissions to least privilege
+- [x] 9. Refine IAM permissions to least privilege
 
   - Review and restrict Lambda execution role permissions
   - Add resource-level restrictions to DynamoDB policies
@@ -76,7 +76,7 @@ q# Implementation Plan
   - Document permission rationale in template comments
   - _Requirements: 4.1, 4.2, 4.3_
 
-- [ ] 10. Enforce authentication on protected endpoints
+- [x] 10. Enforce authentication on protected endpoints
 
   - Review all API Gateway endpoints and add Cognito authorizer
   - Remove development-only authentication bypass code

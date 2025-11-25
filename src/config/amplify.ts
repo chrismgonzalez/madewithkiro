@@ -22,13 +22,13 @@ const getCurrentDomain = (): string => {
 /**
  * Determine redirect URLs based on current domain
  *
- * For localhost: Use localhost URLs
- * For CloudFront/production: Use current domain URLs
+ * For localhost: Use localhost URLs (HTTP allowed for local development)
+ * For CloudFront/production: Use HTTPS URLs (enforced for security)
  */
 const getRedirectUrls = () => {
   const currentDomain = getCurrentDomain();
 
-  // If running on localhost, use localhost URLs
+  // If running on localhost, use localhost URLs (HTTP allowed for local dev)
   if (currentDomain.includes("localhost")) {
     return {
       redirectSignIn: "http://localhost:5173/auth/callback",
@@ -36,10 +36,13 @@ const getRedirectUrls = () => {
     };
   }
 
-  // Otherwise use the current domain
+  // For all deployed environments, enforce HTTPS
+  // Replace http:// with https:// if present (should not happen, but defensive)
+  const secureDomain = currentDomain.replace(/^http:\/\//, "https://");
+
   return {
-    redirectSignIn: `${currentDomain}/auth/callback`,
-    redirectSignOut: `${currentDomain}/`,
+    redirectSignIn: `${secureDomain}/auth/callback`,
+    redirectSignOut: `${secureDomain}/`,
   };
 };
 

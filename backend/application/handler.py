@@ -88,12 +88,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif http_method == 'POST':
             # Create new application
             body = json.loads(event.get('body', '{}'))
-            # For POC: Get userId from body instead of Cognito
-            user_id = body.get('userId') or get_user_id_from_event(event)
+            # Get userId from Cognito claims
+            user_id = get_user_id_from_event(event)
             
             if not user_id:
                 return handle_unauthorized(
-                    message='Unauthorized - userId required',
+                    message='Authentication required',
                     event=event
                 )
             
@@ -109,12 +109,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 )
             
             body = json.loads(event.get('body', '{}'))
-            # For POC: Get userId from body instead of Cognito
-            user_id = body.get('userId') or get_user_id_from_event(event)
+            # Get userId from Cognito claims
+            user_id = get_user_id_from_event(event)
             
             if not user_id:
                 return handle_unauthorized(
-                    message='Unauthorized - userId required',
+                    message='Authentication required',
                     event=event
                 )
             
@@ -129,12 +129,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     event=event
                 )
             
-            # For POC: Get userId from query params instead of Cognito
-            user_id = query_parameters.get('userId') or get_user_id_from_event(event)
+            # Get userId from Cognito claims
+            user_id = get_user_id_from_event(event)
             
             if not user_id:
                 return handle_unauthorized(
-                    message='Unauthorized - userId required',
+                    message='Authentication required',
                     event=event
                 )
             

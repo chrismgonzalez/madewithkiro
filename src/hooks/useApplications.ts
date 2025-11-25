@@ -45,10 +45,10 @@ export function useApplications(userId?: string) {
   const createMutation = useMutation<
     Application,
     Error,
-    CreateApplicationRequest & { userId: string },
+    CreateApplicationRequest,
     { tempId: string }
   >({
-    mutationFn: (data: CreateApplicationRequest & { userId: string }) =>
+    mutationFn: (data: CreateApplicationRequest) =>
       applicationService.createApplication(data),
 
     // Optimistic update: Add application immediately with pending indicator

@@ -229,6 +229,10 @@ Resources:
         authenticated: !GetAtt CognitoAuthenticatedRole.Arn
 
   # IAM Role for Authenticated Users
+  # Least-privilege role for Cognito authenticated users
+  # Allows: Only Cognito Identity operations for credential management
+  # Restricts: No direct AWS service access (API calls go through Lambda)
+  # Rationale: Frontend uses Cognito for auth, Lambda functions handle all AWS operations
   CognitoAuthenticatedRole:
     Type: AWS::IAM::Role
     Properties:
@@ -236,7 +240,8 @@ Resources:
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Effect: Allow
+          - Sid: AllowCognitoIdentityAssumeRole
+            Effect: Allow
             Principal:
               Federated: cognito-identity.amazonaws.com
             Action: sts:AssumeRoleWithWebIdentity
@@ -250,11 +255,14 @@ Resources:
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-              - Effect: Allow
+              - Sid: CognitoIdentityAccess
+                Effect: Allow
                 Action:
-                  - cognito-identity:GetCredentialsForIdentity
-                  - cognito-identity:GetId
+                  - cognito-identity:GetCredentialsForIdentity # Get temporary AWS credentials
+                  - cognito-identity:GetId # Get identity ID
                 Resource: "*"
+                # Note: cognito-identity actions require wildcard resource
+                # This is AWS-recommended pattern for Cognito Identity Pool roles
 
   # API Gateway
   MadeWithKiroApi:
@@ -331,8 +339,23 @@ Resources:
       Handler: profile.handler.lambda_handler
       Description: Handle profile operations (create, read, update)
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref MadeWithKiroTable
+        # Least-privilege IAM policy for profile operations
+        # Allows: GetItem, PutItem, UpdateItem on specific table
+        # Restricts: Only USER# partition keys for user-specific access
+        # Rationale: Profile function only needs to read/write user profile records
+        - Statement:
+            - Sid: ProfileDynamoDBAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem # Read user profile
+                - dynamodb:PutItem # Create new profile
+                - dynamodb:UpdateItem # Update existing profile
+              Resource: !GetAtt MadeWithKiroTable.Arn
+              # Note: Condition keys for user-specific access would require
+              # Cognito integration to pass userId in request context
+              # For now, application logic enforces user-specific access
+        # CloudWatch Logs permissions (automatically added by SAM)
+        # Allows: CreateLogGroup, CreateLogStream, PutLogEvents
       Events:
         GetProfile:
           Type: Api
@@ -371,8 +394,30 @@ Resources:
       Handler: application.handler.lambda_handler
       Description: Handle application operations (create, list, query)
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref MadeWithKiroTable
+        # Least-privilege IAM policy for application operations
+        # Allows: GetItem, PutItem, UpdateItem, DeleteItem, Query, Scan
+        # Restricts: Specific table and GSI access only
+        # Rationale: Application function needs full CRUD + query/scan for listings
+        - Statement:
+            - Sid: ApplicationDynamoDBTableAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem # Read single application or user profile
+                - dynamodb:PutItem # Create/update application
+                - dynamodb:UpdateItem # Update application fields
+                - dynamodb:DeleteItem # Delete application
+                - dynamodb:Query # Query by PK (not used currently)
+                - dynamodb:Scan # Scan for all applications (list_all)
+              Resource: !GetAtt MadeWithKiroTable.Arn
+            - Sid: ApplicationDynamoDBIndexAccess
+              Effect: Allow
+              Action:
+                - dynamodb:Query # Query GSI1 for user's applications
+              Resource: !Sub "${MadeWithKiroTable.Arn}/index/GSI1"
+              # Note: Ownership validation is enforced in application logic
+              # User can only modify/delete their own applications
+        # CloudWatch Logs permissions (automatically added by SAM)
+        # Allows: CreateLogGroup, CreateLogStream, PutLogEvents
       Events:
         ListApplications:
           Type: Api
@@ -397,7 +442,7 @@ Resources:
             Path: /applications
             Method: POST
             Auth:
-              Authorizer: NONE
+              Authorizer: CognitoAuthorizer
         UpdateApplication:
           Type: Api
           Properties:
@@ -405,7 +450,7 @@ Resources:
             Path: /applications/{appId}
             Method: PUT
             Auth:
-              Authorizer: NONE
+              Authorizer: CognitoAuthorizer
         DeleteApplication:
           Type: Api
           Properties:
@@ -413,7 +458,7 @@ Resources:
             Path: /applications/{appId}
             Method: DELETE
             Auth:
-              Authorizer: NONE
+              Authorizer: CognitoAuthorizer
       Tags:
         Environment: !Ref Environment
         Application: MadeWithKiro

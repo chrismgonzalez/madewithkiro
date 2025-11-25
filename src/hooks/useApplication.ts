@@ -19,9 +19,8 @@ export function useApplication(appId: string) {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (
-      data: Partial<CreateApplicationRequest> & { userId: string }
-    ) => applicationService.updateApplication(appId, data),
+    mutationFn: (data: Partial<CreateApplicationRequest>) =>
+      applicationService.updateApplication(appId, data),
     onSuccess: (updatedApp) => {
       // Update the single application cache
       queryClient.setQueryData(["application", appId], updatedApp);
@@ -31,8 +30,7 @@ export function useApplication(appId: string) {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (userId: string) =>
-      applicationService.deleteApplication(appId, userId),
+    mutationFn: () => applicationService.deleteApplication(appId),
     onSuccess: () => {
       // Remove from cache
       queryClient.removeQueries({ queryKey: ["application", appId] });
