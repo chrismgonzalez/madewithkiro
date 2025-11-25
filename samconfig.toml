@@ -50,8 +50,11 @@ parameter_overrides = [
   "CognitoCallbackURL=http://localhost:5173/auth/callback,https://dh1nph2ldx21y.cloudfront.net/auth/callback",
   # Logout URLs redirect to home page (unauthenticated)
   "CognitoLogoutURL=http://localhost:5173,https://dh1nph2ldx21y.cloudfront.net",
-  "GoogleClientId=227466642868-kvvclsq0die12cqosbpdr899kq285a4j.apps.googleusercontent.com",
-  "GitHubClientId=Ov23liqbWD9B8NfgmIZV",
+  # OAuth Client IDs and Secrets are stored in SSM Parameter Store
+  # Use the setup-ssm-parameters.sh script to configure these values
+  # Environment-specific SSM parameter paths for dev
+  "GoogleClientIdParameter=/madewithkiro/dev/google-client-id",
+  "GoogleClientSecretParameter=/madewithkiro/dev/google-client-secret",
   # DomainName and HostedZoneId omitted - will use template defaults (empty strings)
 ]
 tags = ["Environment=dev", "Application=MadeWithKiro"]
@@ -72,7 +75,13 @@ resolve_s3 = true
 region = "us-west-2"
 parameter_overrides = [
   "Environment=prod",
-  "CognitoCallbackURL=https://madewithkiro.com",
+  "CognitoCallbackURL=https://madewithkiro.com/auth/callback",
+  "CognitoLogoutURL=https://madewithkiro.com",
+  # OAuth Client IDs and Secrets are stored in SSM Parameter Store
+  # Use the setup-ssm-parameters.sh script to configure these values
+  # Environment-specific SSM parameter paths for prod
+  "GoogleClientIdParameter=/madewithkiro/prod/google-client-id",
+  "GoogleClientSecretParameter=/madewithkiro/prod/google-client-secret",
   "DomainName=madewithkiro.com",
   "HostedZoneId=Z00541582Q16QTXW4013F",
   "CertificateArn=arn:aws:acm:us-east-1:633458675472:certificate/28a5f528-69f7-4fa3-a831-aa0e5c21a24f",

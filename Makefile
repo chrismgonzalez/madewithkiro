@@ -281,14 +281,12 @@ setup-env-prod: ## Generate .env file from prod stack outputs
 
 setup-ssm-dev: ## Store OAuth credentials in SSM Parameter Store (dev)
 	@echo "$(BLUE)Setting up SSM parameters for dev environment...$(NC)"
-	@if [ -z "$$GOOGLE_CLIENT_ID" ] || [ -z "$$GOOGLE_CLIENT_SECRET" ] || [ -z "$$GITHUB_CLIENT_ID" ] || [ -z "$$GITHUB_CLIENT_SECRET" ]; then \
+	@if [ -z "$$GOOGLE_CLIENT_ID" ] || [ -z "$$GOOGLE_CLIENT_SECRET" ]; then \
 		echo "$(RED)✗ Missing required environment variables$(NC)"; \
 		echo ""; \
 		echo "$(YELLOW)Please set the following environment variables:$(NC)"; \
 		echo "  export GOOGLE_CLIENT_ID='your-google-client-id'"; \
 		echo "  export GOOGLE_CLIENT_SECRET='your-google-client-secret'"; \
-		echo "  export GITHUB_CLIENT_ID='your-github-client-id'"; \
-		echo "  export GITHUB_CLIENT_SECRET='your-github-client-secret'"; \
 		echo ""; \
 		echo "$(YELLOW)Then run: make setup-ssm-dev$(NC)"; \
 		exit 1; \
@@ -299,14 +297,12 @@ setup-ssm-dev: ## Store OAuth credentials in SSM Parameter Store (dev)
 setup-ssm-prod: ## Store OAuth credentials in SSM Parameter Store (prod)
 	@echo "$(BLUE)Setting up SSM parameters for prod environment...$(NC)"
 	@echo "$(RED)⚠️  WARNING: Setting up PRODUCTION OAuth credentials$(NC)"
-	@if [ -z "$$GOOGLE_CLIENT_ID" ] || [ -z "$$GOOGLE_CLIENT_SECRET" ] || [ -z "$$GITHUB_CLIENT_ID" ] || [ -z "$$GITHUB_CLIENT_SECRET" ]; then \
+	@if [ -z "$$GOOGLE_CLIENT_ID" ] || [ -z "$$GOOGLE_CLIENT_SECRET" ]; then \
 		echo "$(RED)✗ Missing required environment variables$(NC)"; \
 		echo ""; \
 		echo "$(YELLOW)Please set the following environment variables:$(NC)"; \
 		echo "  export GOOGLE_CLIENT_ID='your-google-client-id'"; \
 		echo "  export GOOGLE_CLIENT_SECRET='your-google-client-secret'"; \
-		echo "  export GITHUB_CLIENT_ID='your-github-client-id'"; \
-		echo "  export GITHUB_CLIENT_SECRET='your-github-client-secret'"; \
 		echo ""; \
 		echo "$(YELLOW)Then run: make setup-ssm-prod$(NC)"; \
 		exit 1; \

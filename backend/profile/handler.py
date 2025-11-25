@@ -16,6 +16,24 @@ from shared.dynamodb_utils import (
     get_timestamp,
     clean_dynamodb_item
 )
+from shared.error_handler import (
+    success_response,
+    sanitized_error_response,
+    handle_validation_error,
+    handle_not_found,
+    handle_unauthorized,
+    handle_conflict,
+    handle_internal_error
+)
+from shared.logger import get_logger
+
+
+# Initialize structured logger
+logger = get_logger(__name__)
+
+
+# Store event globally for response functions
+_current_event = None
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -27,16 +45,33 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     - POST /profile - Create profile (authenticated)
     - PUT /profile - Update profile (authenticated)
     """
+    global _current_event
+    _current_event = event
     
     http_method = event.get('httpMethod')
     path_parameters = event.get('pathParameters') or {}
+    request_id = event.get('requestContext', {}).get('requestId')
+    
+    # Log incoming request
+    logger.info(
+        message=f"Profile handler invoked: {http_method} {event.get('path')}",
+        context={
+            'http_method': http_method,
+            'path': event.get('path')
+        },
+        request_id=request_id
+    )
     
     try:
         if http_method == 'GET':
             # Get profile by userId
             user_id = path_parameters.get('userId')
             if not user_id:
-                return error_response(400, 'Missing userId parameter')
+                return sanitized_error_response(
+                    status_code=400,
+                    user_message='Missing userId parameter',
+                    event=event
+                )
             
             return get_profile(user_id)
         
@@ -46,7 +81,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             user_id = get_user_id_from_event(event)
             
             if not user_id:
-                return error_response(401, 'Unauthorized')
+                return handle_unauthorized(event=event)
             
             return create_profile(user_id, body)
         
@@ -56,16 +91,23 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             user_id = get_user_id_from_event(event)
             
             if not user_id:
-                return error_response(401, 'Unauthorized')
+                return handle_unauthorized(event=event)
             
             return update_profile(user_id, body)
         
         else:
-            return error_response(405, f'Method {http_method} not allowed')
+            return sanitized_error_response(
+                status_code=405,
+                user_message=f'Method {http_method} not allowed',
+                event=event
+            )
     
     except Exception as e:
-        print(f"Error: {str(e)}")
-        return error_response(500, 'Internal server error')
+        return handle_internal_error(
+            error=e,
+            event=event,
+            context={'http_method': http_method, 'path': event.get('path')}
+        )
 
 
 def get_profile(user_id: str) -> Dict[str, Any]:
@@ -74,27 +116,50 @@ def get_profile(user_id: str) -> Dict[str, Any]:
         item = get_item(f'USER#{user_id}', 'PROFILE')
         
         if not item:
-            return error_response(404, 'Profile not found')
+            return handle_not_found(
+                resource_type='Profile',
+                event=_current_event,
+                user_id=user_id
+            )
         
         # Clean and return profile
         profile_data = clean_dynamodb_item(item)
-        return success_response(profile_data)
+        return success_response(profile_data, event=_current_event)
     
     except Exception as e:
-        print(f"Error getting profile: {str(e)}")
-        return error_response(500, 'Error retrieving profile')
+        return handle_internal_error(
+            error=e,
+            event=_current_event,
+            user_id=user_id,
+            context={'operation': 'get_profile', 'user_id': user_id}
+        )
 
 
 def create_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     """Create a new user profile"""
     try:
+        logger.info(
+            message="Creating new profile",
+            context={'operation': 'create_profile'},
+            user_id=user_id
+        )
+        
         # Validate request data
         profile_request = CreateProfileRequest(**data)
         
         # Check if profile already exists
         existing = get_item(f'USER#{user_id}', 'PROFILE')
         if existing:
-            return error_response(409, 'Profile already exists')
+            logger.warning(
+                message="Profile already exists",
+                context={'operation': 'create_profile'},
+                user_id=user_id
+            )
+            return handle_conflict(
+                resource_type='Profile',
+                event=_current_event,
+                user_id=user_id
+            )
         
         # Create profile item
         timestamp = get_timestamp()
@@ -117,21 +182,44 @@ def create_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         # Store in DynamoDB
         put_item(profile_item)
         
+        logger.info(
+            message=f"Successfully created profile for {profile_request.firstName} {profile_request.lastName}",
+            context={
+                'first_name': profile_request.firstName,
+                'last_name': profile_request.lastName
+            },
+            user_id=user_id
+        )
+        
         # Return cleaned profile
         profile_data = clean_dynamodb_item(profile_item)
-        return success_response(profile_data, 201)
+        return success_response(profile_data, status_code=201, event=_current_event)
     
     except ValidationError as e:
-        print(f"Validation error: {str(e)}")
-        errors = {}
-        for error in e.errors():
-            field = '.'.join(str(loc) for loc in error['loc'])
-            errors[field] = error['msg']
-        return error_response(400, 'Validation failed', errors)
+        logger.warning(
+            message="Validation error during profile creation",
+            context={'operation': 'create_profile'},
+            user_id=user_id
+        )
+        return handle_validation_error(
+            validation_error=e,
+            event=_current_event,
+            user_id=user_id
+        )
     
     except Exception as e:
-        print(f"Error creating profile: {str(e)}")
-        return error_response(500, 'Error creating profile')
+        logger.error(
+            message="Failed to create profile",
+            error=e,
+            context={'operation': 'create_profile'},
+            user_id=user_id
+        )
+        return handle_internal_error(
+            error=e,
+            event=_current_event,
+            user_id=user_id,
+            context={'operation': 'create_profile'}
+        )
 
 
 def update_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -143,7 +231,11 @@ def update_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         # Check if profile exists
         existing = get_item(f'USER#{user_id}', 'PROFILE')
         if not existing:
-            return error_response(404, 'Profile not found')
+            return handle_not_found(
+                resource_type='Profile',
+                event=_current_event,
+                user_id=user_id
+            )
         
         # Update profile
         timestamp = get_timestamp()
@@ -160,19 +252,22 @@ def update_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         
         # Return cleaned profile
         profile_data = clean_dynamodb_item(updated_item)
-        return success_response(profile_data)
+        return success_response(profile_data, event=_current_event)
     
     except ValidationError as e:
-        print(f"Validation error: {str(e)}")
-        errors = {}
-        for error in e.errors():
-            field = '.'.join(str(loc) for loc in error['loc'])
-            errors[field] = error['msg']
-        return error_response(400, 'Validation failed', errors)
+        return handle_validation_error(
+            validation_error=e,
+            event=_current_event,
+            user_id=user_id
+        )
     
     except Exception as e:
-        print(f"Error updating profile: {str(e)}")
-        return error_response(500, 'Error updating profile')
+        return handle_internal_error(
+            error=e,
+            event=_current_event,
+            user_id=user_id,
+            context={'operation': 'update_profile'}
+        )
 
 
 def get_user_id_from_event(event: Dict[str, Any]) -> str:
@@ -181,44 +276,3 @@ def get_user_id_from_event(event: Dict[str, Any]) -> str:
     authorizer = request_context.get('authorizer', {})
     claims = authorizer.get('claims', {})
     return claims.get('sub', '')
-
-
-
-
-
-def success_response(data: Any, status_code: int = 200) -> Dict[str, Any]:
-    """Return a successful API response"""
-    return {
-        'statusCode': status_code,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS'
-        },
-        'body': json.dumps({
-            'data': data,
-            'error': None
-        })
-    }
-
-
-def error_response(status_code: int, message: str, details: Dict[str, Any] = None) -> Dict[str, Any]:
-    """Return an error API response"""
-    return {
-        'statusCode': status_code,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
-            'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS'
-        },
-        'body': json.dumps({
-            'data': None,
-            'error': {
-                'code': f'ERROR_{status_code}',
-                'message': message,
-                'details': details
-            }
-        })
-    }

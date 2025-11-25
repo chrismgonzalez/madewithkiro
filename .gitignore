@@ -55,9 +55,14 @@ ENV/
 env/
 
 # Environment variables
-.env.*
+# Note: .env.example is tracked (contains only placeholders)
+# All other .env files should NOT be committed
+.env
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.test
 
 # AWS credentials
 .aws/

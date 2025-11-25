@@ -8,6 +8,11 @@ from datetime import datetime
 from decimal import Decimal
 import json
 
+from shared.logger import get_logger
+
+
+# Initialize structured logger
+logger = get_logger(__name__)
 
 # Initialize DynamoDB resource
 dynamodb = boto3.resource('dynamodb')
@@ -40,7 +45,11 @@ def get_item(pk: str, sk: str) -> Optional[Dict[str, Any]]:
         )
         return response.get('Item')
     except Exception as e:
-        print(f"Error getting item: {str(e)}")
+        logger.error(
+            message="Error getting item from DynamoDB",
+            error=e,
+            context={'pk': pk, 'sk': sk}
+        )
         raise
 
 
@@ -58,7 +67,11 @@ def put_item(item: Dict[str, Any]) -> Dict[str, Any]:
         table.put_item(Item=item)
         return item
     except Exception as e:
-        print(f"Error putting item: {str(e)}")
+        logger.error(
+            message="Error putting item into DynamoDB",
+            error=e,
+            context={'item_keys': {'PK': item.get('PK'), 'SK': item.get('SK')}}
+        )
         raise
 
 
@@ -102,7 +115,11 @@ def update_item(pk: str, sk: str, updates: Dict[str, Any]) -> Dict[str, Any]:
         
         return response.get('Attributes', {})
     except Exception as e:
-        print(f"Error updating item: {str(e)}")
+        logger.error(
+            message="Error updating item in DynamoDB",
+            error=e,
+            context={'pk': pk, 'sk': sk, 'update_keys': list(updates.keys())}
+        )
         raise
 
 
@@ -136,7 +153,11 @@ def query_by_pk(pk: str, sk_prefix: Optional[str] = None) -> List[Dict[str, Any]
         
         return response.get('Items', [])
     except Exception as e:
-        print(f"Error querying by PK: {str(e)}")
+        logger.error(
+            message="Error querying by PK in DynamoDB",
+            error=e,
+            context={'pk': pk, 'sk_prefix': sk_prefix}
+        )
         raise
 
 
@@ -173,7 +194,11 @@ def query_gsi(gsi_name: str, gsi_pk: str, gsi_sk_prefix: Optional[str] = None) -
         
         return response.get('Items', [])
     except Exception as e:
-        print(f"Error querying GSI: {str(e)}")
+        logger.error(
+            message="Error querying GSI in DynamoDB",
+            error=e,
+            context={'gsi_name': gsi_name, 'gsi_pk': gsi_pk, 'gsi_sk_prefix': gsi_sk_prefix}
+        )
         raise
 
 
@@ -210,7 +235,11 @@ def scan_by_entity_type(entity_type: str) -> List[Dict[str, Any]]:
         
         return items
     except Exception as e:
-        print(f"Error scanning by entity type: {str(e)}")
+        logger.error(
+            message="Error scanning by entity type in DynamoDB",
+            error=e,
+            context={'entity_type': entity_type}
+        )
         raise
 
 
@@ -261,7 +290,11 @@ def delete_item(pk: str, sk: str) -> None:
             }
         )
     except Exception as e:
-        print(f"Error deleting item: {str(e)}")
+        logger.error(
+            message="Error deleting item from DynamoDB",
+            error=e,
+            context={'pk': pk, 'sk': sk}
+        )
         raise
 
 

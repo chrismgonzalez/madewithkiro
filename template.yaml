@@ -38,23 +38,11 @@ Parameters:
 
   GoogleClientIdParameter:
     Type: String
-    Description: SSM Parameter name containing Google OAuth Client ID
-    Default: /madewithkiro/google-client-id
+    Description: SSM Parameter name containing Google OAuth Client ID (environment-specific)
 
   GoogleClientSecretParameter:
     Type: String
-    Description: SSM Parameter name containing Google OAuth Client Secret
-    Default: /madewithkiro/google-client-secret
-
-  GitHubClientIdParameter:
-    Type: String
-    Description: SSM Parameter name containing GitHub OAuth Client ID
-    Default: /madewithkiro/github-client-id
-
-  GitHubClientSecretParameter:
-    Type: String
-    Description: SSM Parameter name containing GitHub OAuth Client Secret
-    Default: /madewithkiro/github-client-secret
+    Description: SSM Parameter name containing Google OAuth Client Secret (environment-specific)
 
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref DomainName, ""]]
@@ -66,9 +54,7 @@ Conditions:
   CreateCloudFront: !Or
     - !Equals [!Ref Environment, "dev"]
     - !Equals [!Ref Environment, "prod"]
-  # Check if OAuth parameters exist in SSM (we'll assume they do if parameter names are provided)
-  HasGoogleOAuth: !Not [!Equals [!Ref GoogleClientIdParameter, ""]]
-  HasGitHubOAuth: !Not [!Equals [!Ref GitHubClientIdParameter, ""]]
+  IsProduction: !Equals [!Ref Environment, "prod"]
 
 Globals:
   Function:
@@ -80,12 +66,19 @@ Globals:
         TABLE_NAME: !Ref MadeWithKiroTable
         COGNITO_USER_POOL_ID: !Ref CognitoUserPool
         ENVIRONMENT: !Ref Environment
+        ALLOWED_ORIGINS: !If
+          - IsProduction
+          - !Sub "https://${DomainName}"
+          - !Sub "http://localhost:5173,https://${CloudFrontDistribution.DomainName}"
 
   Api:
     Cors:
-      AllowMethods: "'GET,POST,PUT,OPTIONS'"
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
       AllowHeaders: "'Content-Type,Authorization'"
-      AllowOrigin: "'*'"
+      AllowOrigin: !If
+        - IsProduction
+        - !Sub "'https://${DomainName}'"
+        - "'http://localhost:5173'"
 
 Resources:
   # DynamoDB Table with Single-Table Design
@@ -160,7 +153,6 @@ Resources:
   # Google Identity Provider
   GoogleIdentityProvider:
     Type: AWS::Cognito::UserPoolIdentityProvider
-    Condition: HasGoogleOAuth
     Properties:
       UserPoolId: !Ref CognitoUserPool
       ProviderName: Google
@@ -176,39 +168,12 @@ Resources:
         picture: picture
         username: sub
 
-  # GitHub Identity Provider
-  # Note: GitHub uses OAuth 2.0, not OIDC, but Cognito requires OIDC type
-  GitHubIdentityProvider:
-    Type: AWS::Cognito::UserPoolIdentityProvider
-    Condition: HasGitHubOAuth
-    Properties:
-      UserPoolId: !Ref CognitoUserPool
-      ProviderName: GitHub
-      ProviderType: OIDC
-      ProviderDetails:
-        client_id: !Sub "{{resolve:ssm:${GitHubClientIdParameter}}}"
-        client_secret: !Sub "{{resolve:ssm:${GitHubClientSecretParameter}}}"
-        authorize_scopes: "read:user user:email"
-        attributes_request_method: GET
-        oidc_issuer: "https://github.com"
-        authorize_url: "https://github.com/login/oauth/authorize"
-        token_url: "https://github.com/login/oauth/access_token"
-        attributes_url: "https://api.github.com/user"
-        jwks_uri: "https://token.actions.githubusercontent.com/.well-known/jwks"
-        attributes_url_add_attributes: "false"
-      AttributeMapping:
-        email: email
-        name: name
-        picture: avatar_url
-        username: sub
-
   # Cognito User Pool Client
   # Note: Must be created after identity providers
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     DependsOn:
       - GoogleIdentityProvider
-      - GitHubIdentityProvider
     Properties:
       ClientName: !Sub MadeWithKiro-Client-${Environment}
       UserPoolId: !Ref CognitoUserPool
@@ -230,7 +195,6 @@ Resources:
       LogoutURLs: !Ref CognitoLogoutURL
       SupportedIdentityProviders:
         - Google
-        - GitHub
       RefreshTokenValidity: 30
       AccessTokenValidity: 60
       IdTokenValidity: 60
@@ -308,6 +272,52 @@ Resources:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
         AllowOrigin: "'*'"
+      # Rate Limiting and Throttling Configuration
+      # Dev environment: Higher limits for testing and development
+      # Prod environment: Standard limits to prevent abuse
+      MethodSettings:
+        # Default throttling for all methods
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          ThrottlingRateLimit: !If [IsProduction, 100, 500] # requests per second (prod: 100, dev: 500)
+          ThrottlingBurstLimit: !If [IsProduction, 200, 1000] # concurrent requests (prod: 200, dev: 1000)
+          MetricsEnabled: true
+        # Public read endpoints - Higher limits for browsing
+        - ResourcePath: "/applications"
+          HttpMethod: "GET"
+          ThrottlingRateLimit: !If [IsProduction, 200, 1000] # Higher for public gallery (prod: 200, dev: 1000)
+          ThrottlingBurstLimit: !If [IsProduction, 400, 2000] # (prod: 400, dev: 2000)
+        - ResourcePath: "/applications/{appId}"
+          HttpMethod: "GET"
+          ThrottlingRateLimit: !If [IsProduction, 200, 1000] # Higher for viewing apps (prod: 200, dev: 1000)
+          ThrottlingBurstLimit: !If [IsProduction, 400, 2000] # (prod: 400, dev: 2000)
+        - ResourcePath: "/profile/{userId}"
+          HttpMethod: "GET"
+          ThrottlingRateLimit: !If [IsProduction, 150, 750] # Higher for profile viewing (prod: 150, dev: 750)
+          ThrottlingBurstLimit: !If [IsProduction, 300, 1500] # (prod: 300, dev: 1500)
+        # Create operations - Lower limits to prevent abuse
+        - ResourcePath: "/applications"
+          HttpMethod: "POST"
+          ThrottlingRateLimit: !If [IsProduction, 10, 50] # Lower for creates (prod: 10, dev: 50)
+          ThrottlingBurstLimit: !If [IsProduction, 20, 100] # (prod: 20, dev: 100)
+        - ResourcePath: "/profile"
+          HttpMethod: "POST"
+          ThrottlingRateLimit: !If [IsProduction, 5, 25] # Very low for profile creation (prod: 5, dev: 25)
+          ThrottlingBurstLimit: !If [IsProduction, 10, 50] # (prod: 10, dev: 50)
+        # Update operations - Standard limits
+        - ResourcePath: "/applications/{appId}"
+          HttpMethod: "PUT"
+          ThrottlingRateLimit: !If [IsProduction, 50, 250] # Standard for updates (prod: 50, dev: 250)
+          ThrottlingBurstLimit: !If [IsProduction, 100, 500] # (prod: 100, dev: 500)
+        - ResourcePath: "/profile"
+          HttpMethod: "PUT"
+          ThrottlingRateLimit: !If [IsProduction, 50, 250] # Standard for profile updates (prod: 50, dev: 250)
+          ThrottlingBurstLimit: !If [IsProduction, 100, 500] # (prod: 100, dev: 500)
+        # Delete operations - Lower limits for safety
+        - ResourcePath: "/applications/{appId}"
+          HttpMethod: "DELETE"
+          ThrottlingRateLimit: !If [IsProduction, 20, 100] # Lower for deletes (prod: 20, dev: 100)
+          ThrottlingBurstLimit: !If [IsProduction, 40, 200] # (prod: 40, dev: 200)
       Tags:
         Environment: !Ref Environment
         Application: MadeWithKiro
@@ -424,40 +434,16 @@ Resources:
         - Key: Application
           Value: MadeWithKiro
 
-  # S3 Bucket Policy - CloudFront Only Access (Private Bucket)
-  FrontendBucketPolicy:
-    Type: AWS::S3::BucketPolicy
+  # CloudFront Origin Access Control
+  CloudFrontOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
     Condition: CreateCloudFront
     Properties:
-      Bucket: !Ref FrontendBucket
-      PolicyDocument:
-        Statement:
-          - Sid: AllowCloudFrontServicePrincipal
-            Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
-            Action: s3:GetObject
-            Resource: !Sub ${FrontendBucket.Arn}/*
-            Condition:
-              StringEquals:
-                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
-
-  # Route 53 Hosted Zone (created if not provided)
-  HostedZone:
-    Type: AWS::Route53::HostedZone
-    Condition: CreateHostedZone
-    Properties:
-      Name: !Ref DomainName
-      HostedZoneConfig:
-        Comment: !Sub Hosted zone for MadeWithKiro ${Environment}
-      HostedZoneTags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Application
-          Value: MadeWithKiro
-
-  # Note: ACM Certificate is created in separate stack in us-east-1
-  # Deploy certificate-template.yaml first, then pass the ARN via CertificateArn parameter
+      OriginAccessControlConfig:
+        Name: !Sub MadeWithKiro-OAC-${Environment}
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
 
   # CloudFront Distribution for Frontend
   CloudFrontDistribution:
@@ -502,6 +488,7 @@ Resources:
           MinTTL: 0
           DefaultTTL: 86400
           MaxTTL: 31536000
+          ResponseHeadersPolicyId: !Ref CloudFrontResponseHeadersPolicy
         CustomErrorResponses:
           - ErrorCode: 403
             ResponseCode: 200
@@ -514,16 +501,78 @@ Resources:
         PriceClass: PriceClass_100
         HttpVersion: http2
 
-  # CloudFront Origin Access Control
-  CloudFrontOriginAccessControl:
-    Type: AWS::CloudFront::OriginAccessControl
+  # S3 Bucket Policy - CloudFront Only Access (Private Bucket)
+  # Must be created AFTER CloudFront distribution to avoid circular dependency
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: CreateCloudFront
+    DependsOn: CloudFrontDistribution
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub ${FrontendBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}
+
+  # Route 53 Hosted Zone (created if not provided)
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Condition: CreateHostedZone
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig:
+        Comment: !Sub Hosted zone for MadeWithKiro ${Environment}
+      HostedZoneTags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: MadeWithKiro
+
+  # Note: ACM Certificate is created in separate stack in us-east-1
+  # Deploy certificate-template.yaml first, then pass the ARN via CertificateArn parameter
+
+  # CloudFront Response Headers Policy for Security Headers
+  CloudFrontResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
     Condition: CreateCloudFront
     Properties:
-      OriginAccessControlConfig:
-        Name: !Sub MadeWithKiro-OAC-${Environment}
-        OriginAccessControlOriginType: s3
-        SigningBehavior: always
-        SigningProtocol: sigv4
+      ResponseHeadersPolicyConfig:
+        Name: !Sub MadeWithKiro-SecurityHeaders-${Environment}
+        Comment: Security headers policy for MadeWithKiro application
+        SecurityHeadersConfig:
+          # HSTS - Force HTTPS for 1 year, include subdomains, allow preloading
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000 # 1 year
+            IncludeSubdomains: true
+            Preload: true
+            Override: true
+          # X-Content-Type-Options - Prevent MIME type sniffing
+          ContentTypeOptions:
+            Override: true
+          # X-Frame-Options - Prevent clickjacking by denying iframe embedding
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          # X-XSS-Protection - Enable browser XSS protection (legacy browsers)
+          XSSProtection:
+            ModeBlock: true
+            Protection: true
+            Override: true
+          # Referrer-Policy - Control referrer information sent with requests
+          ReferrerPolicy:
+            ReferrerPolicy: strict-origin-when-cross-origin
+            Override: true
+          # Content-Security-Policy - Restrict resource loading to prevent XSS
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.execute-api.*.amazonaws.com https://*.amazonaws.com https://*.amazoncognito.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+            Override: true
 
   # Route 53 Record for Custom Domain
   DomainRecord:
@@ -642,3 +691,10 @@ Outputs:
     Value: !Ref CertificateArn
     Export:
       Name: !Sub ${AWS::StackName}-CertificateArn
+
+  ResponseHeadersPolicyId:
+    Condition: CreateCloudFront
+    Description: CloudFront Response Headers Policy ID for security headers
+    Value: !Ref CloudFrontResponseHeadersPolicy
+    Export:
+      Name: !Sub ${AWS::StackName}-ResponseHeadersPolicyId

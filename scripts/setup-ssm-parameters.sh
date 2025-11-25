@@ -107,14 +107,6 @@ validate_env_vars() {
         missing_vars+=("GOOGLE_CLIENT_SECRET")
     fi
     
-    # Check for GitHub OAuth credentials
-    if [[ -z "${GITHUB_CLIENT_ID}" ]]; then
-        missing_vars+=("GITHUB_CLIENT_ID")
-    fi
-    if [[ -z "${GITHUB_CLIENT_SECRET}" ]]; then
-        missing_vars+=("GITHUB_CLIENT_SECRET")
-    fi
-    
     if [[ ${#missing_vars[@]} -gt 0 ]]; then
         print_error "Missing required environment variables:"
         for var in "${missing_vars[@]}"; do
@@ -125,21 +117,12 @@ validate_env_vars() {
         print_info "Example:"
         echo "  export GOOGLE_CLIENT_ID='your-google-client-id'"
         echo "  export GOOGLE_CLIENT_SECRET='your-google-client-secret'"
-        echo "  export GITHUB_CLIENT_ID='your-github-client-id'"
-        echo "  export GITHUB_CLIENT_SECRET='your-github-client-secret'"
-        echo ""
-        print_info "Optional environment variables:"
-        echo "  export GOOGLE_CLIENT_ID='your-google-client-id'"
-        echo "  export GITHUB_CLIENT_ID='your-github-client-id'"
         exit 1
     fi
     
     # Validate OAuth secret formats
     print_info "Validating OAuth secret formats..."
     if ! validate_oauth_secret "GOOGLE_CLIENT_SECRET" "$GOOGLE_CLIENT_SECRET"; then
-        exit 1
-    fi
-    if ! validate_oauth_secret "GITHUB_CLIENT_SECRET" "$GITHUB_CLIENT_SECRET"; then
         exit 1
     fi
     print_success "OAuth secrets validated"
@@ -204,36 +187,36 @@ validate_existing_parameters() {
     print_info "Validating OAuth credentials in SSM for $env environment..."
     echo ""
     
-    local google_param_name="/madewithkiro/google-client-secret"
-    local github_param_name="/madewithkiro/github-client-secret"
+    local google_id_param="/madewithkiro/$env/google-client-id"
+    local google_secret_param="/madewithkiro/$env/google-client-secret"
     
     local validation_failed=0
     
-    # Check Google OAuth secret
-    if parameter_exists "$google_param_name"; then
-        print_success "Google OAuth secret exists: $google_param_name"
+    # Check Google OAuth client ID
+    if parameter_exists "$google_id_param"; then
+        print_success "Google OAuth client ID exists: $google_id_param"
     else
-        print_error "Google OAuth secret not found: $google_param_name"
-        print_info "Run 'make setup-ssm-$env' to configure OAuth secrets"
+        print_error "Google OAuth client ID not found: $google_id_param"
+        print_info "Run 'make setup-ssm-$env' to configure OAuth credentials"
         validation_failed=1
     fi
     
-    # Check GitHub OAuth secret
-    if parameter_exists "$github_param_name"; then
-        print_success "GitHub OAuth secret exists: $github_param_name"
+    # Check Google OAuth secret
+    if parameter_exists "$google_secret_param"; then
+        print_success "Google OAuth secret exists: $google_secret_param"
     else
-        print_error "GitHub OAuth secret not found: $github_param_name"
-        print_info "Run 'make setup-ssm-$env' to configure OAuth secrets"
+        print_error "Google OAuth secret not found: $google_secret_param"
+        print_info "Run 'make setup-ssm-$env' to configure OAuth credentials"
         validation_failed=1
     fi
     
     if [[ $validation_failed -eq 1 ]]; then
         echo ""
         print_error "OAuth credential validation failed"
-        print_info "Please configure OAuth secrets before deploying:"
+        print_info "Please configure OAuth credentials before deploying:"
         echo "  1. Set environment variables:"
-        echo "     export GOOGLE_CLIENT_SECRET='your-google-secret'"
-        echo "     export GITHUB_CLIENT_SECRET='your-github-secret'"
+        echo "     export GOOGLE_CLIENT_ID='your-google-client-id'"
+        echo "     export GOOGLE_CLIENT_SECRET='your-google-client-secret'"
         echo "  2. Run: make setup-ssm-$env"
         exit 1
     fi
@@ -250,7 +233,7 @@ setup_environment() {
     echo ""
     
     # Store Google OAuth client ID
-    local google_id_param="/madewithkiro/google-client-id"
+    local google_id_param="/madewithkiro/$env/google-client-id"
     local google_id_desc="Google OAuth client ID for $env environment"
     
     if ! store_parameter "$google_id_param" "$GOOGLE_CLIENT_ID" "$google_id_desc"; then
@@ -263,7 +246,7 @@ setup_environment() {
     fi
     
     # Store Google OAuth client secret
-    local google_secret_param="/madewithkiro/google-client-secret"
+    local google_secret_param="/madewithkiro/$env/google-client-secret"
     local google_secret_desc="Google OAuth client secret for $env environment"
     
     if ! store_parameter "$google_secret_param" "$GOOGLE_CLIENT_SECRET" "$google_secret_desc"; then
@@ -272,34 +255,6 @@ setup_environment() {
     fi
     
     if ! verify_parameter "$google_secret_param"; then
-        exit 1
-    fi
-    
-    echo ""
-    
-    # Store GitHub OAuth client ID
-    local github_id_param="/madewithkiro/github-client-id"
-    local github_id_desc="GitHub OAuth client ID for $env environment"
-    
-    if ! store_parameter "$github_id_param" "$GITHUB_CLIENT_ID" "$github_id_desc"; then
-        print_error "Failed to store GitHub OAuth client ID"
-        exit 1
-    fi
-    
-    if ! verify_parameter "$github_id_param"; then
-        exit 1
-    fi
-    
-    # Store GitHub OAuth client secret
-    local github_secret_param="/madewithkiro/github-client-secret"
-    local github_secret_desc="GitHub OAuth client secret for $env environment"
-    
-    if ! store_parameter "$github_secret_param" "$GITHUB_CLIENT_SECRET" "$github_secret_desc"; then
-        print_error "Failed to store GitHub OAuth secret"
-        exit 1
-    fi
-    
-    if ! verify_parameter "$github_param_name"; then
         exit 1
     fi
     
@@ -319,22 +274,18 @@ Arguments:
   --validate-only   Only validate that OAuth secrets exist in SSM (don't store)
 
 Environment Variables (required for setup):
+  GOOGLE_CLIENT_ID        Google OAuth client ID
   GOOGLE_CLIENT_SECRET    Google OAuth client secret
-  GITHUB_CLIENT_SECRET    GitHub OAuth client secret
-
-Environment Variables (optional):
-  GOOGLE_CLIENT_ID        Google OAuth client ID (for reference)
-  GITHUB_CLIENT_ID        GitHub OAuth client ID (for reference)
 
 Examples:
   # Setup development environment
+  export GOOGLE_CLIENT_ID='your-google-client-id'
   export GOOGLE_CLIENT_SECRET='your-google-secret'
-  export GITHUB_CLIENT_SECRET='your-github-secret'
   $0 dev
 
   # Setup production environment
+  export GOOGLE_CLIENT_ID='your-google-client-id'
   export GOOGLE_CLIENT_SECRET='your-google-secret'
-  export GITHUB_CLIENT_SECRET='your-github-secret'
   $0 prod
 
   # Validate OAuth secrets are configured (before deployment)

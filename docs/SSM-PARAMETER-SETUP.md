@@ -4,7 +4,7 @@ This guide explains how to set up OAuth secrets in AWS Systems Manager Parameter
 
 ## Overview
 
-The `setup-ssm-parameters.sh` script automates the process of storing OAuth client secrets securely in AWS Systems Manager Parameter Store. These secrets are required for Google and GitHub OAuth authentication.
+The `setup-ssm-parameters.sh` script automates the process of storing OAuth client secrets securely in AWS Systems Manager Parameter Store. These secrets are required for Google OAuth authentication.
 
 ## Prerequisites
 
@@ -24,9 +24,7 @@ The `setup-ssm-parameters.sh` script automates the process of storing OAuth clie
    - `ssm:GetParameter`
    - `kms:Encrypt` (for SecureString parameters)
 
-4. **OAuth Credentials**: Obtain OAuth client secrets from:
-   - [Google Cloud Console](https://console.cloud.google.com/)
-   - [GitHub Developer Settings](https://github.com/settings/developers)
+4. **OAuth Credentials**: Obtain OAuth client secrets from [Google Cloud Console](https://console.cloud.google.com/)
 
 ## OAuth Provider Setup
 
@@ -40,23 +38,14 @@ The `setup-ssm-parameters.sh` script automates the process of storing OAuth clie
 
 See [OAuth Provider Setup Documentation](./OAUTH-PROVIDER-SETUP.md) for detailed steps.
 
-### GitHub OAuth Setup
-
-1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
-2. Create a new OAuth App
-3. Configure callback URLs
-4. Copy the Client ID and Client Secret
-
-See [OAuth Provider Setup Documentation](./OAUTH-PROVIDER-SETUP.md) for detailed steps.
-
 ## Usage
 
 ### Development Environment
 
 ```bash
 # Set environment variables
+export GOOGLE_CLIENT_ID='your-google-client-id-dev'
 export GOOGLE_CLIENT_SECRET='your-google-client-secret-dev'
-export GITHUB_CLIENT_SECRET='your-github-client-secret-dev'
 
 # Run the script
 ./scripts/setup-ssm-parameters.sh dev
@@ -66,8 +55,8 @@ export GITHUB_CLIENT_SECRET='your-github-client-secret-dev'
 
 ```bash
 # Set environment variables
+export GOOGLE_CLIENT_ID='your-google-client-id-prod'
 export GOOGLE_CLIENT_SECRET='your-google-client-secret-prod'
-export GITHUB_CLIENT_SECRET='your-github-client-secret-prod'
 
 # Run the script
 ./scripts/setup-ssm-parameters.sh prod
@@ -97,13 +86,13 @@ The script creates the following SSM parameters:
 
 ### Development Environment
 
-- `/madewithkiro/dev/google-client-secret`
-- `/madewithkiro/dev/github-client-secret`
+- `/madewithkiro/dev/google-client-id` - Google OAuth Client ID
+- `/madewithkiro/dev/google-client-secret` - Google OAuth Client Secret
 
 ### Production Environment
 
-- `/madewithkiro/prod/google-client-secret`
-- `/madewithkiro/prod/github-client-secret`
+- `/madewithkiro/prod/google-client-id` - Google OAuth Client ID
+- `/madewithkiro/prod/google-client-secret` - Google OAuth Client Secret
 
 ## Security Considerations
 
@@ -136,8 +125,8 @@ The script creates the following SSM parameters:
 **Solution**: Export the required environment variables before running the script:
 
 ```bash
+export GOOGLE_CLIENT_ID='your-client-id'
 export GOOGLE_CLIENT_SECRET='your-secret'
-export GITHUB_CLIENT_SECRET='your-secret'
 ```
 
 ### Permission Denied
@@ -159,14 +148,19 @@ export GITHUB_CLIENT_SECRET='your-secret'
 After running the script, you can verify the parameters were created:
 
 ```bash
-# List parameters
+# List all parameters for a specific environment
 aws ssm describe-parameters \
-  --parameter-filters "Key=Name,Values=/madewithkiro/"
+  --parameter-filters "Key=Name,Values=/madewithkiro/dev/"
 
-# Get parameter value (decrypted)
+# Get parameter value (for Client IDs - not secrets)
+aws ssm get-parameter \
+  --name "/madewithkiro/dev/google-client-id"
+
+# Verify secret exists (without displaying value)
 aws ssm get-parameter \
   --name "/madewithkiro/dev/google-client-secret" \
-  --with-decryption
+  --query "Parameter.Name" \
+  --output text
 ```
 
 ## Next Steps
