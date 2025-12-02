@@ -59,6 +59,9 @@ parameter_overrides = [
   "CognitoCustomDomain=auth-dev.madewithkiro.com",
   "CognitoCertificateArn=arn:aws:acm:us-east-1:633458675472:certificate/28a5f528-69f7-4fa3-a831-aa0e5c21a24f",
   "HostedZoneId=Z00541582Q16QTXW4013F",
+  # SES Configuration for OTP Emails (Dev uses separate email identity)
+  "SESEmailIdentity=noreply-dev@madewithkiro.com",
+  "SESDomainName=madewithkiro.com",
 ]
 tags = ["Environment=dev", "Application=MadeWithKiro"]
 
@@ -91,5 +94,8 @@ parameter_overrides = [
   # Cognito Custom Domain Configuration for Prod
   "CognitoCustomDomain=auth.madewithkiro.com",
   "CognitoCertificateArn=arn:aws:acm:us-east-1:633458675472:certificate/28a5f528-69f7-4fa3-a831-aa0e5c21a24f",
+  # SES Configuration for OTP Emails
+  "SESEmailIdentity=noreply@madewithkiro.com",
+  "SESDomainName=madewithkiro.com",
 ]
 tags = ["Environment=prod", "Application=MadeWithKiro"]
