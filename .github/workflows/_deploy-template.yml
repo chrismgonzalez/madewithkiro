@@ -1,0 +1,289 @@
+# Reusable deployment workflow template
+# This workflow can be called by environment-specific workflows
+# Designed for flexibility to support multiple IaC tools
+
+name: Deploy Template
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+        description: 'Deployment environment (dev or prod)'
+      stack-name:
+        required: true
+        type: string
+        description: 'CloudFormation/IaC stack name'
+      aws-region:
+        required: true
+        type: string
+        description: 'AWS region for deployment'
+      iac-tool:
+        required: false
+        type: string
+        default: 'sam'
+        description: 'Infrastructure as Code tool (sam, terraform, cdk, etc.)'
+      run-tests:
+        required: false
+        type: boolean
+        default: true
+        description: 'Whether to run tests before deployment'
+    secrets:
+      aws-role-arn:
+        required: true
+        description: 'AWS IAM role ARN for OIDC authentication'
+    outputs:
+      deployment-url:
+        description: 'URL of the deployed application'
+        value: ${{ jobs.deploy.outputs.app-url }}
+      api-url:
+        description: 'API Gateway URL'
+        value: ${{ jobs.deploy.outputs.api-url }}
+
+jobs:
+  test:
+    name: Run Tests
+    if: inputs.run-tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run frontend tests
+        run: bun run test
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          uv pip install --system -r requirements.txt
+          uv pip install --system '.[dev]'
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          uv run pytest -v
+
+  deploy:
+    name: Deploy Infrastructure and Application
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    outputs:
+      app-url: ${{ steps.outputs.outputs.app_url }}
+      api-url: ${{ steps.outputs.outputs.api_url }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.aws-role-arn }}
+          aws-region: ${{ inputs.aws-region }}
+          role-session-name: GitHubActions-Deploy-${{ inputs.environment }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      # ========================================
+      # IaC Tool Setup (Flexible Section)
+      # Replace this section when migrating to a different IaC tool
+      # ========================================
+      
+      - name: Setup AWS SAM
+        if: inputs.iac-tool == 'sam'
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Validate infrastructure template
+        if: inputs.iac-tool == 'sam'
+        run: sam validate --lint
+
+      - name: Build infrastructure
+        if: inputs.iac-tool == 'sam'
+        run: sam build --use-container --config-env ${{ inputs.environment }}
+
+      - name: Deploy infrastructure
+        if: inputs.iac-tool == 'sam'
+        run: |
+          sam deploy \
+            --config-env ${{ inputs.environment }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --stack-name ${{ inputs.stack-name }} \
+            --region ${{ inputs.aws-region }}
+
+      # ========================================
+      # Example: Terraform alternative (commented out)
+      # Uncomment and modify when migrating to Terraform
+      # ========================================
+      
+      # - name: Setup Terraform
+      #   if: inputs.iac-tool == 'terraform'
+      #   uses: hashicorp/setup-terraform@v3
+      #   with:
+      #     terraform_version: 1.6.0
+      
+      # - name: Terraform Init
+      #   if: inputs.iac-tool == 'terraform'
+      #   run: |
+      #     cd infrastructure/terraform
+      #     terraform init
+      
+      # - name: Terraform Plan
+      #   if: inputs.iac-tool == 'terraform'
+      #   run: |
+      #     cd infrastructure/terraform
+      #     terraform plan \
+      #       -var="environment=${{ inputs.environment }}" \
+      #       -var="region=${{ inputs.aws-region }}" \
+      #       -out=tfplan
+      
+      # - name: Terraform Apply
+      #   if: inputs.iac-tool == 'terraform'
+      #   run: |
+      #     cd infrastructure/terraform
+      #     terraform apply -auto-approve tfplan
+
+      # ========================================
+      # Example: AWS CDK alternative (commented out)
+      # Uncomment and modify when migrating to CDK
+      # ========================================
+      
+      # - name: Setup Node.js for CDK
+      #   if: inputs.iac-tool == 'cdk'
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: '18'
+      
+      # - name: Install CDK
+      #   if: inputs.iac-tool == 'cdk'
+      #   run: npm install -g aws-cdk
+      
+      # - name: CDK Deploy
+      #   if: inputs.iac-tool == 'cdk'
+      #   run: |
+      #     cd infrastructure/cdk
+      #     npm install
+      #     cdk deploy \
+      #       --context environment=${{ inputs.environment }} \
+      #       --require-approval never
+
+      # ========================================
+      # End of IaC Tool Section
+      # ========================================
+
+      - name: Get infrastructure outputs
+        id: outputs
+        run: |
+          # This section needs to be adapted based on IaC tool
+          # SAM/CloudFormation example:
+          BUCKET_NAME=$(aws cloudformation describe-stacks \
+            --stack-name ${{ inputs.stack-name }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
+            --output text)
+          
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name ${{ inputs.stack-name }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
+            --output text)
+          
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ inputs.stack-name }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+          
+          APP_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ inputs.stack-name }} \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
+            --output text)
+          
+          echo "bucket_name=${BUCKET_NAME}" >> $GITHUB_OUTPUT
+          echo "distribution_id=${DISTRIBUTION_ID}" >> $GITHUB_OUTPUT
+          echo "api_url=${API_URL}" >> $GITHUB_OUTPUT
+          echo "app_url=${APP_URL}" >> $GITHUB_OUTPUT
+
+      - name: Build frontend
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+        env:
+          NODE_ENV: production
+
+      - name: Upload frontend to S3
+        run: |
+          aws s3 sync dist/ s3://${{ steps.outputs.outputs.bucket_name }}/ \
+            --delete \
+            --cache-control "public, max-age=31536000, immutable" \
+            --exclude "index.html" \
+            --exclude "*.map"
+          
+          aws s3 cp dist/index.html s3://${{ steps.outputs.outputs.bucket_name }}/index.html \
+            --cache-control "public, max-age=0, must-revalidate"
+
+      - name: Invalidate CloudFront cache
+        if: steps.outputs.outputs.distribution_id != '' && steps.outputs.outputs.distribution_id != 'None'
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.outputs.outputs.distribution_id }} \
+            --paths "/*"
+
+      - name: Deployment summary
+        run: |
+          echo "### ✅ Deployment to ${{ inputs.environment }} Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack:** ${{ inputs.stack-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ inputs.aws-region }}" >> $GITHUB_STEP_SUMMARY
+          echo "**IaC Tool:** ${{ inputs.iac-tool }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Outputs:**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🌐 Application URL: ${{ steps.outputs.outputs.app_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔌 API URL: ${{ steps.outputs.outputs.api_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 S3 Bucket: \`${{ steps.outputs.outputs.bucket_name }}\`" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.outputs.outputs.distribution_id }}" != "" && "${{ steps.outputs.outputs.distribution_id }}" != "None" ]]; then
+            echo "- ☁️ CloudFront: \`${{ steps.outputs.outputs.distribution_id }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Report failure
+        if: failure()
+        run: |
+          echo "### ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Stack:** ${{ inputs.stack-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "Check workflow logs for details." >> $GITHUB_STEP_SUMMARY

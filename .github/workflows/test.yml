@@ -1,0 +1,148 @@
+name: Test
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+      - '.github/FUNDING.yml'
+      - '.github/SECURITY.md'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run frontend tests
+        run: bun run test
+        continue-on-error: false
+
+      - name: Comment test results on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobStatus = '${{ job.status }}';
+            const emoji = jobStatus === 'success' ? '✅' : '❌';
+            const message = `${emoji} **Frontend Tests ${jobStatus === 'success' ? 'Passed' : 'Failed'}**`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
+
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          uv pip install --system -r requirements.txt
+          uv pip install --system '.[dev]'
+
+      - name: Run backend tests
+        run: |
+          cd backend
+          uv run pytest -v
+        continue-on-error: false
+
+      - name: Comment test results on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobStatus = '${{ job.status }}';
+            const emoji = jobStatus === 'success' ? '✅' : '❌';
+            const message = `${emoji} **Backend Tests ${jobStatus === 'success' ? 'Passed' : 'Failed'}**`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [frontend-tests, backend-tests]
+    if: always()
+    
+    steps:
+      - name: Check test results
+        run: |
+          if [[ "${{ needs.frontend-tests.result }}" == "success" && "${{ needs.backend-tests.result }}" == "success" ]]; then
+            echo "✅ All tests passed!"
+            exit 0
+          else
+            echo "❌ Some tests failed:"
+            echo "  Frontend: ${{ needs.frontend-tests.result }}"
+            echo "  Backend: ${{ needs.backend-tests.result }}"
+            exit 1
+          fi
+
+      - name: Comment overall status on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const frontendResult = '${{ needs.frontend-tests.result }}';
+            const backendResult = '${{ needs.backend-tests.result }}';
+            const allPassed = frontendResult === 'success' && backendResult === 'success';
+            
+            const emoji = allPassed ? '✅' : '❌';
+            const status = allPassed ? 'All tests passed!' : 'Some tests failed';
+            
+            const message = `### ${emoji} Test Results Summary
+            
+| Test Suite | Status |
+|------------|--------|
+| Frontend (Vitest) | ${frontendResult === 'success' ? '✅ Passed' : '❌ Failed'} |
+| Backend (pytest) | ${backendResult === 'success' ? '✅ Passed' : '❌ Failed'} |
+
+**Overall Status:** ${status}`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
