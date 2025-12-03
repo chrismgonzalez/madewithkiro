@@ -58,7 +58,6 @@ Conditions:
   HasCustomDomain: !Not [!Equals [!Ref DomainName, ""]]
   HasCertificate: !Not [!Equals [!Ref CertificateArn, ""]]
   HasCognitoCustomDomain: !Not [!Equals [!Ref CognitoCustomDomain, ""]]
-  HasCognitoCertificate: !Not [!Equals [!Ref CognitoCertificateArn, ""]]
   CreateHostedZone: !And
     - !Condition HasCustomDomain
     - !Equals [!Ref HostedZoneId, ""]
@@ -605,11 +604,10 @@ Resources:
         HttpVersion: http2
 
   # S3 Bucket Policy - CloudFront Only Access (Private Bucket)
-  # Must be created AFTER CloudFront distribution to avoid circular dependency
+  # Dependency on CloudFront distribution is implicit via the Ref in SourceArn condition
   FrontendBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Condition: CreateCloudFront
-    DependsOn: CloudFrontDistribution
     Properties:
       Bucket: !Ref FrontendBucket
       PolicyDocument:
