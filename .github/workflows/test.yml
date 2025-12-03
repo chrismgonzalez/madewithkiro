@@ -21,7 +21,7 @@ jobs:
   frontend-tests:
     name: Frontend Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,7 +46,7 @@ jobs:
             const jobStatus = '${{ job.status }}';
             const emoji = jobStatus === 'success' ? '✅' : '❌';
             const message = `${emoji} **Frontend Tests ${jobStatus === 'success' ? 'Passed' : 'Failed'}**`;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -57,7 +57,7 @@ jobs:
   backend-tests:
     name: Backend Tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -92,7 +92,7 @@ jobs:
             const jobStatus = '${{ job.status }}';
             const emoji = jobStatus === 'success' ? '✅' : '❌';
             const message = `${emoji} **Backend Tests ${jobStatus === 'success' ? 'Passed' : 'Failed'}**`;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -105,7 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [frontend-tests, backend-tests]
     if: always()
-    
+
     steps:
       - name: Check test results
         run: |
@@ -127,19 +127,19 @@ jobs:
             const frontendResult = '${{ needs.frontend-tests.result }}';
             const backendResult = '${{ needs.backend-tests.result }}';
             const allPassed = frontendResult === 'success' && backendResult === 'success';
-            
+
             const emoji = allPassed ? '✅' : '❌';
             const status = allPassed ? 'All tests passed!' : 'Some tests failed';
-            
+
             const message = `### ${emoji} Test Results Summary
-            
+
 | Test Suite | Status |
 |------------|--------|
 | Frontend (Vitest) | ${frontendResult === 'success' ? '✅ Passed' : '❌ Failed'} |
 | Backend (pytest) | ${backendResult === 'success' ? '✅ Passed' : '❌ Failed'} |
 
 **Overall Status:** ${status}`;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,

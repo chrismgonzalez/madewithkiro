@@ -18,7 +18,7 @@ jobs:
   test:
     name: Run Tests Before Deploy
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -59,10 +59,10 @@ jobs:
     name: Build and Deploy to Production
     runs-on: ubuntu-latest
     needs: test
-    environment: 
+    environment:
       name: production
       url: https://madewithkiro.com
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -120,22 +120,22 @@ jobs:
             --stack-name ${{ env.STACK_NAME }} \
             --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
             --output text)
-          
+
           DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
             --stack-name ${{ env.STACK_NAME }} \
             --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
             --output text)
-          
+
           API_URL=$(aws cloudformation describe-stacks \
             --stack-name ${{ env.STACK_NAME }} \
             --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
             --output text)
-          
+
           CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
             --stack-name ${{ env.STACK_NAME }} \
             --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
             --output text)
-          
+
           echo "bucket_name=${BUCKET_NAME}" >> $GITHUB_OUTPUT
           echo "distribution_id=${DISTRIBUTION_ID}" >> $GITHUB_OUTPUT
           echo "api_url=${API_URL}" >> $GITHUB_OUTPUT
@@ -155,7 +155,7 @@ jobs:
             --cache-control "public, max-age=31536000, immutable" \
             --exclude "index.html" \
             --exclude "*.map"
-          
+
           # Upload index.html with no-cache to ensure latest version
           aws s3 cp dist/index.html s3://${{ steps.cfn-outputs.outputs.bucket_name }}/index.html \
             --cache-control "public, max-age=0, must-revalidate"

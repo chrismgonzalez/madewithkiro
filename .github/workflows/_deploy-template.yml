@@ -41,12 +41,16 @@ on:
         description: 'API Gateway URL'
         value: ${{ jobs.deploy.outputs.api-url }}
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   test:
     name: Run Tests
     if: inputs.run-tests
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -91,7 +95,7 @@ jobs:
     outputs:
       app-url: ${{ steps.outputs.outputs.app_url }}
       api-url: ${{ steps.outputs.outputs.api_url }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -122,7 +126,7 @@ jobs:
       # IaC Tool Setup (Flexible Section)
       # Replace this section when migrating to a different IaC tool
       # ========================================
-      
+
       - name: Setup AWS SAM
         if: inputs.iac-tool == 'sam'
         uses: aws-actions/setup-sam@v2
@@ -151,19 +155,19 @@ jobs:
       # Example: Terraform alternative (commented out)
       # Uncomment and modify when migrating to Terraform
       # ========================================
-      
+
       # - name: Setup Terraform
       #   if: inputs.iac-tool == 'terraform'
       #   uses: hashicorp/setup-terraform@v3
       #   with:
       #     terraform_version: 1.6.0
-      
+
       # - name: Terraform Init
       #   if: inputs.iac-tool == 'terraform'
       #   run: |
       #     cd infrastructure/terraform
       #     terraform init
-      
+
       # - name: Terraform Plan
       #   if: inputs.iac-tool == 'terraform'
       #   run: |
@@ -172,7 +176,7 @@ jobs:
       #       -var="environment=${{ inputs.environment }}" \
       #       -var="region=${{ inputs.aws-region }}" \
       #       -out=tfplan
-      
+
       # - name: Terraform Apply
       #   if: inputs.iac-tool == 'terraform'
       #   run: |
@@ -183,17 +187,17 @@ jobs:
       # Example: AWS CDK alternative (commented out)
       # Uncomment and modify when migrating to CDK
       # ========================================
-      
+
       # - name: Setup Node.js for CDK
       #   if: inputs.iac-tool == 'cdk'
       #   uses: actions/setup-node@v4
       #   with:
       #     node-version: '18'
-      
+
       # - name: Install CDK
       #   if: inputs.iac-tool == 'cdk'
       #   run: npm install -g aws-cdk
-      
+
       # - name: CDK Deploy
       #   if: inputs.iac-tool == 'cdk'
       #   run: |
@@ -216,22 +220,22 @@ jobs:
             --stack-name ${{ inputs.stack-name }} \
             --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' \
             --output text)
-          
+
           DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
             --stack-name ${{ inputs.stack-name }} \
             --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
             --output text)
-          
+
           API_URL=$(aws cloudformation describe-stacks \
             --stack-name ${{ inputs.stack-name }} \
             --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
             --output text)
-          
+
           APP_URL=$(aws cloudformation describe-stacks \
             --stack-name ${{ inputs.stack-name }} \
             --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
             --output text)
-          
+
           echo "bucket_name=${BUCKET_NAME}" >> $GITHUB_OUTPUT
           echo "distribution_id=${DISTRIBUTION_ID}" >> $GITHUB_OUTPUT
           echo "api_url=${API_URL}" >> $GITHUB_OUTPUT
@@ -251,7 +255,7 @@ jobs:
             --cache-control "public, max-age=31536000, immutable" \
             --exclude "index.html" \
             --exclude "*.map"
-          
+
           aws s3 cp dist/index.html s3://${{ steps.outputs.outputs.bucket_name }}/index.html \
             --cache-control "public, max-age=0, must-revalidate"
 
