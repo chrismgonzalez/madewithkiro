@@ -130,7 +130,7 @@ export default function AuthCallbackPage() {
    * Navigates back to the auth page to allow user to try again.
    */
   const handleRetry = () => {
-    navigate({ to: "/auth", replace: true });
+    navigate({ to: "/login", replace: true });
   };
 
   // Display error state if OAuth error occurred

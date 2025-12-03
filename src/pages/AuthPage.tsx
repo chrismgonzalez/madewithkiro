@@ -1,5 +1,4 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -7,15 +6,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Chrome } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getOAuthErrorMessage } from "@/utils/authErrors";
 import KiroIcon from "@/components/KiroIcon";
+import AuthMethodSelector from "@/components/AuthMethodSelector";
+import OTPAuthPage from "@/components/OTPAuthPage";
 
 /**
  * Authentication Page Component
  *
- * Provides Google OAuth authentication for users to sign in.
+ * Provides Google OAuth and Email OTP authentication for users to sign in.
  * Handles OAuth errors from URL parameters and displays user-friendly error messages.
  * Shows loading states during authentication flows.
  *
@@ -28,6 +28,9 @@ export const AuthPage = () => {
   const { signInWithGoogle } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authMethod, setAuthMethod] = useState<"selector" | "email">(
+    "selector"
+  );
 
   // Check for OAuth errors in URL parameters
   useEffect(() => {
@@ -55,6 +58,25 @@ export const AuthPage = () => {
     }
   };
 
+  /**
+   * Handle Email OTP sign-in button click
+   */
+  const handleEmailSignIn = () => {
+    setAuthMethod("email");
+  };
+
+  /**
+   * Handle back from OTP flow
+   */
+  const handleBackToSelector = () => {
+    setAuthMethod("selector");
+  };
+
+  // Show OTP auth page if email method selected
+  if (authMethod === "email") {
+    return <OTPAuthPage onBack={handleBackToSelector} />;
+  }
+
   return (
     <div className="min-h-[calc(100vh-16rem)] flex items-center justify-center px-4 py-8 sm:py-12">
       <Card className="w-full max-w-md">
@@ -66,7 +88,7 @@ export const AuthPage = () => {
             Welcome to MadeWithKiro
           </CardTitle>
           <CardDescription className="text-sm sm:text-base">
-            Sign in with Google to showcase your Kiro-built applications
+            Sign in to showcase your Kiro-built applications
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 sm:space-y-6">
@@ -80,17 +102,11 @@ export const AuthPage = () => {
             </div>
           )}
 
-          <Button
-            onClick={handleGoogleSignIn}
-            disabled={isLoading}
-            className="w-full min-h-[44px] min-w-[44px]"
-            variant="outline"
-            size="lg"
-            aria-label="Sign in with Google"
-          >
-            <Chrome className="mr-2 h-5 w-5" aria-hidden="true" />
-            <span>Continue with Google</span>
-          </Button>
+          <AuthMethodSelector
+            onGoogleAuth={handleGoogleSignIn}
+            onEmailAuth={handleEmailSignIn}
+            isLoading={isLoading}
+          />
 
           <p className="text-xs sm:text-sm text-center text-muted-foreground mt-4">
             By continuing, you agree to our{" "}

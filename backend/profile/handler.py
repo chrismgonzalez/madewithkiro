@@ -44,6 +44,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     - GET /profile/{userId} - Get user profile (public)
     - POST /profile - Create profile (authenticated)
     - PUT /profile - Update profile (authenticated)
+    
+    Requirements: 2.3, 5.3
     """
     global _current_event
     _current_event = event
@@ -83,6 +85,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if not user_id:
                 return handle_unauthorized(event=event)
             
+            # Check if user has a linked account
+            linked_user_id = get_linked_account_from_event(event)
+            if linked_user_id:
+                # User has a linked account, use that profile instead
+                logger.info(
+                    message="User has linked account, retrieving existing profile",
+                    context={'current_user_id': user_id, 'linked_user_id': linked_user_id},
+                    user_id=user_id
+                )
+                return get_profile(linked_user_id)
+            
             return create_profile(user_id, body)
         
         elif http_method == 'PUT':
@@ -92,6 +105,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             
             if not user_id:
                 return handle_unauthorized(event=event)
+            
+            # Check if user has a linked account
+            linked_user_id = get_linked_account_from_event(event)
+            if linked_user_id:
+                # User has a linked account, update that profile instead
+                logger.info(
+                    message="User has linked account, updating existing profile",
+                    context={'current_user_id': user_id, 'linked_user_id': linked_user_id},
+                    user_id=user_id
+                )
+                return update_profile(linked_user_id, body)
             
             return update_profile(user_id, body)
         
@@ -111,8 +135,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 
 def get_profile(user_id: str) -> Dict[str, Any]:
-    """Get user profile by ID"""
+    """
+    Get user profile by ID.
+    
+    Requirements: 2.3, 5.3
+    
+    This function retrieves a user profile using the Cognito sub as the primary key.
+    It works for both Google OAuth and OTP users, as well as linked accounts.
+    """
     try:
+        # Use Cognito sub as primary key (works for all auth methods)
         item = get_item(f'USER#{user_id}', 'PROFILE')
         
         if not item:
@@ -124,6 +156,16 @@ def get_profile(user_id: str) -> Dict[str, Any]:
         
         # Clean and return profile
         profile_data = clean_dynamodb_item(item)
+        
+        logger.info(
+            message="Profile retrieved successfully",
+            context={
+                'user_id': user_id,
+                'auth_methods': profile_data.get('authMethods', [])
+            },
+            user_id=user_id
+        )
+        
         return success_response(profile_data, event=_current_event)
     
     except Exception as e:
@@ -136,7 +178,11 @@ def get_profile(user_id: str) -> Dict[str, Any]:
 
 
 def create_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
-    """Create a new user profile"""
+    """
+    Create a new user profile.
+    
+    Requirements: 1.4, 1.5, 5.3
+    """
     try:
         logger.info(
             message="Creating new profile",
@@ -175,6 +221,9 @@ def create_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
                 user_id=user_id
             )
         
+        # Determine authentication methods from Cognito claims
+        auth_methods = get_auth_methods_from_event(_current_event)
+        
         # Create profile item
         timestamp = get_timestamp()
         profile_item = {
@@ -190,7 +239,7 @@ def create_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
             'awsBuilderHandle': profile_request.awsBuilderHandle,
             'linkedInUsername': profile_request.linkedInUsername,
             'githubUsername': profile_request.githubUsername,
-            'authMethods': ['google'],  # Default to Google for now
+            'authMethods': auth_methods,
             'createdAt': timestamp,
             'updatedAt': timestamp
         }
@@ -203,7 +252,8 @@ def create_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
             context={
                 'first_name': profile_request.firstName,
                 'last_name': profile_request.lastName,
-                'email': email
+                'email': email,
+                'auth_methods': auth_methods
             },
             user_id=user_id
         )
@@ -301,3 +351,68 @@ def get_email_from_event(event: Dict[str, Any]) -> str:
     authorizer = request_context.get('authorizer', {})
     claims = authorizer.get('claims', {})
     return claims.get('email', '')
+
+
+def get_auth_methods_from_event(event: Dict[str, Any]) -> list:
+    """
+    Extract authentication methods from Cognito authorizer context.
+    
+    Requirements: 1.4, 1.5, 5.3
+    
+    Returns:
+        list: Authentication methods (e.g., ['google'], ['email'], ['google', 'email'])
+    """
+    request_context = event.get('requestContext', {})
+    authorizer = request_context.get('authorizer', {})
+    claims = authorizer.get('claims', {})
+    
+    # Check for custom:auth_methods attribute
+    auth_methods_str = claims.get('custom:auth_methods', '')
+    
+    if auth_methods_str:
+        # Parse comma-separated string or JSON array
+        if auth_methods_str.startswith('['):
+            # JSON array format
+            import json
+            try:
+                auth_methods = json.loads(auth_methods_str)
+                return auth_methods if isinstance(auth_methods, list) else ['email']
+            except json.JSONDecodeError:
+                pass
+        else:
+            # Comma-separated format
+            auth_methods = [method.strip() for method in auth_methods_str.split(',') if method.strip()]
+            if auth_methods:
+                return auth_methods
+    
+    # Check identity provider to determine auth method
+    identities = claims.get('identities')
+    if identities:
+        # User authenticated via social provider (Google)
+        return ['google']
+    
+    # Default to email for custom auth flow
+    return ['email']
+
+
+def get_linked_account_from_event(event: Dict[str, Any]) -> str:
+    """
+    Extract linked account user ID from Cognito authorizer context.
+    
+    Requirements: 2.3, 5.3
+    
+    When a user authenticates with OTP but has an existing Google account,
+    the verify_auth_challenge Lambda stores the original user ID in the
+    custom:linked_account attribute.
+    
+    Returns:
+        str: Linked account user ID, or empty string if no linked account
+    """
+    request_context = event.get('requestContext', {})
+    authorizer = request_context.get('authorizer', {})
+    claims = authorizer.get('claims', {})
+    
+    # Check for custom:linked_account attribute
+    linked_account = claims.get('custom:linked_account', '')
+    
+    return linked_account if linked_account else ''

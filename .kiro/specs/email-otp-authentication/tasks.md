@@ -89,7 +89,7 @@
   - **Property 8: Multi-Method Authentication**
   - **Validates: Requirements 3.5**
 
-- [-] 6. Configure Cognito User Pool for custom authentication
+- [x] 6. Configure Cognito User Pool for custom authentication
 
   - Enable custom authentication flow in user pool
   - Attach Lambda triggers (DefineAuthChallenge, CreateAuthChallenge, VerifyAuthChallenge)
@@ -110,8 +110,8 @@
   - **Property 9: Error Message Specificity**
   - **Validates: Requirements 4.3**
 
-- [ ] 8. Implement backend API endpoints for OTP authentication
-- [ ] 8.1 Implement POST /auth/otp/request endpoint
+- [x] 8. Implement backend API endpoints for OTP authentication
+- [x] 8.1 Implement POST /auth/otp/request endpoint
 
   - Implement request validation (email format)
   - Invoke Cognito InitiateAuth with CUSTOM_AUTH flow
@@ -119,7 +119,7 @@
   - Add error handling for email delivery failures
   - _Requirements: 1.1_
 
-- [ ] 8.2 Implement POST /auth/otp/verify endpoint
+- [x] 8.2 Implement POST /auth/otp/verify endpoint
 
   - Implement request validation (email, 6-digit code)
   - Invoke Cognito RespondToAuthChallenge
@@ -128,7 +128,7 @@
   - Add error handling for invalid/expired codes
   - _Requirements: 1.3, 2.2, 3.2, 3.3, 4.3_
 
-- [ ] 8.3 Update API Gateway configuration
+- [x] 8.3 Update API Gateway configuration
 
   - Add new OTP endpoints to API Gateway
   - Configure CORS for frontend domain
@@ -143,8 +143,8 @@
   - Test error message display
   - _Requirements: 4.1, 4.2, 4.3_
 
-- [ ] 10. Create frontend OTP authentication components
-- [ ] 10.1 Create OTPInput component
+- [x] 10. Create frontend OTP authentication components
+- [x] 10.1 Create OTPInput component
 
   - Implement 6-digit input with auto-advance
   - Add paste support for full code
@@ -153,7 +153,7 @@
   - Style with Tailwind CSS (mobile-first)
   - _Requirements: 4.1, 4.2_
 
-- [ ] 10.2 Create OTPAuthPage component
+- [x] 10.2 Create OTPAuthPage component
 
   - Implement email input step
   - Implement OTP verification step
@@ -164,7 +164,7 @@
   - Implement mobile-first responsive design
   - _Requirements: 1.1, 1.2, 2.1, 2.2, 4.1, 4.2, 4.3, 4.5_
 
-- [ ] 10.3 Update AuthMethodSelector component
+- [x] 10.3 Update AuthMethodSelector component
 
   - Add "Sign in with Email" button
   - Maintain existing "Sign in with Google" button
@@ -172,7 +172,7 @@
   - Add proper touch targets (44x44px minimum)
   - _Requirements: 5.5_
 
-- [ ] 10.4 Update AuthContext for OTP authentication
+- [x] 10.4 Update AuthContext for OTP authentication
 
   - Add requestOTP function
   - Add verifyOTP function
@@ -200,7 +200,7 @@
   - **Validates: Requirements 5.3**
 
 - [ ] 12. Implement account creation and profile management
-- [ ] 12.1 Update profile creation logic
+- [x] 12.1 Update profile creation logic
 
   - Create DynamoDB profile for new OTP users
   - Set authMethods field appropriately
@@ -208,7 +208,7 @@
   - Add GSI1PK and GSI1SK for email lookups
   - _Requirements: 1.4, 1.5, 5.3_
 
-- [ ] 12.2 Update profile retrieval logic
+- [x] 12.2 Update profile retrieval logic
 
   - Ensure profile lookup works for both Google and OTP users
   - Use Cognito sub as primary key

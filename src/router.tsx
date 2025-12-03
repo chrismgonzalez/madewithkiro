@@ -56,11 +56,11 @@ const indexRoute = createRoute({
 // Auth page route (public)
 const authRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: "/auth",
+  path: "/login",
   component: AuthPage,
 });
 
-// Auth callback route (public)
+// Auth callback route (public) - Keep as /auth/callback for Cognito
 const authCallbackRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/auth/callback",

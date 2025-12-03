@@ -49,8 +49,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.error("No email found in user attributes or userName")
             raise ValueError("User email is required for OTP authentication")
         
+        # Safe email display
+        email_display = f"{email[:3]}***@{email.split('@')[1]}" if '@' in email else email
+        
         logger.info(
-            f"CreateAuthChallenge triggered for user: {email[:3]}***@{email.split('@')[1]}, "
+            f"CreateAuthChallenge triggered for user: {email_display}, "
             f"challenge: {challenge_name}"
         )
         
@@ -61,7 +64,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Generate OTP code
         otp_code = generate_otp_code()
-        logger.info(f"Generated OTP code for {email[:3]}***@{email.split('@')[1]}")
+        logger.info(f"Generated OTP code for {email_display}")
         
         # Calculate expiration time
         created_at = int(datetime.now(timezone.utc).timestamp())
@@ -103,7 +106,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         event['response']['challengeMetadata'] = 'OTP_CHALLENGE'
         
         logger.info(
-            f"CreateAuthChallenge completed successfully for {email[:3]}***@{email.split('@')[1]}"
+            f"CreateAuthChallenge completed successfully for {email_display}"
         )
         
         return event

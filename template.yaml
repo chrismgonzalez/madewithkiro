@@ -54,6 +54,11 @@ Parameters:
     Type: String
     Description: SSM Parameter name containing Google OAuth Client Secret (environment-specific)
 
+  AuthJwtSecretParameter:
+    Type: String
+    Description: SSM Parameter name containing JWT secret for OTP authentication
+    Default: /madewithkiro/auth-jwt-secret
+
   SESEmailIdentity:
     Type: String
     Description: Email address for sending OTP codes (e.g., noreply@madewithkiro.com)
@@ -323,6 +328,30 @@ Resources:
         Environment: !Ref Environment
         Application: MadeWithKiro
 
+  # PreSignUp Lambda - Auto-confirms users for custom auth (OTP)
+  PreSignUpFunctionForOTP:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-PreSignUp-${Environment}
+      CodeUri: backend/
+      Handler: auth.pre_signup.lambda_handler
+      Description: Auto-confirm users for OTP authentication
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-PreSignUp-${Environment}:*
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
   # Cognito User Pool
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
@@ -364,6 +393,7 @@ Resources:
         ReplyToEmailAddress: !Ref SESEmailIdentity
       # Lambda triggers for custom authentication
       LambdaConfig:
+        PreSignUp: !GetAtt PreSignUpFunctionForOTP.Arn
         DefineAuthChallenge: !GetAtt DefineAuthChallengeFunctionForOTP.Arn
         CreateAuthChallenge: !GetAtt CreateAuthChallengeFunctionForOTP.Arn
         VerifyAuthChallengeResponse: !GetAtt VerifyAuthChallengeFunctionForOTP.Arn
@@ -526,6 +556,13 @@ Resources:
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !Ref VerifyAuthChallengeFunctionForOTP
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+
+  PreSignUpPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PreSignUpFunctionForOTP
       Principal: cognito-idp.amazonaws.com
       Action: lambda:InvokeFunction
 
@@ -730,6 +767,99 @@ Resources:
             Method: DELETE
             Auth:
               Authorizer: CognitoAuthorizer
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # OTP Authentication Lambda Function (DynamoDB-based approach)
+  OTPAuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-OTPAuth-${Environment}
+      CodeUri: backend/
+      Handler: auth.handler.lambda_handler
+      Description: Handle OTP authentication API endpoints (request, verify, refresh)
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          ENVIRONMENT: !Ref Environment
+          AUTH_JWT_SECRET: !Sub "{{resolve:ssm:${AuthJwtSecretParameter}}}"
+          SES_EMAIL_IDENTITY: !Ref SESEmailIdentity
+          SES_TEMPLATE_NAME: !Sub MadeWithKiro-OTP-${Environment}
+          SES_CONFIGURATION_SET: !Ref SESConfigurationSet
+          ACCESS_TOKEN_TTL_MINUTES: "60"
+          REFRESH_TOKEN_TTL_MINUTES: "43200"
+          OTP_CODE_TTL_MINUTES: "10"
+          OTP_RESEND_COOLDOWN_SECONDS: "60"
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+      Policies:
+        # DynamoDB access for OTP storage and profile creation
+        - Statement:
+            - Sid: OTPDynamoDBAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+                - !Sub ${MadeWithKiroTable.Arn}/index/GSI1
+        # SES access for sending OTP emails
+        - Statement:
+            - Sid: SESEmailSending
+              Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendTemplatedEmail
+              Resource:
+                - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*
+                - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${SESConfigurationSet}
+                - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:template/MadeWithKiro-OTP-${Environment}
+        # Least-privilege IAM policy for OTP authentication
+        # Allows: Cognito authentication operations
+        # Restricts: Only authentication-related actions
+        # Rationale: OTP auth function needs to create users and manage auth
+        - Statement:
+            - Sid: CognitoAuthenticationAccess
+              Effect: Allow
+              Action:
+                - cognito-idp:InitiateAuth # Start custom auth flow
+                - cognito-idp:RespondToAuthChallenge # Respond with OTP code
+                - cognito-idp:GetUser # Get user info after authentication
+                - cognito-idp:AdminGetUser # Check if user exists
+                - cognito-idp:AdminCreateUser # Create new users for OTP auth
+                - cognito-idp:AdminSetUserPassword # Set permanent password for custom auth
+                - cognito-idp:ListUsers # Find existing users by email
+                - cognito-idp:AdminUpdateUserAttributes # Update auth methods
+              Resource: !GetAtt CognitoUserPool.Arn
+        # CloudWatch Logs permissions (automatically added by SAM)
+        # Allows: CreateLogGroup, CreateLogStream, PutLogEvents
+      Events:
+        RequestOTP:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /auth/otp/request
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        VerifyOTP:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /auth/otp/verify
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        RefreshToken:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /auth/otp/refresh
+            Method: POST
+            Auth:
+              Authorizer: NONE
       Tags:
         Environment: !Ref Environment
         Application: MadeWithKiro
@@ -1088,3 +1218,9 @@ Outputs:
     Value: !GetAtt VerifyAuthChallengeFunctionForOTP.Arn
     Export:
       Name: !Sub ${AWS::StackName}-VerifyAuthChallengeFunctionArn
+
+  PreSignUpFunctionArn:
+    Description: PreSignUp Lambda Function ARN
+    Value: !GetAtt PreSignUpFunctionForOTP.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-PreSignUpFunctionArn

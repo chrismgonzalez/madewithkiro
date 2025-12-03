@@ -48,15 +48,28 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         user_attributes = event['request'].get('userAttributes', {})
         user_pool_id = event.get('userPoolId')  # Get from event
         
-        email = user_attributes.get('email')
+        # Get email from multiple possible sources
+        # For new users: email is in userName or privateChallengeParameters
+        # For existing users: email is in userAttributes
+        email = (
+            user_attributes.get('email') or 
+            private_params.get('email') or 
+            event.get('userName')
+        )
+        
         stored_otp = private_params.get('otp_code')
         expires_at_str = private_params.get('expires_at')
         
-        logger.info(
-            f"VerifyAuthChallenge triggered for user: {email[:3]}***@{email.split('@')[1] if email else 'unknown'}"
-        )
+        # Log with safe email formatting
+        email_display = f"{email[:3]}***@{email.split('@')[1]}" if email and '@' in email else 'unknown'
+        logger.info(f"VerifyAuthChallenge triggered for user: {email_display}")
         
         # Validate inputs
+        if not email:
+            logger.error("Missing email in user attributes, private params, and userName")
+            event['response']['answerCorrect'] = False
+            return event
+            
         if not stored_otp or not expires_at_str:
             logger.error("Missing OTP code or expiration in private parameters")
             event['response']['answerCorrect'] = False
@@ -70,18 +83,18 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Check if OTP has expired
         expires_at = int(expires_at_str)
         if is_otp_expired(expires_at):
-            logger.warning(f"OTP code expired for {email[:3]}***@{email.split('@')[1] if email else 'unknown'}")
+            logger.warning(f"OTP code expired for {email_display}")
             event['response']['answerCorrect'] = False
             return event
         
         # Verify OTP code
         if user_answer != stored_otp:
-            logger.warning(f"Incorrect OTP code for {email[:3]}***@{email.split('@')[1] if email else 'unknown'}")
+            logger.warning(f"Incorrect OTP code for {email_display}")
             event['response']['answerCorrect'] = False
             return event
         
         # OTP is correct and not expired
-        logger.info(f"OTP verified successfully for {email[:3]}***@{email.split('@')[1] if email else 'unknown'}")
+        logger.info(f"OTP verified successfully for {email_display}")
         
         # Check for duplicate accounts and link if necessary
         try:
@@ -116,8 +129,9 @@ def handle_account_linking(email: str, user_attributes: Dict[str, str], user_poo
         existing_profile = find_profile_by_email(email)
         
         if existing_profile:
+            email_display = f"{email[:3]}***@{email.split('@')[1]}" if email and '@' in email else 'unknown'
             logger.info(
-                f"Found existing profile for {email[:3]}***@{email.split('@')[1]}: "
+                f"Found existing profile for {email_display}: "
                 f"userId={existing_profile.get('userId')}"
             )
             
@@ -135,7 +149,7 @@ def handle_account_linking(email: str, user_attributes: Dict[str, str], user_poo
                 )
                 
                 logger.info(
-                    f"Updated auth methods for {email[:3]}***@{email.split('@')[1]}: "
+                    f"Updated auth methods for {email_display}: "
                     f"{updated_auth_methods}"
                 )
             
@@ -152,8 +166,9 @@ def handle_account_linking(email: str, user_attributes: Dict[str, str], user_poo
                     }
                 )
         else:
+            email_display = f"{email[:3]}***@{email.split('@')[1]}" if email and '@' in email else 'unknown'
             logger.info(
-                f"No existing profile found for {email[:3]}***@{email.split('@')[1]}. "
+                f"No existing profile found for {email_display}. "
                 "New profile will be created on first login."
             )
             

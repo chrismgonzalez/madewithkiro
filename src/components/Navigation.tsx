@@ -16,8 +16,8 @@ export default function Navigation() {
   const navigate = useNavigate();
 
   const handleSignIn = () => {
-    // Navigate to auth page
-    navigate({ to: "/auth" });
+    // Navigate to login page
+    navigate({ to: "/login" });
   };
 
   return (
