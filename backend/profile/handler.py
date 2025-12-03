@@ -147,6 +147,20 @@ def create_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         # Validate request data
         profile_request = CreateProfileRequest(**data)
         
+        # Get email from Cognito claims
+        email = get_email_from_event(_current_event)
+        if not email:
+            logger.error(
+                message="Email not found in Cognito claims",
+                context={'operation': 'create_profile'},
+                user_id=user_id
+            )
+            return sanitized_error_response(
+                status_code=400,
+                user_message='Email is required for profile creation',
+                event=_current_event
+            )
+        
         # Check if profile already exists
         existing = get_item(f'USER#{user_id}', 'PROFILE')
         if existing:
@@ -166,15 +180,17 @@ def create_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         profile_item = {
             'PK': f'USER#{user_id}',
             'SK': 'PROFILE',
-            'GSI1PK': 'PROFILE',
-            'GSI1SK': f'USER#{user_id}',
+            'GSI1PK': f'EMAIL#{email}',
+            'GSI1SK': 'PROFILE',
             'entityType': 'PROFILE',
             'userId': user_id,
+            'email': email,
             'firstName': profile_request.firstName,
             'lastName': profile_request.lastName,
             'awsBuilderHandle': profile_request.awsBuilderHandle,
             'linkedInUsername': profile_request.linkedInUsername,
             'githubUsername': profile_request.githubUsername,
+            'authMethods': ['google'],  # Default to Google for now
             'createdAt': timestamp,
             'updatedAt': timestamp
         }
@@ -186,7 +202,8 @@ def create_profile(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
             message=f"Successfully created profile for {profile_request.firstName} {profile_request.lastName}",
             context={
                 'first_name': profile_request.firstName,
-                'last_name': profile_request.lastName
+                'last_name': profile_request.lastName,
+                'email': email
             },
             user_id=user_id
         )
@@ -276,3 +293,11 @@ def get_user_id_from_event(event: Dict[str, Any]) -> str:
     authorizer = request_context.get('authorizer', {})
     claims = authorizer.get('claims', {})
     return claims.get('sub', '')
+
+
+def get_email_from_event(event: Dict[str, Any]) -> str:
+    """Extract email from Cognito authorizer context"""
+    request_context = event.get('requestContext', {})
+    authorizer = request_context.get('authorizer', {})
+    claims = authorizer.get('claims', {})
+    return claims.get('email', '')

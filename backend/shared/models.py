@@ -59,11 +59,13 @@ class UpdateProfileRequest(BaseModel):
 class UserProfile(BaseModel):
     """User profile data model"""
     userId: str
+    email: str
     firstName: str
     lastName: str
     awsBuilderHandle: str
     linkedInUsername: Optional[str] = None
     githubUsername: Optional[str] = None
+    authMethods: List[str] = Field(default_factory=lambda: ["google"], description="Authentication methods used by the user (e.g., 'google', 'email')")
     createdAt: str
     updatedAt: str
 
