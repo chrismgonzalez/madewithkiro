@@ -1,0 +1,6 @@
+incomplete signature exception when trying to create/update profile after new user creation
+
+cognito is still not auto confirming the password reset
+
+IncompleteSignatureException
+

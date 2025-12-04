@@ -63,7 +63,7 @@ describe("AuthContext - Session Persistence Acceptance Tests", () => {
         givenName: "Test",
         familyName: "User",
         picture: undefined,
-        provider: undefined,
+        provider: "email", // Users without federated identity are email OTP users
       });
       expect(auth.getCurrentUser).toHaveBeenCalled();
     });
@@ -194,7 +194,7 @@ describe("AuthContext - Session Persistence Acceptance Tests", () => {
         givenName: "Test",
         familyName: "User",
         picture: "https://example.com/avatar.jpg",
-        provider: undefined,
+        provider: "email", // Users without federated identity are email OTP users
       });
       expect(auth.getCurrentUser).toHaveBeenCalled();
     });

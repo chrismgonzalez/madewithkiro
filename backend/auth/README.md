@@ -4,13 +4,18 @@ This directory contains the Lambda functions for Cognito custom authentication f
 
 ## Overview
 
-The OTP authentication system consists of three Lambda functions that work together with AWS Cognito to provide passwordless email authentication:
+The OTP authentication system consists of four Lambda functions that work together with AWS Cognito to provide passwordless email authentication:
 
-1. **DefineAuthChallenge** - Determines the authentication flow and enforces rate limiting
-2. **CreateAuthChallenge** - Generates OTP codes and sends them via SES
-3. **VerifyAuthChallenge** - Validates OTP codes and handles account linking
+1. **PreSignUp** - Auto-confirms new users for OTP authentication
+2. **DefineAuthChallenge** - Determines the authentication flow and enforces rate limiting
+3. **CreateAuthChallenge** - Generates OTP codes and sends them via SES
+4. **VerifyAuthChallenge** - Validates OTP codes and handles account linking
 
 ## Files
+
+### Deprecated Files
+
+- `handler.py.deprecated` - **DEPRECATED**: Old DynamoDB-based OTP handler with self-signed JWT tokens. This file has been replaced by the Cognito Lambda triggers below. Kept for reference only.
 
 ### `otp_utils.py`
 
@@ -21,6 +26,14 @@ Shared utilities for OTP operations:
 - `is_valid_email()` - Validates email address format
 - `send_otp_email()` - Sends OTP via AWS SES using email template
 - `is_otp_expired()` - Checks if OTP has expired
+
+### `pre_signup.py`
+
+Lambda handler for PreSignUp trigger:
+
+- Auto-confirms new users for OTP authentication
+- Marks email as verified
+- Logs user creation events
 
 ### `define_auth_challenge.py`
 

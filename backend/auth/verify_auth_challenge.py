@@ -2,10 +2,11 @@
 VerifyAuthChallenge Lambda Handler
 
 Cognito trigger that validates OTP codes and handles account linking.
-Requirements: 1.3, 2.2, 3.1, 3.2, 3.3
+Requirements: 4.4, 5.1, 5.2, 5.3
 """
 
 import os
+import secrets
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 
@@ -57,6 +58,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             event.get('userName')
         )
         
+        # For new users, the sub might not be in userAttributes yet
+        # It will be available after the user is created
+        # We'll use the userName as a fallback which contains the email for new users
+        user_sub = user_attributes.get('sub')
+        
         stored_otp = private_params.get('otp_code')
         expires_at_str = private_params.get('expires_at')
         
@@ -80,15 +86,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             event['response']['answerCorrect'] = False
             return event
         
-        # Check if OTP has expired
+        # Check if OTP has expired (check expiration BEFORE validation per Requirements 4.4)
         expires_at = int(expires_at_str)
         if is_otp_expired(expires_at):
             logger.warning(f"OTP code expired for {email_display}")
             event['response']['answerCorrect'] = False
             return event
         
-        # Verify OTP code
-        if user_answer != stored_otp:
+        # Verify OTP code using timing-safe comparison (Requirements 4.4)
+        # secrets.compare_digest prevents timing attacks by ensuring constant-time comparison
+        if not secrets.compare_digest(user_answer.encode('utf-8'), stored_otp.encode('utf-8')):
             logger.warning(f"Incorrect OTP code for {email_display}")
             event['response']['answerCorrect'] = False
             return event
@@ -97,12 +104,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info(f"OTP verified successfully for {email_display}")
         
         # Check for duplicate accounts and link if necessary
-        try:
-            handle_account_linking(email, user_attributes, user_pool_id)
-        except Exception as e:
-            logger.error(f"Error during account linking: {str(e)}", error=e)
-            # Don't fail authentication due to linking errors
-            # User can still authenticate, linking can be retried later
+        # Only do this for existing users (who have a sub)
+        # For new users, profile creation will happen in PostAuthentication trigger
+        if user_sub:
+            try:
+                handle_account_linking(email, user_attributes, user_pool_id)
+            except Exception as e:
+                logger.error(f"Error during account linking: {str(e)}", error=e)
+                # Don't fail authentication due to linking errors
+                # User can still authenticate, linking can be retried later
+        else:
+            logger.info(f"New user detected (no sub yet) - profile will be created in PostAuthentication trigger")
         
         event['response']['answerCorrect'] = True
         return event
@@ -115,76 +127,142 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 def handle_account_linking(email: str, user_attributes: Dict[str, str], user_pool_id: str) -> None:
     """
-    Check for duplicate accounts and link authentication methods.
+    Check for existing accounts and link authentication methods, or create new profile.
     
-    Requirements: 3.1, 3.2, 3.3
+    Requirements: 5.1, 5.2, 5.3
+    
+    This function:
+    - Queries DynamoDB GSI1 for existing profile by email
+    - If existing profile found (e.g., Google OAuth user), updates authMethods to include 'email'
+    - If no profile found, creates new profile with Cognito sub as userId
+    - Preserves original userId and profile data during linking
+    - Logs account linking events to CloudWatch
     
     Args:
         email: User's email address
         user_attributes: Cognito user attributes
         user_pool_id: Cognito User Pool ID
     """
+    email_display = f"{email[:3]}***@{email.split('@')[1]}" if email and '@' in email else 'unknown'
+    current_user_sub = user_attributes.get('sub')
+    
     try:
-        # Query DynamoDB GSI1 for existing accounts with this email
+        # Query DynamoDB GSI1 for existing accounts with this email (Requirements 5.1)
         existing_profile = find_profile_by_email(email)
         
         if existing_profile:
-            email_display = f"{email[:3]}***@{email.split('@')[1]}" if email and '@' in email else 'unknown'
+            # Account linking scenario: existing profile found (Requirements 5.2, 5.3)
+            original_user_id = existing_profile.get('userId')
             logger.info(
-                f"Found existing profile for {email_display}: "
-                f"userId={existing_profile.get('userId')}"
+                "Account linking: Found existing profile",
+                context={
+                    'email': email_display,
+                    'original_user_id': original_user_id,
+                    'current_cognito_sub': current_user_sub
+                }
             )
             
-            # Check current auth methods
+            # Check current auth methods and preserve original data
             current_auth_methods = existing_profile.get('authMethods', [])
+            updated_auth_methods = current_auth_methods
             
-            # Add 'email' to auth methods if not already present
+            # Add 'email' to auth methods if not already present (Requirements 5.2)
             if 'email' not in current_auth_methods:
                 updated_auth_methods = current_auth_methods + ['email']
                 
                 # Update DynamoDB profile with new auth method
-                update_profile_auth_methods(
-                    existing_profile.get('userId'),
-                    updated_auth_methods
-                )
+                # Preserves original userId and all other profile data (Requirements 5.3)
+                update_profile_auth_methods(original_user_id, updated_auth_methods)
                 
+                # Log account linking event to CloudWatch (Requirements 5.3)
                 logger.info(
-                    f"Updated auth methods for {email_display}: "
-                    f"{updated_auth_methods}"
+                    "Account linked: Added email auth method to existing profile",
+                    context={
+                        'email': email_display,
+                        'user_id': original_user_id,
+                        'previous_auth_methods': current_auth_methods,
+                        'updated_auth_methods': updated_auth_methods
+                    }
+                )
+            else:
+                logger.info(
+                    "Account already linked: email auth method exists",
+                    context={
+                        'email': email_display,
+                        'user_id': original_user_id,
+                        'auth_methods': current_auth_methods
+                    }
                 )
             
             # Update Cognito user attributes to link accounts
-            # Store the linked account information
-            current_user_sub = user_attributes.get('sub')
+            if current_user_sub and user_pool_id:
+                try:
+                    update_cognito_user_attributes(
+                        user_pool_id,
+                        current_user_sub,
+                        {
+                            'custom:linked_account': original_user_id,
+                            'custom:auth_methods': ','.join(updated_auth_methods)
+                        }
+                    )
+                except ClientError as e:
+                    # Log but don't fail - Cognito attribute update is optional
+                    logger.warning(
+                        f"Failed to update Cognito attributes: {str(e)}",
+                        context={'user_sub': current_user_sub}
+                    )
+        else:
+            # New user scenario: create profile with Cognito sub as userId (Requirements 3.4, 3.5)
             if current_user_sub:
-                update_cognito_user_attributes(
-                    user_pool_id,
-                    current_user_sub,
-                    {
-                        'custom:linked_account': existing_profile.get('userId'),
-                        'custom:auth_methods': ','.join(updated_auth_methods)
+                logger.info(
+                    "New user: Creating profile with Cognito sub",
+                    context={
+                        'email': email_display,
+                        'user_id': current_user_sub
                     }
                 )
-        else:
-            email_display = f"{email[:3]}***@{email.split('@')[1]}" if email and '@' in email else 'unknown'
-            logger.info(
-                f"No existing profile found for {email_display}. "
-                "New profile will be created on first login."
-            )
-            
-            # Update Cognito user attributes for new email-only user
-            current_user_sub = user_attributes.get('sub')
-            if current_user_sub:
-                update_cognito_user_attributes(
-                    user_pool_id,
-                    current_user_sub,
-                    {
-                        'custom:auth_methods': 'email'
+                
+                # Create new profile in DynamoDB
+                create_new_profile(current_user_sub, email)
+                
+                # Log profile creation event
+                logger.info(
+                    "Profile created for new OTP user",
+                    context={
+                        'email': email_display,
+                        'user_id': current_user_sub,
+                        'auth_methods': ['email']
                     }
+                )
+                
+                # Update Cognito user attributes
+                if user_pool_id:
+                    try:
+                        update_cognito_user_attributes(
+                            user_pool_id,
+                            current_user_sub,
+                            {
+                                'custom:auth_methods': 'email'
+                            }
+                        )
+                    except ClientError as e:
+                        # Log but don't fail - Cognito attribute update is optional
+                        logger.warning(
+                            f"Failed to update Cognito attributes: {str(e)}",
+                            context={'user_sub': current_user_sub}
+                        )
+            else:
+                logger.warning(
+                    "Cannot create profile: missing Cognito sub",
+                    context={'email': email_display}
                 )
         
     except Exception as e:
-        logger.error(f"Error in handle_account_linking: {str(e)}", error=e)
+        logger.error(
+            f"Error in handle_account_linking: {str(e)}",
+            error=e,
+            context={'email': email_display}
+        )
         raise
 
 
@@ -266,7 +344,7 @@ def update_cognito_user_attributes(
     """
     Update Cognito user attributes.
     
-    Requirements: 3.2, 3.3
+    Requirements: 5.2, 5.3
     
     Args:
         user_pool_id: Cognito User Pool ID
@@ -291,4 +369,63 @@ def update_cognito_user_attributes(
         
     except ClientError as e:
         logger.error(f"Cognito update error: {str(e)}")
+        raise
+
+
+def create_new_profile(user_id: str, email: str) -> Dict[str, Any]:
+    """
+    Create a new user profile in DynamoDB for OTP-authenticated users.
+    
+    Requirements: 3.4, 3.5
+    
+    This creates a minimal profile with:
+    - userId set to Cognito sub
+    - email from authentication
+    - authMethods set to ['email']
+    - Placeholder values for required fields (user can update later)
+    
+    Args:
+        user_id: Cognito sub (user ID)
+        email: User's email address
+        
+    Returns:
+        dict: Created profile item
+    """
+    try:
+        table = dynamodb.Table(TABLE_NAME)
+        timestamp = datetime.now(timezone.utc).isoformat()
+        
+        # Create profile with minimal required fields
+        # User will complete profile on first visit to profile page
+        profile_item = {
+            'PK': f'USER#{user_id}',
+            'SK': 'PROFILE',
+            'userId': user_id,
+            'email': email,
+            'firstName': '',  # To be filled by user
+            'lastName': '',   # To be filled by user
+            'awsBuilderHandle': '',  # To be filled by user
+            'linkedInUsername': None,
+            'githubUsername': None,
+            'authMethods': ['email'],  # Requirements 3.5
+            'createdAt': timestamp,
+            'updatedAt': timestamp,
+            'entityType': 'PROFILE',
+            # GSI1 for email lookup
+            'GSI1PK': f'EMAIL#{email}',
+            'GSI1SK': 'PROFILE'
+        }
+        
+        # Put item in DynamoDB
+        table.put_item(Item=profile_item)
+        
+        logger.info(
+            f"Created new profile for user {user_id}",
+            context={'email': f"{email[:3]}***@{email.split('@')[1]}" if '@' in email else 'unknown'}
+        )
+        
+        return profile_item
+        
+    except ClientError as e:
+        logger.error(f"DynamoDB put error: {str(e)}")
         raise

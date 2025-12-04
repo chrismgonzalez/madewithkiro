@@ -22,16 +22,53 @@ interface OTPAuthPageProps {
 
 type Step = "email" | "verify";
 
+/**
+ * Map Cognito error types to user-friendly messages
+ * Requirements: 6.5 - Handle Cognito errors with user-friendly messages
+ */
+const mapCognitoError = (error: any): string => {
+  // Handle rate limiting
+  if (error.code === "RATE_LIMITED") {
+    const retryAfter = error.retryAfter || 60;
+    return `Too many requests. Please wait ${retryAfter} seconds before trying again.`;
+  }
+
+  // Handle max attempts exceeded
+  if (
+    error.code === "MAX_ATTEMPTS_EXCEEDED" ||
+    error.name === "NotAuthorizedException"
+  ) {
+    return "Too many failed attempts. Please request a new code to try again.";
+  }
+
+  // Handle expired OTP
+  if (error.code === "EXPIRED_OTP" || error.message?.includes("expired")) {
+    return "This code has expired. Please request a new one.";
+  }
+
+  // Handle invalid OTP
+  if (error.code === "INVALID_OTP" || error.message?.includes("incorrect")) {
+    return "Incorrect code. Please try again.";
+  }
+
+  // Handle network errors
+  if (error.name === "NetworkError" || error.message?.includes("network")) {
+    return "Network error. Please check your connection and try again.";
+  }
+
+  // Default error message
+  return error.message || "An error occurred. Please try again.";
+};
+
 export default function OTPAuthPage({
   onAuthSuccess,
   onBack,
 }: OTPAuthPageProps) {
   const navigate = useNavigate();
-  const { requestOTP, verifyOTP } = useAuth();
+  const { signInWithOTP, confirmOTP } = useAuth();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
-  const [_session, setSession] = useState<string>(""); // Session token (kept for API compatibility)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [remainingTime, setRemainingTime] = useState(600); // 10 minutes in seconds
@@ -96,16 +133,42 @@ export default function OTPAuthPage({
     setLoading(true);
 
     try {
-      const response = await requestOTP(email);
+      // Use Amplify signIn with CUSTOM_WITHOUT_SRP flow
+      // This triggers Cognito's custom authentication flow
+      const response = await signInWithOTP(email);
 
-      // Backend returns data directly, no success field
-      setSession(response.session); // Store session token for verification
+      // Extract public challenge parameters from Cognito
+      const additionalInfo = response.nextStep.additionalInfo;
+
+      // Check for rate limiting error
+      if (additionalInfo?.error === "RATE_LIMITED") {
+        const retryAfter = parseInt(additionalInfo.retryAfter || "60", 10);
+        setError(
+          `Too many requests. Please wait ${retryAfter} seconds before trying again.`
+        );
+        setResendCooldown(retryAfter);
+        return;
+      }
+
+      // Move to verification step
       setStep("verify");
-      setRemainingTime(response.expiresIn); // Set expiration time from response
+
+      // Set expiration time from Cognito response (default 600 seconds)
+      const expiresIn = parseInt(additionalInfo?.expiresIn || "600", 10);
+      setRemainingTime(expiresIn);
+
       setCanResend(false);
-      setResendCooldown(60); // 60 second cooldown
+      setResendCooldown(60); // 60 second cooldown for resend
     } catch (err: any) {
-      setError(err.message || "Failed to send verification code");
+      // Map Cognito errors to user-friendly messages
+      const errorMessage = mapCognitoError(err);
+      setError(errorMessage);
+
+      // Handle rate limiting cooldown
+      if (err.code === "RATE_LIMITED") {
+        const retryAfter = err.retryAfter || 60;
+        setResendCooldown(retryAfter);
+      }
     } finally {
       setLoading(false);
     }
@@ -123,33 +186,50 @@ export default function OTPAuthPage({
     setLoading(true);
 
     try {
-      const response = await verifyOTP(email, otpCode, "");
+      // Use Amplify confirmSignIn to verify the OTP code
+      // This completes the custom authentication flow
+      const response = await confirmOTP(otpCode);
 
-      // Backend returns data directly, no success field
-      if (response.tokens) {
+      // Check if authentication is complete
+      if (response.isSignedIn) {
+        // Authentication successful - tokens are now managed by Amplify
         if (onAuthSuccess) {
           onAuthSuccess();
-        } else if (response.isNewUser) {
-          // New user needs to create a profile
-          navigate({ to: "/create-profile", replace: true });
         } else {
-          // Existing user - go to intended destination or home
-          const redirectTo =
-            sessionStorage.getItem("redirect_after_auth") || "/";
-          sessionStorage.removeItem("redirect_after_auth");
-          navigate({ to: redirectTo, replace: true });
+          // Check if user needs to create a profile
+          // New users won't have firstName/lastName attributes yet
+          // The VerifyAuthChallenge Lambda creates a profile, but we need to check
+          // if the user needs to complete their profile information
+          try {
+            const { fetchUserAttributes } = await import("aws-amplify/auth");
+            const attributes = await fetchUserAttributes();
+
+            // Check if user has profile attributes (firstName, lastName)
+            // If not, they need to create their profile
+            const hasProfile = attributes.given_name || attributes.family_name;
+
+            if (!hasProfile) {
+              // New user needs to create a profile
+              navigate({ to: "/create-profile", replace: true });
+            } else {
+              // Existing user - go to intended destination or home
+              const redirectTo =
+                sessionStorage.getItem("redirect_after_auth") || "/";
+              sessionStorage.removeItem("redirect_after_auth");
+              navigate({ to: redirectTo, replace: true });
+            }
+          } catch (attrError) {
+            // If we can't fetch attributes, assume they need to create profile
+            navigate({ to: "/create-profile", replace: true });
+          }
         }
       } else {
         setError("Failed to verify code");
       }
     } catch (err: any) {
-      if (err.code === "EXPIRED_OTP") {
-        setError("This code has expired. Please request a new one.");
-      } else if (err.code === "INVALID_OTP") {
-        setError("Incorrect code. Please try again.");
-      } else {
-        setError(err.message || "Failed to verify code");
-      }
+      // Map Cognito errors to user-friendly messages
+      const errorMessage = mapCognitoError(err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -164,16 +244,39 @@ export default function OTPAuthPage({
     setLoading(true);
 
     try {
-      const response = await requestOTP(email);
+      // Use Amplify signIn to request a new OTP
+      const response = await signInWithOTP(email);
 
-      // Backend returns data directly, no success field
-      setSession(response.session); // Update session token with new code
-      setRemainingTime(response.expiresIn); // Reset expiration time from response
+      // Extract public challenge parameters
+      const additionalInfo = response.nextStep.additionalInfo;
+
+      // Check for rate limiting error
+      if (additionalInfo?.error === "RATE_LIMITED") {
+        const retryAfter = parseInt(additionalInfo.retryAfter || "60", 10);
+        setError(
+          `Too many requests. Please wait ${retryAfter} seconds before trying again.`
+        );
+        setResendCooldown(retryAfter);
+        return;
+      }
+
+      // Reset expiration time from Cognito response
+      const expiresIn = parseInt(additionalInfo?.expiresIn || "600", 10);
+      setRemainingTime(expiresIn);
+
       setCanResend(false);
       setResendCooldown(60); // 60 second cooldown
       setOtpCode(""); // Clear the input
     } catch (err: any) {
-      setError(err.message || "Failed to resend verification code");
+      // Map Cognito errors to user-friendly messages
+      const errorMessage = mapCognitoError(err);
+      setError(errorMessage);
+
+      // Handle rate limiting cooldown
+      if (err.code === "RATE_LIMITED") {
+        const retryAfter = err.retryAfter || 60;
+        setResendCooldown(retryAfter);
+      }
     } finally {
       setLoading(false);
     }

@@ -21,11 +21,13 @@ export class AuthService {
   /**
    * Get current access token
    *
-   * Retrieves the access token from either:
-   * 1. OTP authentication (localStorage) - for email OTP users
-   * 2. Cognito session (Amplify) - for Google OAuth users
-   *
+   * Retrieves the access token from the current Cognito session.
    * Returns null if the user is not authenticated or the session has expired.
+   *
+   * Note: API Gateway Cognito User Pool authorizer validates EITHER the ID token OR access token.
+   * However, the ID token contains user claims (sub, email, etc.) which are passed to Lambda,
+   * while the access token only contains scopes. For this application, we use the ID token
+   * to ensure Lambda functions receive user identity information.
    *
    * @returns Access token string or null if not authenticated
    *
@@ -40,27 +42,10 @@ export class AuthService {
    */
   async getAccessToken(): Promise<string | null> {
     try {
-      // First, check for OTP access token in localStorage
-      const otpToken = localStorage.getItem("otp_access_token");
-      if (otpToken) {
-        // Verify token is not expired
-        try {
-          const tokenParts = otpToken.split(".");
-          if (tokenParts.length === 3) {
-            const payload = JSON.parse(atob(tokenParts[1]));
-            const now = Date.now() / 1000;
-            if (payload.exp && payload.exp > now) {
-              return otpToken;
-            }
-          }
-        } catch (e) {
-          // Invalid token format, fall through to Cognito
-        }
-      }
-
-      // Fall back to Cognito session (for Google OAuth users)
       const session = await fetchAuthSession();
-      // API Gateway Cognito authorizer requires ID token, not access token
+      // Use ID token for API Gateway Cognito authorizer
+      // ID token contains user claims (sub, email, custom attributes)
+      // Access token only contains scopes and is less useful for authorization
       return session.tokens?.idToken?.toString() ?? null;
     } catch (error) {
       return null;
@@ -97,9 +82,7 @@ export class AuthService {
   /**
    * Check if user is authenticated
    *
-   * Verifies if a user has a valid session from either:
-   * 1. OTP authentication (localStorage) - for email OTP users
-   * 2. Cognito session (Amplify) - for Google OAuth users
+   * Verifies if a user has a valid Cognito session.
    *
    * @returns True if user has valid session, false otherwise
    *
@@ -115,24 +98,6 @@ export class AuthService {
    */
   async isAuthenticated(): Promise<boolean> {
     try {
-      // Check for valid OTP token first
-      const otpToken = localStorage.getItem("otp_access_token");
-      if (otpToken) {
-        try {
-          const tokenParts = otpToken.split(".");
-          if (tokenParts.length === 3) {
-            const payload = JSON.parse(atob(tokenParts[1]));
-            const now = Date.now() / 1000;
-            if (payload.exp && payload.exp > now) {
-              return true;
-            }
-          }
-        } catch (e) {
-          // Invalid token, fall through to Cognito check
-        }
-      }
-
-      // Fall back to Cognito session check
       await getCurrentUser();
       return true;
     } catch (error) {
@@ -143,9 +108,7 @@ export class AuthService {
   /**
    * Refresh current session
    *
-   * Attempts to refresh the current session using either:
-   * 1. OTP refresh token (localStorage) - for email OTP users
-   * 2. Cognito refresh token (Amplify) - for Google OAuth users
+   * Attempts to refresh the current session using Cognito refresh token.
    *
    * @returns True if refresh succeeded, false if refresh failed
    *
@@ -163,39 +126,6 @@ export class AuthService {
    */
   async refreshSession(): Promise<boolean> {
     try {
-      // Check if we have an OTP refresh token
-      const otpRefreshToken = localStorage.getItem("otp_refresh_token");
-      if (otpRefreshToken) {
-        // Try to refresh using OTP endpoint
-        const { apiClient } = await import("./apiClient");
-        const response = await apiClient.request<{
-          tokens: {
-            accessToken: string;
-            refreshToken: string;
-            expiresInSeconds: number;
-          };
-        }>({
-          method: "POST",
-          endpoint: "/auth/otp/refresh",
-          data: { refreshToken: otpRefreshToken },
-          requiresAuth: false,
-        });
-
-        if (response.data?.tokens) {
-          localStorage.setItem(
-            "otp_access_token",
-            response.data.tokens.accessToken
-          );
-          localStorage.setItem(
-            "otp_refresh_token",
-            response.data.tokens.refreshToken
-          );
-          return true;
-        }
-        return false;
-      }
-
-      // Fall back to Cognito session refresh
       await fetchAuthSession({ forceRefresh: true });
       return true;
     } catch (error) {

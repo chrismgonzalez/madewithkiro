@@ -17,7 +17,12 @@ export default function CreateProfilePage() {
 
   const handleSubmit = async (data: ProfileFormData) => {
     try {
+      if (!user?.userId) {
+        throw new Error("User ID not found. Please sign in again.");
+      }
+
       const profileData = {
+        userId: user.userId,
         firstName: data.firstName,
         lastName: data.lastName,
         awsBuilderHandle: data.awsBuilderHandle || "",
@@ -25,13 +30,16 @@ export default function CreateProfilePage() {
         githubUsername: data.githubUsername,
       };
 
-      await profileService.createProfile(profileData);
+      // Use updateProfile instead of createProfile
+      // The profile is already created during OTP authentication (VerifyAuthChallenge Lambda)
+      // This page is for completing/updating the profile information
+      await profileService.updateProfile(profileData);
 
-      navigate({ to: `/profile/${user?.userId}` });
+      navigate({ to: `/profile/${user.userId}` });
     } catch (error) {
-      console.error("Failed to create profile:", error);
+      console.error("Failed to update profile:", error);
       alert(
-        `Failed to create profile: ${
+        `Failed to update profile: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
@@ -46,7 +54,7 @@ export default function CreateProfilePage() {
     <div className="w-full max-w-4xl mx-auto px-4 py-8">
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Welcome! Let's create your profile</CardTitle>
+          <CardTitle>Welcome! Complete your profile</CardTitle>
           <CardDescription>
             Tell us a bit about yourself to get started on MadeWithKiro
           </CardDescription>

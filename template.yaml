@@ -54,11 +54,6 @@ Parameters:
     Type: String
     Description: SSM Parameter name containing Google OAuth Client Secret (environment-specific)
 
-  AuthJwtSecretParameter:
-    Type: String
-    Description: SSM Parameter name containing JWT secret for OTP authentication
-    Default: /madewithkiro/auth-jwt-secret
-
   SESEmailIdentity:
     Type: String
     Description: Email address for sending OTP codes (e.g., noreply@madewithkiro.com)
@@ -105,6 +100,7 @@ Globals:
         - IsProduction
         - !Sub "'https://${DomainName}'"
         - "'http://localhost:5173'"
+      AllowCredentials: true
 
 Resources:
   # DynamoDB Table with Single-Table Design
@@ -306,6 +302,7 @@ Resources:
               Action:
                 - dynamodb:Query
                 - dynamodb:GetItem
+                - dynamodb:PutItem
                 - dynamodb:UpdateItem
               Resource:
                 - !GetAtt MadeWithKiroTable.Arn
@@ -324,6 +321,41 @@ Resources:
                 - logs:CreateLogStream
                 - logs:PutLogEvents
               Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-VerifyAuthChallenge-${Environment}:*
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # PostAuthentication Lambda - Creates profiles for new OTP users
+  PostAuthenticationFunctionForOTP:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-PostAuthentication-${Environment}
+      CodeUri: backend/
+      Handler: auth.post_authentication.lambda_handler
+      Description: Create user profiles after successful OTP authentication
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: DynamoDBAccess
+              Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+                - !Sub "${MadeWithKiroTable.Arn}/index/GSI1"
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-PostAuthentication-${Environment}:*
       Tags:
         Environment: !Ref Environment
         Application: MadeWithKiro
@@ -348,6 +380,46 @@ Resources:
                 - logs:CreateLogStream
                 - logs:PutLogEvents
               Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-PreSignUp-${Environment}:*
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # Register Lambda - API endpoint for user registration before OTP auth
+  RegisterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-Register-${Environment}
+      CodeUri: backend/
+      Handler: auth.register.lambda_handler
+      Description: Register new users for OTP authentication
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: CognitoUserManagement
+              Effect: Allow
+              Action:
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminCreateUser
+              Resource: !GetAtt CognitoUserPool.Arn
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-Register-${Environment}:*
+      Events:
+        Register:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /auth/register
+            Method: POST
+            Auth:
+              Authorizer: NONE
       Tags:
         Environment: !Ref Environment
         Application: MadeWithKiro
@@ -397,6 +469,7 @@ Resources:
         DefineAuthChallenge: !GetAtt DefineAuthChallengeFunctionForOTP.Arn
         CreateAuthChallenge: !GetAtt CreateAuthChallengeFunctionForOTP.Arn
         VerifyAuthChallengeResponse: !GetAtt VerifyAuthChallengeFunctionForOTP.Arn
+        PostAuthentication: !GetAtt PostAuthenticationFunctionForOTP.Arn
       UserPoolTags:
         Environment: !Ref Environment
         Application: MadeWithKiro
@@ -566,6 +639,13 @@ Resources:
       Principal: cognito-idp.amazonaws.com
       Action: lambda:InvokeFunction
 
+  PostAuthenticationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PostAuthenticationFunctionForOTP
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+
   # API Gateway
   MadeWithKiroApi:
     Type: AWS::Serverless::Api
@@ -581,7 +661,11 @@ Resources:
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
-        AllowOrigin: "'*'"
+        AllowOrigin: !If
+          - IsProduction
+          - !Sub "'https://${DomainName}'"
+          - "'http://localhost:5173'"
+        AllowCredentials: true
       # Rate Limiting and Throttling Configuration
       # Dev environment: Higher limits for testing and development
       # Prod environment: Standard limits to prevent abuse
@@ -623,6 +707,14 @@ Resources:
           HttpMethod: "PUT"
           ThrottlingRateLimit: !If [IsProduction, 50, 250] # Standard for profile updates (prod: 50, dev: 250)
           ThrottlingBurstLimit: !If [IsProduction, 100, 500] # (prod: 100, dev: 500)
+        - ResourcePath: "/profile/check-email"
+          HttpMethod: "GET"
+          ThrottlingRateLimit: !If [IsProduction, 100, 500] # Check email lookups (prod: 100, dev: 500)
+          ThrottlingBurstLimit: !If [IsProduction, 200, 1000] # (prod: 200, dev: 1000)
+        - ResourcePath: "/profile/link"
+          HttpMethod: "POST"
+          ThrottlingRateLimit: !If [IsProduction, 10, 50] # Account linking (prod: 10, dev: 50)
+          ThrottlingBurstLimit: !If [IsProduction, 20, 100] # (prod: 20, dev: 100)
         # Delete operations - Lower limits for safety
         - ResourcePath: "/applications/{appId}"
           HttpMethod: "DELETE"
@@ -639,10 +731,11 @@ Resources:
       FunctionName: !Sub MadeWithKiro-Profile-${Environment}
       CodeUri: backend/
       Handler: profile.handler.lambda_handler
-      Description: Handle profile operations (create, read, update)
+      Description: Handle profile operations (create, read, update, link accounts)
       Environment:
         Variables:
           COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          USER_POOL_ID: !Ref CognitoUserPool
       Policies:
         # Least-privilege IAM policy for profile operations
         # Allows: GetItem, PutItem, UpdateItem on specific table
@@ -655,10 +748,18 @@ Resources:
                 - dynamodb:GetItem # Read user profile
                 - dynamodb:PutItem # Create new profile
                 - dynamodb:UpdateItem # Update existing profile
-              Resource: !GetAtt MadeWithKiroTable.Arn
+                - dynamodb:Query # Query profiles by email using GSI1
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+                - !Sub "${MadeWithKiroTable.Arn}/index/GSI1" # GSI1 for email lookups
               # Note: Condition keys for user-specific access would require
               # Cognito integration to pass userId in request context
               # For now, application logic enforces user-specific access
+            - Sid: ProfileCognitoAccess
+              Effect: Allow
+              Action:
+                - cognito-idp:AdminUpdateUserAttributes # Update user attributes for account linking
+              Resource: !GetAtt CognitoUserPool.Arn
         # CloudWatch Logs permissions (automatically added by SAM)
         # Allows: CreateLogGroup, CreateLogStream, PutLogEvents
       Events:
@@ -684,6 +785,22 @@ Resources:
             RestApiId: !Ref MadeWithKiroApi
             Path: /profile
             Method: PUT
+            Auth:
+              Authorizer: CognitoAuthorizer
+        CheckProfileByEmail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /profile/check-email
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        LinkAccounts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /profile/link
+            Method: POST
             Auth:
               Authorizer: CognitoAuthorizer
       Tags:
@@ -767,99 +884,6 @@ Resources:
             Method: DELETE
             Auth:
               Authorizer: CognitoAuthorizer
-      Tags:
-        Environment: !Ref Environment
-        Application: MadeWithKiro
-
-  # OTP Authentication Lambda Function (DynamoDB-based approach)
-  OTPAuthFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub MadeWithKiro-OTPAuth-${Environment}
-      CodeUri: backend/
-      Handler: auth.handler.lambda_handler
-      Description: Handle OTP authentication API endpoints (request, verify, refresh)
-      Environment:
-        Variables:
-          TABLE_NAME: !Ref MadeWithKiroTable
-          ENVIRONMENT: !Ref Environment
-          AUTH_JWT_SECRET: !Sub "{{resolve:ssm:${AuthJwtSecretParameter}}}"
-          SES_EMAIL_IDENTITY: !Ref SESEmailIdentity
-          SES_TEMPLATE_NAME: !Sub MadeWithKiro-OTP-${Environment}
-          SES_CONFIGURATION_SET: !Ref SESConfigurationSet
-          ACCESS_TOKEN_TTL_MINUTES: "60"
-          REFRESH_TOKEN_TTL_MINUTES: "43200"
-          OTP_CODE_TTL_MINUTES: "10"
-          OTP_RESEND_COOLDOWN_SECONDS: "60"
-          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
-      Policies:
-        # DynamoDB access for OTP storage and profile creation
-        - Statement:
-            - Sid: OTPDynamoDBAccess
-              Effect: Allow
-              Action:
-                - dynamodb:GetItem
-                - dynamodb:PutItem
-                - dynamodb:UpdateItem
-                - dynamodb:Query
-              Resource:
-                - !GetAtt MadeWithKiroTable.Arn
-                - !Sub ${MadeWithKiroTable.Arn}/index/GSI1
-        # SES access for sending OTP emails
-        - Statement:
-            - Sid: SESEmailSending
-              Effect: Allow
-              Action:
-                - ses:SendEmail
-                - ses:SendTemplatedEmail
-              Resource:
-                - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*
-                - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${SESConfigurationSet}
-                - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:template/MadeWithKiro-OTP-${Environment}
-        # Least-privilege IAM policy for OTP authentication
-        # Allows: Cognito authentication operations
-        # Restricts: Only authentication-related actions
-        # Rationale: OTP auth function needs to create users and manage auth
-        - Statement:
-            - Sid: CognitoAuthenticationAccess
-              Effect: Allow
-              Action:
-                - cognito-idp:InitiateAuth # Start custom auth flow
-                - cognito-idp:RespondToAuthChallenge # Respond with OTP code
-                - cognito-idp:GetUser # Get user info after authentication
-                - cognito-idp:AdminGetUser # Check if user exists
-                - cognito-idp:AdminCreateUser # Create new users for OTP auth
-                - cognito-idp:AdminSetUserPassword # Set permanent password for custom auth
-                - cognito-idp:ListUsers # Find existing users by email
-                - cognito-idp:AdminUpdateUserAttributes # Update auth methods
-              Resource: !GetAtt CognitoUserPool.Arn
-        # CloudWatch Logs permissions (automatically added by SAM)
-        # Allows: CreateLogGroup, CreateLogStream, PutLogEvents
-      Events:
-        RequestOTP:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MadeWithKiroApi
-            Path: /auth/otp/request
-            Method: POST
-            Auth:
-              Authorizer: NONE
-        VerifyOTP:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MadeWithKiroApi
-            Path: /auth/otp/verify
-            Method: POST
-            Auth:
-              Authorizer: NONE
-        RefreshToken:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MadeWithKiroApi
-            Path: /auth/otp/refresh
-            Method: POST
-            Auth:
-              Authorizer: NONE
       Tags:
         Environment: !Ref Environment
         Application: MadeWithKiro

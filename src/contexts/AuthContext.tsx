@@ -11,6 +11,9 @@ import {
   getCurrentUser,
   fetchUserAttributes,
   fetchAuthSession,
+  signIn,
+  confirmSignIn,
+  SignInOutput,
 } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 import { analytics } from "@/utils/analytics";
@@ -29,21 +32,56 @@ interface AuthUser {
   familyName?: string;
   /** URL to user's profile picture */
   picture?: string;
-  /** Identity provider name (Google) */
+  /** Identity provider name (Google or email) */
   provider?: string;
 }
 
 /**
- * OTP request response (matches backend format)
+ * OTP sign-in response from Amplify
+ * Contains challenge information for the OTP verification step
+ */
+interface OTPSignInResponse {
+  /** Whether sign-in is complete (false when OTP verification needed) */
+  isSignedIn: boolean;
+  /** Next step in the authentication flow */
+  nextStep: {
+    signInStep: string;
+    /** Public challenge parameters from Cognito */
+    additionalInfo?: {
+      email?: string;
+      expiresIn?: string;
+      error?: string;
+      retryAfter?: string;
+    };
+  };
+}
+
+/**
+ * OTP confirmation response from Amplify
+ * Contains the result of OTP verification
+ */
+interface OTPConfirmResponse {
+  /** Whether sign-in is complete */
+  isSignedIn: boolean;
+  /** Next step (should be DONE if successful) */
+  nextStep: {
+    signInStep: string;
+  };
+}
+
+/**
+ * Legacy OTP request response (for backward compatibility during migration)
+ * @deprecated Use signInWithOTP instead
  */
 interface OTPRequestResponse {
   message: string;
   expiresIn: number;
-  session: string; // Cognito session token for verification
+  session: string;
 }
 
 /**
- * OTP verification response (matches backend format)
+ * Legacy OTP verification response (for backward compatibility during migration)
+ * @deprecated Use confirmOTP instead
  */
 interface OTPVerifyResponse {
   tokens: {
@@ -73,18 +111,22 @@ interface AuthContextType {
   isLoading: boolean;
   /** Initiate Google OAuth sign-in flow */
   signInWithGoogle: () => Promise<void>;
-  /** Request OTP code for email authentication */
+  /** Initiate OTP authentication using Amplify CUSTOM_WITHOUT_SRP flow */
+  signInWithOTP: (email: string) => Promise<OTPSignInResponse>;
+  /** Confirm OTP code using Amplify confirmSignIn */
+  confirmOTP: (code: string) => Promise<OTPConfirmResponse>;
+  /** Sign out the current user globally */
+  signOut: () => Promise<void>;
+  /** Refresh the current session and obtain new tokens */
+  refreshSession: () => Promise<void>;
+  /** @deprecated Use signInWithOTP instead - kept for backward compatibility */
   requestOTP: (email: string) => Promise<OTPRequestResponse>;
-  /** Verify OTP code and authenticate user */
+  /** @deprecated Use confirmOTP instead - kept for backward compatibility */
   verifyOTP: (
     email: string,
     code: string,
     session: string
   ) => Promise<OTPVerifyResponse>;
-  /** Sign out the current user globally */
-  signOut: () => Promise<void>;
-  /** Refresh the current session and obtain new tokens */
-  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -140,51 +182,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const checkUser = async () => {
     try {
-      // First, check for OTP-based authentication (JWT tokens in localStorage)
-      const otpAccessToken = localStorage.getItem("otp_access_token");
-      const otpUserStr = localStorage.getItem("otp_user");
-
-      if (otpAccessToken && otpUserStr) {
-        try {
-          // Verify the token is still valid by checking expiration
-          const tokenParts = otpAccessToken.split(".");
-          if (tokenParts.length === 3) {
-            const payload = JSON.parse(atob(tokenParts[1]));
-            const now = Date.now() / 1000;
-
-            if (payload.exp && payload.exp > now) {
-              // Token is still valid
-              const otpUser = JSON.parse(otpUserStr);
-              const authUser: AuthUser = {
-                userId: otpUser.email,
-                email: otpUser.email,
-                provider: "email",
-              };
-              setUser(authUser);
-
-              // Identify user in PostHog
-              analytics.identify(authUser.userId, {
-                email: authUser.email,
-                provider: "email",
-              });
-
-              setIsLoading(false);
-              return;
-            } else {
-              // Token expired, try to refresh
-              await refreshOTPSession();
-              return;
-            }
-          }
-        } catch (e) {
-          // Invalid token, clear it
-          localStorage.removeItem("otp_access_token");
-          localStorage.removeItem("otp_refresh_token");
-          localStorage.removeItem("otp_user");
-        }
-      }
-
-      // Fall back to Cognito/Amplify authentication (Google OAuth)
+      // Use Amplify's getCurrentUser for all authentication methods
+      // This works for both Google OAuth and OTP (CUSTOM_AUTH) users
+      // since Cognito now handles token issuance for both
       await getCurrentUser();
       const attributes = await fetchUserAttributes();
 
@@ -198,64 +198,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         provider: authUser.provider,
       });
     } catch (error) {
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const refreshOTPSession = async () => {
-    try {
-      const refreshToken = localStorage.getItem("otp_refresh_token");
-      if (!refreshToken) {
-        throw new Error("No refresh token available");
-      }
-
-      const { apiClient } = await import("@/services/apiClient");
-
-      const response = await apiClient.request<{
-        tokens: {
-          accessToken: string;
-          refreshToken: string;
-          expiresInSeconds: number;
-        };
-      }>({
-        method: "POST",
-        endpoint: "/auth/otp/refresh",
-        data: { refreshToken },
-        requiresAuth: false,
-      });
-
-      if (response.error || !response.data?.tokens) {
-        throw new Error("Failed to refresh token");
-      }
-
-      // Update stored tokens
-      localStorage.setItem(
-        "otp_access_token",
-        response.data.tokens.accessToken
-      );
-      localStorage.setItem(
-        "otp_refresh_token",
-        response.data.tokens.refreshToken
-      );
-
-      // Re-check user with new token
-      const otpUserStr = localStorage.getItem("otp_user");
-      if (otpUserStr) {
-        const otpUser = JSON.parse(otpUserStr);
-        const authUser: AuthUser = {
-          userId: otpUser.email,
-          email: otpUser.email,
-          provider: "email",
-        };
-        setUser(authUser);
-      }
-    } catch (error) {
-      // Refresh failed, clear tokens and user
-      localStorage.removeItem("otp_access_token");
-      localStorage.removeItem("otp_refresh_token");
-      localStorage.removeItem("otp_user");
+      // No authenticated user
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -266,7 +209,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * Parse Cognito user attributes into AuthUser format
    *
    * Extracts user information from Cognito attributes and handles
-   * provider-specific attribute mapping (Google vs GitHub).
+   * provider-specific attribute mapping (Google vs email OTP).
    *
    * @param attributes - Record of Cognito user attributes
    * @returns Parsed AuthUser object
@@ -278,7 +221,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const email = attributes.email || "";
     const picture = attributes.picture;
 
-    // Parse identities to get provider
+    // Parse identities to get provider (for federated users like Google)
     const identitiesStr = attributes.identities;
     let provider: string | undefined;
     if (identitiesStr) {
@@ -288,6 +231,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (e) {
         // Ignore parse errors
       }
+    }
+
+    // If no federated identity, check if this is an email OTP user
+    // Email OTP users won't have identities attribute
+    if (!provider && email) {
+      provider = "email";
     }
 
     // Handle Google attributes (given_name, family_name)
@@ -314,113 +263,232 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const requestOTP = async (email: string): Promise<OTPRequestResponse> => {
+  /**
+   * Initiate OTP authentication using Amplify's CUSTOM_WITHOUT_SRP flow
+   *
+   * This triggers the Cognito custom authentication flow:
+   * 1. Register user (ensure they exist in Cognito) via /auth/register endpoint
+   * 2. DefineAuthChallenge determines the flow
+   * 3. CreateAuthChallenge generates and sends the OTP via email
+   * 4. Returns challenge info for the UI to display
+   *
+   * @param email - User's email address
+   * @returns Challenge response with public parameters
+   * @throws Error if sign-in initiation fails
+   *
+   * Requirements: 8.1 - Use Amplify's signIn with CUSTOM_AUTH
+   */
+  const signInWithOTP = async (email: string): Promise<OTPSignInResponse> => {
     try {
-      const { apiClient } = await import("@/services/apiClient");
+      // Step 1: Register user (ensure they exist in Cognito)
+      // This is required because CUSTOM_AUTH flow needs the user to exist
+      // before authentication can be initiated
+      try {
+        const apiUrl = import.meta.env.VITE_API_BASE_URL;
+        const registerResponse = await fetch(`${apiUrl}/auth/register`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        });
 
-      // OTP request doesn't require authentication
-      const response = await apiClient.request<OTPRequestResponse>({
-        method: "POST",
-        endpoint: "/auth/otp/request",
-        data: { email },
-        requiresAuth: false,
-      });
+        if (!registerResponse.ok) {
+          const errorData = await registerResponse.json();
+          throw new Error(
+            errorData.error?.message || "Failed to register user"
+          );
+        }
 
-      if (response.error) {
-        throw new Error(response.error.message || "Failed to request OTP");
-      }
-
-      if (!response.data) {
-        throw new Error("No data returned from OTP request");
-      }
-
-      return response.data;
-    } catch (error) {
-      console.error("OTP request error:", error);
-      throw error;
-    }
-  };
-
-  const verifyOTP = async (
-    email: string,
-    code: string,
-    _session: string // Session not needed for DynamoDB-based approach
-  ): Promise<OTPVerifyResponse> => {
-    try {
-      const { apiClient } = await import("@/services/apiClient");
-
-      // Call the verify endpoint directly
-      const response = await apiClient.request<OTPVerifyResponse>({
-        method: "POST",
-        endpoint: "/auth/otp/verify",
-        data: { email, code },
-        requiresAuth: false,
-      });
-
-      if (response.error) {
-        const error = new Error(
-          response.error.message || "Failed to verify OTP"
+        // Registration successful (or user already exists)
+        // Continue with authentication
+      } catch (registerError: any) {
+        console.error("Registration error:", registerError);
+        // If registration fails, throw a user-friendly error
+        throw new Error(
+          registerError.message || "Failed to prepare authentication"
         );
-        (error as any).code = response.error.code;
+      }
+
+      // Step 2: Initiate OTP authentication
+      const result: SignInOutput = await signIn({
+        username: email,
+        options: {
+          authFlowType: "CUSTOM_WITHOUT_SRP",
+        },
+      });
+
+      // Extract public challenge parameters from the response
+      // The additionalInfo field contains publicChallengeParameters from Cognito
+      const nextStep = result.nextStep as {
+        signInStep: string;
+        additionalInfo?: Record<string, string>;
+      };
+      const additionalInfo = nextStep.additionalInfo;
+
+      // Check for rate limiting error in public parameters
+      if (additionalInfo?.error === "RATE_LIMITED") {
+        const error = new Error(
+          "Too many requests. Please wait before trying again."
+        );
+        (error as any).code = "RATE_LIMITED";
+        (error as any).retryAfter = parseInt(
+          additionalInfo.retryAfter || "60",
+          10
+        );
         throw error;
       }
 
-      if (!response.data || !response.data.tokens) {
-        throw new Error("No tokens returned from OTP verification");
-      }
-
-      // Store tokens in localStorage for the API client to use
-      localStorage.setItem(
-        "otp_access_token",
-        response.data.tokens.accessToken
-      );
-      localStorage.setItem(
-        "otp_refresh_token",
-        response.data.tokens.refreshToken
-      );
-      localStorage.setItem("otp_user", JSON.stringify(response.data.user));
-
-      // Set user state from the response
-      const authUser: AuthUser = {
-        userId: response.data.user.email, // Use email as userId for OTP users
-        email: response.data.user.email,
-        provider: "email",
+      return {
+        isSignedIn: result.isSignedIn,
+        nextStep: {
+          signInStep: result.nextStep.signInStep,
+          additionalInfo: additionalInfo
+            ? {
+                email: additionalInfo.email,
+                expiresIn: additionalInfo.expiresIn,
+                error: additionalInfo.error,
+                retryAfter: additionalInfo.retryAfter,
+              }
+            : undefined,
+        },
       };
-      setUser(authUser);
-
-      // Identify user in PostHog
-      analytics.identify(authUser.userId, {
-        email: authUser.email,
-        provider: "email",
-      });
-
-      return response.data;
-    } catch (error) {
-      console.error("OTP verification error:", error);
+    } catch (error: any) {
+      console.error("OTP sign-in error:", error);
       throw error;
     }
   };
 
+  /**
+   * Confirm OTP code using Amplify's confirmSignIn
+   *
+   * This completes the custom authentication flow:
+   * 1. VerifyAuthChallenge validates the OTP code
+   * 2. If valid, Cognito issues tokens
+   * 3. User state is updated automatically via Hub listener
+   *
+   * @param code - 6-digit OTP code entered by user
+   * @returns Confirmation response indicating success
+   * @throws Error if verification fails (incorrect/expired code)
+   *
+   * Requirements: 8.2 - Use Amplify's confirmSignIn
+   */
+  const confirmOTP = async (code: string): Promise<OTPConfirmResponse> => {
+    try {
+      const result: SignInOutput = await confirmSignIn({
+        challengeResponse: code,
+      });
+
+      // If sign-in is complete, refresh user state
+      if (result.isSignedIn) {
+        await checkUser();
+      }
+
+      return {
+        isSignedIn: result.isSignedIn,
+        nextStep: {
+          signInStep: result.nextStep.signInStep,
+        },
+      };
+    } catch (error: any) {
+      console.error("OTP confirmation error:", error);
+
+      // Map Cognito errors to user-friendly messages
+      if (error.name === "NotAuthorizedException") {
+        const customError = new Error(
+          "Too many failed attempts. Please request a new code."
+        );
+        (customError as any).code = "MAX_ATTEMPTS_EXCEEDED";
+        throw customError;
+      }
+
+      // Check if it's an expired or invalid code error
+      if (
+        error.message?.includes("expired") ||
+        error.message?.includes("invalid")
+      ) {
+        const customError = new Error(error.message);
+        (customError as any).code = error.message.includes("expired")
+          ? "EXPIRED_OTP"
+          : "INVALID_OTP";
+        throw customError;
+      }
+
+      throw error;
+    }
+  };
+
+  /**
+   * @deprecated Use signInWithOTP instead
+   * Legacy method for backward compatibility during migration
+   * Wraps signInWithOTP to return the old response format
+   */
+  const requestOTP = async (email: string): Promise<OTPRequestResponse> => {
+    const result = await signInWithOTP(email);
+    return {
+      message: "OTP sent successfully",
+      expiresIn: parseInt(
+        result.nextStep.additionalInfo?.expiresIn || "600",
+        10
+      ),
+      session: "", // Session is managed by Amplify internally
+    };
+  };
+
+  /**
+   * @deprecated Use confirmOTP instead
+   * Legacy method for backward compatibility during migration
+   * Wraps confirmOTP to return the old response format
+   */
+  const verifyOTP = async (
+    _email: string,
+    code: string,
+    _session: string
+  ): Promise<OTPVerifyResponse> => {
+    const result = await confirmOTP(code);
+
+    if (!result.isSignedIn) {
+      throw new Error("OTP verification failed");
+    }
+
+    // Get the current user info after successful authentication
+    const attributes = await fetchUserAttributes();
+
+    return {
+      tokens: {
+        idToken: "", // Tokens are managed by Amplify
+        accessToken: "",
+        refreshToken: "",
+      },
+      user: {
+        userId: attributes.sub || "",
+        email: attributes.email || "",
+        authMethods: "email",
+      },
+      isNewUser: false, // This info is not available from Amplify directly
+      linkedAccount: false,
+    };
+  };
+
+  /**
+   * Sign out the current user
+   *
+   * Uses Amplify's signOut which handles both Google OAuth and OTP users
+   * since both now use Cognito-issued tokens.
+   *
+   * Requirements: 8.5 - Use Amplify's signOut
+   */
   const signOut = async () => {
     try {
       // Reset PostHog user identity
       analytics.reset();
 
-      // Clear OTP tokens from localStorage
-      localStorage.removeItem("otp_access_token");
-      localStorage.removeItem("otp_refresh_token");
-      localStorage.removeItem("otp_user");
-
-      // Sign out from Amplify (for Google OAuth users)
-      try {
-        await amplifySignOut();
-      } catch (e) {
-        // Ignore errors if not signed in via Amplify
-      }
+      // Sign out from Amplify (handles both Google OAuth and OTP users)
+      await amplifySignOut();
 
       setUser(null);
 
-      // Simply redirect to home page
+      // Redirect to home page
       window.location.href = "/";
     } catch (error) {
       console.error("Sign-out error:", error);
@@ -428,6 +496,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  /**
+   * Refresh the current session and obtain new tokens
+   *
+   * Uses Amplify's fetchAuthSession with forceRefresh to get new tokens.
+   * Works for both Google OAuth and OTP users.
+   *
+   * Requirements: 8.4 - Use Amplify's fetchAuthSession
+   */
   const refreshSession = async () => {
     try {
       await fetchAuthSession({ forceRefresh: true });
@@ -444,10 +520,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!user,
         isLoading,
         signInWithGoogle,
-        requestOTP,
-        verifyOTP,
+        signInWithOTP,
+        confirmOTP,
         signOut,
         refreshSession,
+        // Legacy methods for backward compatibility (deprecated)
+        requestOTP,
+        verifyOTP,
       }}
     >
       {children}
@@ -461,26 +540,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
  * Provides access to the current user state, authentication status,
  * and authentication methods (sign in, sign out, refresh session).
  *
+ * Uses Amplify Auth APIs for all authentication flows:
+ * - Google OAuth: signInWithRedirect
+ * - Email OTP: signIn with CUSTOM_WITHOUT_SRP + confirmSignIn
+ * - Session management: getCurrentUser, fetchAuthSession
+ *
  * @returns {AuthContextType} Authentication context containing:
  *   - user: Current authenticated user or null
  *   - isAuthenticated: Boolean indicating if user is authenticated
  *   - isLoading: Boolean indicating if auth check is in progress
  *   - signInWithGoogle: Function to initiate Google OAuth flow
- *   - signOut: Function to sign out the current user
- *   - refreshSession: Function to refresh the current session
+ *   - signInWithOTP: Function to initiate OTP authentication (Requirements: 8.1)
+ *   - confirmOTP: Function to verify OTP code (Requirements: 8.2)
+ *   - signOut: Function to sign out the current user (Requirements: 8.5)
+ *   - refreshSession: Function to refresh the current session (Requirements: 8.4)
  *
  * @throws {Error} If used outside of AuthProvider
  *
  * @example
  * ```tsx
  * function MyComponent() {
- *   const { user, isAuthenticated, signInWithGoogle } = useAuth();
+ *   const { user, isAuthenticated, signInWithGoogle, signInWithOTP, confirmOTP } = useAuth();
  *
+ *   // Google OAuth
  *   if (!isAuthenticated) {
- *     return <button onClick={signInWithGoogle}>Sign In</button>;
+ *     return <button onClick={signInWithGoogle}>Sign In with Google</button>;
  *   }
  *
- *   return <div>Welcome, {user?.givenName}!</div>;
+ *   // Email OTP flow
+ *   const handleOTPSignIn = async (email: string) => {
+ *     const result = await signInWithOTP(email);
+ *     // Show OTP input UI
+ *   };
+ *
+ *   const handleOTPVerify = async (code: string) => {
+ *     const result = await confirmOTP(code);
+ *     if (result.isSignedIn) {
+ *       // Authentication complete
+ *     }
+ *   };
+ *
+ *   return <div>Welcome, {user?.givenName || user?.email}!</div>;
  * }
  * ```
  */

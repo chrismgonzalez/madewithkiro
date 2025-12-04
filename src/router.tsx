@@ -17,6 +17,7 @@ import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
 import CreateProfilePage from "@/pages/CreateProfilePage";
+import LinkAccountPage from "@/pages/LinkAccountPage";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // Create a query client
@@ -74,6 +75,17 @@ const createProfileRoute = createRoute({
   component: () => (
     <ProtectedRoute>
       <CreateProfilePage />
+    </ProtectedRoute>
+  ),
+});
+
+// Link account route (protected)
+const linkAccountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/link-account",
+  component: () => (
+    <ProtectedRoute>
+      <LinkAccountPage />
     </ProtectedRoute>
   ),
 });
@@ -148,6 +160,7 @@ const routeTree = rootRoute.addChildren([
   authRoute,
   authCallbackRoute,
   createProfileRoute,
+  linkAccountRoute,
   profileRoute,
   profileEditRoute,
   addAppRoute,

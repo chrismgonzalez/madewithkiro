@@ -65,7 +65,29 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     )
     
     try:
+        # Handle OPTIONS preflight requests
+        if http_method == 'OPTIONS':
+            from shared.cors_utils import get_cors_headers
+            return {
+                'statusCode': 200,
+                'headers': get_cors_headers(event),
+                'body': ''
+            }
+        
         if http_method == 'GET':
+            # Check if this is a check-email request
+            path = event.get('path', '')
+            if path.endswith('/check-email'):
+                query_params = event.get('queryStringParameters') or {}
+                email = query_params.get('email')
+                if not email:
+                    return sanitized_error_response(
+                        status_code=400,
+                        user_message='Missing email parameter',
+                        event=event
+                    )
+                return check_profile_by_email(email)
+            
             # Get profile by userId
             user_id = path_parameters.get('userId')
             if not user_id:
@@ -78,6 +100,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return get_profile(user_id)
         
         elif http_method == 'POST':
+            # Check if this is a link accounts request
+            path = event.get('path', '')
+            if path.endswith('/link'):
+                body = json.loads(event.get('body', '{}'))
+                user_id = get_user_id_from_event(event)
+                
+                if not user_id:
+                    return handle_unauthorized(event=event)
+                
+                return link_accounts(user_id, body)
+            
             # Create new profile
             body = json.loads(event.get('body', '{}'))
             user_id = get_user_id_from_event(event)
@@ -416,3 +449,155 @@ def get_linked_account_from_event(event: Dict[str, Any]) -> str:
     linked_account = claims.get('custom:linked_account', '')
     
     return linked_account if linked_account else ''
+
+
+def check_profile_by_email(email: str) -> Dict[str, Any]:
+    """
+    Check if a profile exists for a given email address.
+    
+    Uses GSI1 to query profiles by email.
+    Returns 404 if no profile found, otherwise returns the profile.
+    """
+    try:
+        from shared.dynamodb_utils import query_profile_by_email
+        
+        logger.info(
+            message="Checking for profile by email",
+            context={'email': email}
+        )
+        
+        profile = query_profile_by_email(email)
+        
+        if not profile:
+            return handle_not_found(
+                resource_type='Profile',
+                event=_current_event
+            )
+        
+        # Clean and return profile
+        from shared.dynamodb_utils import clean_dynamodb_item
+        profile_data = clean_dynamodb_item(profile)
+        
+        logger.info(
+            message="Profile found by email",
+            context={'email': email, 'user_id': profile_data.get('userId')}
+        )
+        
+        return success_response(profile_data, event=_current_event)
+    
+    except Exception as e:
+        return handle_internal_error(
+            error=e,
+            event=_current_event,
+            context={'operation': 'check_profile_by_email', 'email': email}
+        )
+
+
+def link_accounts(current_user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Link current user account to an existing profile.
+    
+    This function:
+    1. Validates the existing profile exists
+    2. Updates Cognito user attributes to link accounts
+    3. Updates the existing profile's authMethods
+    4. Returns the linked profile
+    """
+    try:
+        import boto3
+        
+        existing_user_id = data.get('existingUserId')
+        if not existing_user_id:
+            return sanitized_error_response(
+                status_code=400,
+                user_message='Missing existingUserId parameter',
+                event=_current_event
+            )
+        
+        logger.info(
+            message="Linking accounts",
+            context={
+                'current_user_id': current_user_id,
+                'existing_user_id': existing_user_id
+            },
+            user_id=current_user_id
+        )
+        
+        # Get existing profile
+        existing_profile = get_item(f'USER#{existing_user_id}', 'PROFILE')
+        if not existing_profile:
+            return handle_not_found(
+                resource_type='Profile',
+                event=_current_event,
+                user_id=existing_user_id
+            )
+        
+        # Get current user's auth method
+        current_auth_methods = get_auth_methods_from_event(_current_event)
+        
+        # Merge auth methods
+        existing_auth_methods = existing_profile.get('authMethods', [])
+        merged_auth_methods = list(set(existing_auth_methods + current_auth_methods))
+        
+        # Update existing profile with merged auth methods
+        timestamp = get_timestamp()
+        update_item(
+            f'USER#{existing_user_id}',
+            'PROFILE',
+            {
+                'authMethods': merged_auth_methods,
+                'updatedAt': timestamp
+            }
+        )
+        
+        # Update Cognito user attributes to link accounts
+        cognito = boto3.client('cognito-idp')
+        user_pool_id = os.environ.get('USER_POOL_ID')
+        
+        try:
+            # Update current user's custom:linked_account attribute
+            cognito.admin_update_user_attributes(
+                UserPoolId=user_pool_id,
+                Username=current_user_id,
+                UserAttributes=[
+                    {
+                        'Name': 'custom:linked_account',
+                        'Value': existing_user_id
+                    }
+                ]
+            )
+            
+            logger.info(
+                message="Successfully linked accounts",
+                context={
+                    'current_user_id': current_user_id,
+                    'existing_user_id': existing_user_id,
+                    'merged_auth_methods': merged_auth_methods
+                },
+                user_id=current_user_id
+            )
+        except Exception as cognito_error:
+            logger.error(
+                message="Failed to update Cognito attributes",
+                error=cognito_error,
+                context={
+                    'current_user_id': current_user_id,
+                    'existing_user_id': existing_user_id
+                },
+                user_id=current_user_id
+            )
+            # Continue anyway - the profile is updated
+        
+        # Return the linked profile
+        updated_profile = get_item(f'USER#{existing_user_id}', 'PROFILE')
+        profile_data = clean_dynamodb_item(updated_profile)
+        
+        return success_response(profile_data, event=_current_event)
+    
+    except Exception as e:
+        return handle_internal_error(
+            error=e,
+            event=_current_event,
+            user_id=current_user_id,
+            context={'operation': 'link_accounts'}
+        )

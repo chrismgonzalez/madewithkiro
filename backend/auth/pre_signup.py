@@ -2,15 +2,27 @@
 PreSignUp Lambda Handler
 
 Cognito trigger that auto-confirms users for custom authentication (OTP).
-This is required because custom auth flow doesn't automatically create users.
+Also creates user profiles in DynamoDB for new OTP users.
 
-Requirements: 1.4, 1.5
+Requirements: 1.4, 1.5, 3.4, 3.5, 5.1, 5.2, 5.3
 """
 
-from typing import Dict, Any
+import os
+from datetime import datetime, timezone
+from typing import Dict, Any, Optional
+
+import boto3
+from botocore.exceptions import ClientError
+
 from shared.logger import get_logger
 
 logger = get_logger(__name__)
+
+# AWS clients
+dynamodb = boto3.resource('dynamodb')
+
+# Environment variables
+TABLE_NAME = os.environ.get('TABLE_NAME')
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:

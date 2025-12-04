@@ -85,9 +85,62 @@ def test_otp_auth_flow(email: str, test_otp: str = None):
         print(f"❌ Error getting Cognito configuration: {e}")
         return False
     
-    # Step 1: Initiate Custom Auth
+    # Step 1: Ensure user exists (create if needed)
     print("=" * 60)
-    print("Step 1: Initiating Custom Auth (Request OTP)")
+    print("Step 1: Ensuring user exists in Cognito")
+    print("=" * 60)
+    
+    try:
+        # Check if user exists, create if not
+        try:
+            cognito_client.admin_get_user(
+                UserPoolId=user_pool_id,
+                Username=email
+            )
+            print(f"✅ User already exists: {email}")
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'UserNotFoundException':
+                print(f"📝 Creating new user: {email}")
+                # Create user - this will trigger PreSignUp Lambda
+                cognito_client.admin_create_user(
+                    UserPoolId=user_pool_id,
+                    Username=email,
+                    UserAttributes=[
+                        {'Name': 'email', 'Value': email},
+                        {'Name': 'email_verified', 'Value': 'true'}
+                    ],
+                    MessageAction='SUPPRESS',  # Don't send welcome email
+                    DesiredDeliveryMediums=[]  # No delivery
+                )
+                print(f"✅ User created successfully")
+                
+                # Set permanent password to bypass FORCE_CHANGE_PASSWORD status
+                print(f"🔐 Setting user to CONFIRMED status...")
+                try:
+                    import secrets
+                    import string
+                    alphabet = string.ascii_letters + string.digits + string.punctuation
+                    random_password = ''.join(secrets.choice(alphabet) for _ in range(32))
+                    
+                    cognito_client.admin_set_user_password(
+                        UserPoolId=user_pool_id,
+                        Username=email,
+                        Password=random_password,
+                        Permanent=True
+                    )
+                    print(f"✅ User status set to CONFIRMED")
+                except ClientError as pwd_error:
+                    print(f"⚠️  Warning: Could not set permanent password: {pwd_error}")
+                    print(f"   PreSignUp trigger should handle auto-confirmation")
+            else:
+                raise
+    except ClientError as e:
+        print(f"❌ Error managing user: {e}")
+        return False
+    
+    # Step 2: Initiate Custom Auth
+    print(f"\n{'=' * 60}")
+    print("Step 2: Initiating Custom Auth (Request OTP)")
     print("=" * 60)
     
     try:
@@ -127,10 +180,10 @@ def test_otp_auth_flow(email: str, test_otp: str = None):
         
         return False
     
-    # Step 2: Verify OTP (if provided)
+    # Step 3: Verify OTP (if provided)
     if test_otp:
         print(f"\n{'=' * 60}")
-        print("Step 2: Verifying OTP Code")
+        print("Step 3: Verifying OTP Code")
         print("=" * 60)
         
         try:
@@ -169,7 +222,7 @@ def test_otp_auth_flow(email: str, test_otp: str = None):
             return False
     else:
         print(f"\n{'=' * 60}")
-        print("Step 2: Manual OTP Verification Required")
+        print("Step 3: Manual OTP Verification Required")
         print("=" * 60)
         print(f"\nTo complete the test:")
         print(f"1. Check your email for the OTP code")
