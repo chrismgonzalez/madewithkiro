@@ -28,18 +28,29 @@ export const AuthPage = () => {
   const { signInWithGoogle } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [authMethod, setAuthMethod] = useState<"selector" | "email">(
     "selector"
   );
 
-  // Check for OAuth errors in URL parameters
+  // Check for OAuth errors and success messages in URL parameters
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const errorParam = searchParams.get("error");
     const errorDescription = searchParams.get("error_description");
+    const message = searchParams.get("message");
 
     if (errorParam) {
       setError(getOAuthErrorMessage(errorParam, errorDescription));
+    }
+
+    // Check for account linking success message
+    const accountLinked = localStorage.getItem("accountLinked");
+    if (accountLinked === "true" || message === "accounts-linked") {
+      setSuccessMessage(
+        "Your accounts have been linked successfully! Please sign in with either method."
+      );
+      localStorage.removeItem("accountLinked");
     }
   }, []);
 
@@ -92,6 +103,16 @@ export const AuthPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 sm:space-y-6">
+          {successMessage && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="p-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-md"
+            >
+              ✅ {successMessage}
+            </div>
+          )}
+
           {error && (
             <div
               role="alert"

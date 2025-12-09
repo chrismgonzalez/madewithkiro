@@ -148,3 +148,141 @@ export class AuthService {
  * ```
  */
 export const authService = new AuthService();
+
+/**
+ * Linked Identity
+ *
+ * Represents a single authentication identity linked to a user account
+ */
+export interface LinkedIdentity {
+  provider: string;
+  userId: string;
+}
+
+/**
+ * Link Accounts Response
+ *
+ * Response structure from the link accounts API endpoint
+ */
+export interface LinkAccountsResponse {
+  success: boolean;
+  message: string;
+  linkedIdentities: LinkedIdentity[];
+}
+
+/**
+ * Known API error codes for account linking operations
+ */
+export type LinkAccountsErrorCode =
+  | "LINK_FAILED"
+  | "EMAIL_NOT_VERIFIED"
+  | "UNAUTHORIZED"
+  | "NETWORK_ERROR"
+  | "TIMEOUT_ERROR"
+  | "INVALID_REQUEST"
+  | "REQUEST_CANCELLED";
+
+/**
+ * Error message mapping for account linking operations
+ *
+ * Maps error codes to user-friendly messages that can be displayed in the UI
+ */
+const ERROR_MESSAGES: Record<LinkAccountsErrorCode, string> = {
+  LINK_FAILED: "Unable to link accounts. Please try again later.",
+  EMAIL_NOT_VERIFIED:
+    "Both accounts must have verified email addresses before linking.",
+  UNAUTHORIZED: "Please sign in again to link your accounts.",
+  NETWORK_ERROR: "Network error. Please check your connection and try again.",
+  TIMEOUT_ERROR: "Request timed out. Please try again.",
+  INVALID_REQUEST: "Invalid request. Please try again.",
+  REQUEST_CANCELLED: "Request was cancelled.",
+};
+
+/**
+ * Default error message for unknown error codes
+ */
+const DEFAULT_ERROR_MESSAGE =
+  "An unexpected error occurred. Please try again later.";
+
+/**
+ * Map API error codes to user-friendly messages
+ *
+ * Converts technical error codes from the API into clear, actionable messages
+ * that can be displayed to users. Falls back to a generic message for unknown codes.
+ *
+ * @param errorCode - The error code from the API
+ * @returns User-friendly error message
+ *
+ * @example
+ * ```typescript
+ * const message = mapErrorToUserMessage('EMAIL_NOT_VERIFIED');
+ * // Returns: "Both accounts must have verified email addresses before linking."
+ *
+ * const unknownMessage = mapErrorToUserMessage('UNKNOWN_CODE');
+ * // Returns: "An unexpected error occurred. Please try again later."
+ * ```
+ */
+export function mapErrorToUserMessage(errorCode: string): string {
+  return (
+    ERROR_MESSAGES[errorCode as LinkAccountsErrorCode] || DEFAULT_ERROR_MESSAGE
+  );
+}
+
+/**
+ * Link user accounts
+ *
+ * Links the current user's account with another account identified by targetUserSub.
+ * This enables users to sign in with multiple authentication methods (e.g., Google and Email OTP)
+ * while maintaining a single profile.
+ *
+ * The function calls the /auth/link-accounts API endpoint with the target user's sub.
+ * The JWT token is automatically included by the apiClient for authentication.
+ *
+ * Error handling:
+ * - Maps API error codes to user-friendly messages
+ * - Handles network errors gracefully
+ * - Handles timeout errors
+ * - Preserves original error details for debugging
+ *
+ * @param targetUserSub - The Cognito sub of the account to link with
+ * @returns API response with linked identities or error with user-friendly message
+ *
+ * @example
+ * ```typescript
+ * import { linkAccounts } from '@/services/authService';
+ *
+ * const result = await linkAccounts('target-user-sub-123');
+ * if (result.data) {
+ *   console.log('Accounts linked:', result.data.linkedIdentities);
+ * } else {
+ *   // Error message is already user-friendly
+ *   console.error('Linking failed:', result.error?.message);
+ * }
+ * ```
+ */
+export async function linkAccounts(targetUserSub: string) {
+  const { apiClient } = await import("./apiClient");
+
+  const response = await apiClient.post<LinkAccountsResponse>(
+    "/auth/link-accounts",
+    {
+      targetUserSub,
+      confirmLink: true,
+    }
+  );
+
+  // If there's an error, enhance it with a user-friendly message
+  if (response.error) {
+    const userFriendlyMessage = mapErrorToUserMessage(response.error.code);
+
+    return {
+      data: null,
+      error: {
+        ...response.error,
+        message: userFriendlyMessage,
+      },
+    };
+  }
+
+  return response;
+}

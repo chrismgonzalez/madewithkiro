@@ -196,28 +196,60 @@ export default function OTPAuthPage({
         if (onAuthSuccess) {
           onAuthSuccess();
         } else {
-          // Check if user needs to create a profile
-          // New users won't have firstName/lastName attributes yet
-          // The VerifyAuthChallenge Lambda creates a profile, but we need to check
-          // if the user needs to complete their profile information
+          // Check if user has an existing profile or needs to link/create one
           try {
-            const { fetchUserAttributes } = await import("aws-amplify/auth");
-            const attributes = await fetchUserAttributes();
+            const { profileService } = await import(
+              "@/services/profileService"
+            );
+            const { fetchAuthSession } = await import("aws-amplify/auth");
 
-            // Check if user has profile attributes (firstName, lastName)
-            // If not, they need to create their profile
-            const hasProfile = attributes.given_name || attributes.family_name;
+            const session = await fetchAuthSession();
+            const currentUserId = session.tokens?.idToken?.payload
+              .sub as string;
 
-            if (!hasProfile) {
-              // New user needs to create a profile
-              navigate({ to: "/create-profile", replace: true });
-            } else {
-              // Existing user - go to intended destination or home
+            // Try to get profile by current userId (backend will return linked profile if exists)
+            try {
+              const profile = await profileService.getProfile(currentUserId);
+
+              // Check if profile has 'email' in authMethods
+              const authMethods = profile.authMethods || [];
+
+              if (authMethods.includes("email")) {
+                // User has email auth method - accounts are linked or this is their profile
+                const redirectTo =
+                  sessionStorage.getItem("redirect_after_auth") || "/";
+                sessionStorage.removeItem("redirect_after_auth");
+                navigate({ to: redirectTo, replace: true });
+                return;
+              }
+
+              // Profile exists but doesn't have email auth - shouldn't happen but handle it
               const redirectTo =
                 sessionStorage.getItem("redirect_after_auth") || "/";
               sessionStorage.removeItem("redirect_after_auth");
               navigate({ to: redirectTo, replace: true });
+              return;
+            } catch {
+              // No profile found - check if there's one by email that needs linking
             }
+
+            // Check if there's an existing profile by email (from another auth method)
+            try {
+              const profileByEmail = await profileService.checkProfileByEmail(
+                email
+              );
+
+              if (profileByEmail && profileByEmail.userId !== currentUserId) {
+                // Profile exists for a different user - needs linking
+                navigate({ to: "/link-account", replace: true });
+                return;
+              }
+            } catch {
+              // No profile by email
+            }
+
+            // No profile found - new user needs to create profile
+            navigate({ to: "/create-profile", replace: true });
           } catch (attrError) {
             // If we can't fetch attributes, assume they need to create profile
             navigate({ to: "/create-profile", replace: true });

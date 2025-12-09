@@ -22,7 +22,6 @@ export default function CreateProfilePage() {
       }
 
       const profileData = {
-        userId: user.userId,
         firstName: data.firstName,
         lastName: data.lastName,
         awsBuilderHandle: data.awsBuilderHandle || "",
@@ -30,16 +29,28 @@ export default function CreateProfilePage() {
         githubUsername: data.githubUsername,
       };
 
-      // Use updateProfile instead of createProfile
-      // The profile is already created during OTP authentication (VerifyAuthChallenge Lambda)
-      // This page is for completing/updating the profile information
-      await profileService.updateProfile(profileData);
+      // Check if profile exists to determine whether to create or update
+      // OTP users have profiles created during authentication (use PUT)
+      // Social auth users don't have profiles yet (use POST)
+      let savedProfile;
+      try {
+        await profileService.getProfile(user.userId);
+        // Profile exists, update it
+        savedProfile = await profileService.updateProfile({
+          userId: user.userId,
+          ...profileData,
+        });
+      } catch (error) {
+        // Profile doesn't exist, create it
+        savedProfile = await profileService.createProfile(profileData);
+      }
 
-      navigate({ to: `/profile/${user.userId}` });
+      // Use the saved profile's userId (handles linked accounts)
+      navigate({ to: `/profile/${savedProfile.userId}` });
     } catch (error) {
-      console.error("Failed to update profile:", error);
+      console.error("Failed to save profile:", error);
       alert(
-        `Failed to update profile: ${
+        `Failed to save profile: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );

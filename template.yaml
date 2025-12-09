@@ -304,6 +304,7 @@ Resources:
                 - dynamodb:GetItem
                 - dynamodb:PutItem
                 - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
               Resource:
                 - !GetAtt MadeWithKiroTable.Arn
                 - !Sub "${MadeWithKiroTable.Arn}/index/GSI1"
@@ -312,6 +313,8 @@ Resources:
               Action:
                 - cognito-idp:AdminUpdateUserAttributes
                 - cognito-idp:AdminGetUser
+                - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminLinkProviderForUser
                 - cognito-idp:ListUsers
               Resource: "*" # Wildcard to avoid circular dependency
             - Sid: CloudWatchLogsAccess
@@ -325,6 +328,38 @@ Resources:
         Environment: !Ref Environment
         Application: MadeWithKiro
 
+  # PreTokenGeneration Lambda - Adds custom claims for account linking
+  PreTokenGenerationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-PreTokenGeneration-${Environment}
+      CodeUri: backend/
+      Handler: auth.pre_token_generation.lambda_handler
+      Description: Add custom claims to JWT tokens for account linking
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: DynamoDBAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:DeleteItem
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-PreTokenGeneration-${Environment}:*
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
   # PostAuthentication Lambda - Creates profiles for new OTP users
   PostAuthenticationFunctionForOTP:
     Type: AWS::Serverless::Function
@@ -332,7 +367,7 @@ Resources:
       FunctionName: !Sub MadeWithKiro-PostAuthentication-${Environment}
       CodeUri: backend/
       Handler: auth.post_authentication.lambda_handler
-      Description: Create user profiles after successful OTP authentication
+      Description: Create user profiles after successful OTP authentication and link duplicate accounts
       Environment:
         Variables:
           TABLE_NAME: !Ref MadeWithKiroTable
@@ -346,9 +381,18 @@ Resources:
                 - dynamodb:GetItem
                 - dynamodb:PutItem
                 - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
               Resource:
                 - !GetAtt MadeWithKiroTable.Arn
                 - !Sub "${MadeWithKiroTable.Arn}/index/GSI1"
+            - Sid: CognitoUserManagement
+              Effect: Allow
+              Action:
+                - cognito-idp:AdminLinkProviderForUser
+                - cognito-idp:AdminDeleteUser
+                - cognito-idp:ListUsers
+                - cognito-idp:AdminGetUser
+              Resource: "*"
             - Sid: CloudWatchLogsAccess
               Effect: Allow
               Action:
@@ -424,6 +468,108 @@ Resources:
         Environment: !Ref Environment
         Application: MadeWithKiro
 
+  # Link Accounts Lambda - API endpoint for user-confirmed account linking
+  LinkAccountsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-LinkAccounts-${Environment}
+      CodeUri: backend/
+      Handler: auth.link_accounts.lambda_handler
+      Description: Execute user-confirmed account linking at Cognito level
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: DynamoDBAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+            - Sid: CognitoAccountLinking
+              Effect: Allow
+              Action:
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminLinkProviderForUser
+                - cognito-idp:AdminSetUserPassword
+              Resource: !GetAtt CognitoUserPool.Arn
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-LinkAccounts-${Environment}:*
+      Events:
+        LinkAccounts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /auth/link-accounts
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # Confirm Link Accounts Lambda - API endpoint for user-confirmed account linking
+  ConfirmLinkAccountsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-ConfirmLinkAccounts-${Environment}
+      CodeUri: backend/
+      Handler: auth.confirm_link_accounts.lambda_handler
+      Description: Execute account linking after user confirmation
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: DynamoDBAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+                - !Sub "${MadeWithKiroTable.Arn}/index/GSI1"
+            - Sid: CognitoAccountLinking
+              Effect: Allow
+              Action:
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminLinkProviderForUser
+                - cognito-idp:AdminDeleteUser
+              Resource: !GetAtt CognitoUserPool.Arn
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-ConfirmLinkAccounts-${Environment}:*
+      Events:
+        ConfirmLink:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /auth/confirm-link
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
   # Cognito User Pool
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
@@ -457,6 +603,13 @@ Resources:
         - Name: linked_account
           AttributeDataType: String
           Mutable: true
+        # Custom attributes for Cognito-level account linking
+        - Name: pending_link
+          AttributeDataType: String
+          Mutable: true
+        - Name: link_target_sub
+          AttributeDataType: String
+          Mutable: true
       # Email configuration for OTP delivery
       EmailConfiguration:
         EmailSendingAccount: DEVELOPER
@@ -470,6 +623,7 @@ Resources:
         CreateAuthChallenge: !GetAtt CreateAuthChallengeFunctionForOTP.Arn
         VerifyAuthChallengeResponse: !GetAtt VerifyAuthChallengeFunctionForOTP.Arn
         PostAuthentication: !GetAtt PostAuthenticationFunctionForOTP.Arn
+        PreTokenGeneration: !GetAtt PreTokenGenerationFunction.Arn
       UserPoolTags:
         Environment: !Ref Environment
         Application: MadeWithKiro
@@ -646,6 +800,13 @@ Resources:
       Principal: cognito-idp.amazonaws.com
       Action: lambda:InvokeFunction
 
+  PreTokenGenerationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PreTokenGenerationFunction
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+
   # API Gateway
   MadeWithKiroApi:
     Type: AWS::Serverless::Api
@@ -793,14 +954,6 @@ Resources:
             RestApiId: !Ref MadeWithKiroApi
             Path: /profile/check-email
             Method: GET
-            Auth:
-              Authorizer: CognitoAuthorizer
-        LinkAccounts:
-          Type: Api
-          Properties:
-            RestApiId: !Ref MadeWithKiroApi
-            Path: /profile/link
-            Method: POST
             Auth:
               Authorizer: CognitoAuthorizer
       Tags:

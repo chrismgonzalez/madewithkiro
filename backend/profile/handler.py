@@ -175,12 +175,42 @@ def get_profile(user_id: str) -> Dict[str, Any]:
     
     This function retrieves a user profile using the Cognito sub as the primary key.
     It works for both Google OAuth and OTP users, as well as linked accounts.
+    
+    If the profile is not found for the given userId, checks if this user has a
+    linked account and returns that profile instead.
     """
     try:
         # Use Cognito sub as primary key (works for all auth methods)
         item = get_item(f'USER#{user_id}', 'PROFILE')
         
         if not item:
+            # Profile not found - check if this user has a linked account
+            linked_user_id = get_linked_account_from_event(_current_event)
+            
+            if linked_user_id:
+                logger.info(
+                    message="Profile not found for userId, checking linked account",
+                    context={'requested_user_id': user_id, 'linked_user_id': linked_user_id},
+                    user_id=user_id
+                )
+                
+                # Try to get the linked profile
+                linked_item = get_item(f'USER#{linked_user_id}', 'PROFILE')
+                
+                if linked_item:
+                    profile_data = clean_dynamodb_item(linked_item)
+                    logger.info(
+                        message="Linked profile retrieved successfully",
+                        context={
+                            'requested_user_id': user_id,
+                            'linked_user_id': linked_user_id,
+                            'auth_methods': profile_data.get('authMethods', [])
+                        },
+                        user_id=user_id
+                    )
+                    return success_response(profile_data, event=_current_event)
+            
+            # No profile found and no linked account
             return handle_not_found(
                 resource_type='Profile',
                 event=_current_event,

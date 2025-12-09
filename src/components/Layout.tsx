@@ -1,7 +1,10 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import Navigation from "@/components/Navigation";
+import { AccountLinkDialog } from "@/components/AccountLinkDialog";
+import { DebugAuth } from "@/components/DebugAuth";
 import { Heart } from "lucide-react";
 import { usePageTracking } from "@/hooks/usePageTracking";
+import { showSuccessToast } from "@/utils/toast";
 
 interface LayoutProps {
   children: ReactNode;
@@ -10,8 +13,27 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   usePageTracking();
 
+  useEffect(() => {
+    // Check if user was redirected after account linking
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("linked") === "true") {
+      showSuccessToast(
+        "Accounts linked successfully! You can now sign in with either Google or email.",
+        7000
+      );
+      // Clean up URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-muted/20">
+      {/* Account Link Dialog - Shows when pending link detected */}
+      <AccountLinkDialog />
+
+      {/* Debug component - remove after testing */}
+      <DebugAuth />
+
       {/* Header with Navigation */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <Navigation />

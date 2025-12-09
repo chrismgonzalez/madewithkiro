@@ -109,6 +109,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   /** Whether authentication status is being checked */
   isLoading: boolean;
+  /** Whether the user has a pending account link */
+  pendingLink?: boolean;
+  /** The sub of the target user to link with */
+  linkTargetSub?: string;
   /** Initiate Google OAuth sign-in flow */
   signInWithGoogle: () => Promise<void>;
   /** Initiate OTP authentication using Amplify CUSTOM_WITHOUT_SRP flow */
@@ -157,6 +161,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingLink, setPendingLink] = useState<boolean | undefined>(
+    undefined
+  );
+  const [linkTargetSub, setLinkTargetSub] = useState<string | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     // Check for existing session on mount
@@ -191,6 +201,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const authUser: AuthUser = parseUserAttributes(attributes);
       setUser(authUser);
 
+      // Parse account linking flags from ID token (not user attributes)
+      // Custom claims are only available in the JWT token, not in user attributes
+      const session = await fetchAuthSession();
+      const idToken = session.tokens?.idToken;
+
+      if (idToken) {
+        const pendingLinkValue = idToken.payload["custom:pending_link"] as
+          | string
+          | undefined;
+        const linkGoogleUser = idToken.payload["custom:link_google_user"] as
+          | string
+          | undefined;
+
+        const hasPendingLink = pendingLinkValue === "true";
+        setPendingLink(hasPendingLink);
+        setLinkTargetSub(linkGoogleUser || undefined);
+      } else {
+        setPendingLink(false);
+        setLinkTargetSub(undefined);
+      }
+
       // Identify user in PostHog
       analytics.identify(authUser.userId, {
         email: authUser.email,
@@ -200,6 +231,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       // No authenticated user
       setUser(null);
+      setPendingLink(undefined);
+      setLinkTargetSub(undefined);
     } finally {
       setIsLoading(false);
     }
@@ -519,6 +552,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         isAuthenticated: !!user,
         isLoading,
+        pendingLink,
+        linkTargetSub,
         signInWithGoogle,
         signInWithOTP,
         confirmOTP,
