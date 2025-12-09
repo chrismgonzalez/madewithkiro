@@ -360,8 +360,28 @@ def _merge_profiles(google_username: str, otp_sub: str) -> None:
                     ExpressionAttributeValues=expression_values
                 )
                 
-                # Delete old Google profile
+                # Reassign applications from Google user to OTP user
                 google_user_id = google_profile.get('userId')
+                reassign_result = _reassign_applications(google_user_id, otp_sub, table)
+                
+                if reassign_result['success']:
+                    logger.info(
+                        f"Reassigned {reassign_result.get('apps_reassigned', 0)} applications from Google to OTP user",
+                        context={
+                            'google_user_id': google_user_id,
+                            'otp_sub': otp_sub
+                        }
+                    )
+                else:
+                    logger.warning(
+                        f"Failed to reassign applications: {reassign_result.get('message')}",
+                        context={
+                            'google_user_id': google_user_id,
+                            'otp_sub': otp_sub
+                        }
+                    )
+                
+                # Delete old Google profile
                 table.delete_item(
                     Key={'PK': f'USER#{google_user_id}', 'SK': 'PROFILE'}
                 )
@@ -371,7 +391,8 @@ def _merge_profiles(google_username: str, otp_sub: str) -> None:
                     context={
                         'otp_sub': otp_sub,
                         'google_user_id': google_user_id,
-                        'merged_methods': merged_methods
+                        'merged_methods': merged_methods,
+                        'apps_reassigned': reassign_result.get('apps_reassigned', 0)
                     }
                 )
             else:
@@ -390,6 +411,98 @@ def _merge_profiles(google_username: str, otp_sub: str) -> None:
             
     except ClientError as e:
         logger.error(f"Error merging profiles: {str(e)}", error=e)
+
+
+def _reassign_applications(
+    source_user_sub: str,
+    destination_user_sub: str,
+    table
+) -> Dict[str, Any]:
+    """
+    Reassign all applications from source user to destination user.
+    
+    Args:
+        source_user_sub: Source user's Cognito sub
+        destination_user_sub: Destination user's Cognito sub
+        table: DynamoDB table resource
+        
+    Returns:
+        dict: {'success': bool, 'apps_reassigned': int, 'message': str}
+    """
+    try:
+        from datetime import datetime, timezone
+        
+        # Query all applications by source user using GSI1
+        response = table.query(
+            IndexName='GSI1',
+            KeyConditionExpression='GSI1PK = :user_key',
+            ExpressionAttributeValues={
+                ':user_key': f'USER#{source_user_sub}'
+            }
+        )
+        
+        applications = response.get('Items', [])
+        
+        # Filter to only APPLICATION entities
+        applications = [
+            app for app in applications 
+            if app.get('entityType') == 'APPLICATION'
+        ]
+        
+        if not applications:
+            return {
+                'success': True,
+                'apps_reassigned': 0,
+                'message': 'No applications to reassign'
+            }
+        
+        # Update each application
+        timestamp = datetime.now(timezone.utc).isoformat()
+        apps_reassigned = 0
+        
+        for app in applications:
+            try:
+                # Update userId and GSI1PK to point to destination user
+                table.update_item(
+                    Key={
+                        'PK': app['PK'],
+                        'SK': app['SK']
+                    },
+                    UpdateExpression='SET userId = :new_user_id, GSI1PK = :new_gsi1pk, updatedAt = :updated',
+                    ExpressionAttributeValues={
+                        ':new_user_id': destination_user_sub,
+                        ':new_gsi1pk': f'USER#{destination_user_sub}',
+                        ':updated': timestamp
+                    }
+                )
+                apps_reassigned += 1
+                
+                logger.info(
+                    f"Reassigned application: {app.get('name', 'Unknown')}",
+                    context={
+                        'app_id': app.get('appId'),
+                        'from_user': source_user_sub,
+                        'to_user': destination_user_sub
+                    }
+                )
+                
+            except ClientError as e:
+                logger.error(f"Failed to reassign application: {str(e)}", error=e)
+                # Continue with other apps even if one fails
+        
+        return {
+            'success': True,
+            'apps_reassigned': apps_reassigned,
+            'message': f'Reassigned {apps_reassigned} of {len(applications)} applications'
+        }
+        
+    except ClientError as e:
+        logger.error(f"Error during application reassignment: {str(e)}", error=e)
+        return {
+            'success': False,
+            'apps_reassigned': 0,
+            'message': f"Application reassignment failed: {str(e)}"
+        }
 
 
 def _delete_pending_link(user_sub: str) -> None:

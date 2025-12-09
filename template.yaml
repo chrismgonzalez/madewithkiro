@@ -489,8 +489,10 @@ Resources:
                 - dynamodb:GetItem
                 - dynamodb:UpdateItem
                 - dynamodb:DeleteItem
+                - dynamodb:Query
               Resource:
                 - !GetAtt MadeWithKiroTable.Arn
+                - !Sub "${MadeWithKiroTable.Arn}/index/GSI1"
             - Sid: CognitoAccountLinking
               Effect: Allow
               Action:

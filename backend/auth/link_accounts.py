@@ -634,6 +634,29 @@ def _merge_profiles(
             }
         )
         
+        # Reassign applications from source to destination user
+        reassign_result = _reassign_applications(source_user_sub, destination_user_sub, table)
+        
+        if not reassign_result['success']:
+            logger.warning(
+                "Application reassignment failed during profile merge",
+                context={
+                    'source_sub': source_user_sub,
+                    'destination_sub': destination_user_sub,
+                    'error': reassign_result.get('message')
+                }
+            )
+            # Don't fail the entire merge if app reassignment fails
+            # The profile merge can still succeed
+        else:
+            logger.info(
+                f"Successfully reassigned {reassign_result.get('apps_reassigned', 0)} applications",
+                context={
+                    'source_sub': source_user_sub,
+                    'destination_sub': destination_user_sub
+                }
+            )
+        
         # Delete source profile if it exists
         if source_profile:
             table.delete_item(
@@ -650,7 +673,7 @@ def _merge_profiles(
         
         return {
             'success': True,
-            'message': 'Profiles merged successfully'
+            'message': f"Profiles merged successfully. {reassign_result.get('message', '')}"
         }
         
     except ClientError as e:
@@ -671,6 +694,159 @@ def _merge_profiles(
         return {
             'success': False,
             'message': 'An unexpected error occurred during profile merge'
+        }
+
+
+def _reassign_applications(
+    source_user_sub: str,
+    destination_user_sub: str,
+    table
+) -> Dict[str, Any]:
+    """
+    Reassign all applications from source user to destination user.
+    
+    This ensures that applications created by the source user are transferred
+    to the destination user during account linking, maintaining data integrity.
+    
+    Args:
+        source_user_sub: Source user's Cognito sub
+        destination_user_sub: Destination user's Cognito sub
+        table: DynamoDB table resource
+        
+    Returns:
+        dict: {'success': bool, 'apps_reassigned': int, 'message': str}
+    """
+    try:
+        from datetime import datetime, timezone
+        
+        # Query all applications by source user using GSI1
+        response = table.query(
+            IndexName='GSI1',
+            KeyConditionExpression='GSI1PK = :user_key',
+            ExpressionAttributeValues={
+                ':user_key': f'USER#{source_user_sub}'
+            }
+        )
+        
+        applications = response.get('Items', [])
+        
+        # Filter to only APPLICATION entities (in case GSI1 has other items)
+        applications = [
+            app for app in applications 
+            if app.get('entityType') == 'APPLICATION'
+        ]
+        
+        if not applications:
+            logger.info(
+                "No applications to reassign",
+                context={'source_sub': source_user_sub}
+            )
+            return {
+                'success': True,
+                'apps_reassigned': 0,
+                'message': 'No applications to reassign'
+            }
+        
+        # Update each application
+        timestamp = datetime.now(timezone.utc).isoformat()
+        apps_reassigned = 0
+        failed_apps = []
+        
+        for app in applications:
+            try:
+                app_id = app.get('appId')
+                app_name = app.get('name', 'Unknown')
+                
+                # Update userId and GSI1PK to point to destination user
+                table.update_item(
+                    Key={
+                        'PK': app['PK'],
+                        'SK': app['SK']
+                    },
+                    UpdateExpression='SET userId = :new_user_id, GSI1PK = :new_gsi1pk, updatedAt = :updated',
+                    ExpressionAttributeValues={
+                        ':new_user_id': destination_user_sub,
+                        ':new_gsi1pk': f'USER#{destination_user_sub}',
+                        ':updated': timestamp
+                    }
+                )
+                apps_reassigned += 1
+                
+                logger.info(
+                    "Reassigned application",
+                    context={
+                        'app_id': app_id,
+                        'app_name': app_name,
+                        'from_user': source_user_sub,
+                        'to_user': destination_user_sub
+                    }
+                )
+                
+            except ClientError as e:
+                failed_apps.append({
+                    'app_id': app.get('appId'),
+                    'app_name': app.get('name', 'Unknown'),
+                    'error': str(e)
+                })
+                logger.error(
+                    f"Failed to reassign application: {str(e)}",
+                    error=e,
+                    context={
+                        'app_id': app.get('appId'),
+                        'source_sub': source_user_sub,
+                        'destination_sub': destination_user_sub
+                    }
+                )
+                # Continue with other apps even if one fails
+        
+        # Log summary
+        logger.info(
+            "Application reassignment complete",
+            context={
+                'source_sub': source_user_sub,
+                'destination_sub': destination_user_sub,
+                'total_apps': len(applications),
+                'apps_reassigned': apps_reassigned,
+                'failed_apps': len(failed_apps)
+            }
+        )
+        
+        if failed_apps:
+            logger.warning(
+                "Some applications failed to reassign",
+                context={
+                    'failed_apps': failed_apps,
+                    'source_sub': source_user_sub,
+                    'destination_sub': destination_user_sub
+                }
+            )
+        
+        return {
+            'success': True,
+            'apps_reassigned': apps_reassigned,
+            'message': f'Reassigned {apps_reassigned} of {len(applications)} applications'
+        }
+        
+    except ClientError as e:
+        logger.error(
+            f"DynamoDB error during application reassignment: {str(e)}",
+            error=e,
+            context={
+                'source_sub': source_user_sub,
+                'destination_sub': destination_user_sub
+            }
+        )
+        return {
+            'success': False,
+            'apps_reassigned': 0,
+            'message': f"Application reassignment failed: {str(e)}"
+        }
+    except Exception as e:
+        logger.error(f"Unexpected error during application reassignment: {str(e)}", error=e)
+        return {
+            'success': False,
+            'apps_reassigned': 0,
+            'message': 'An unexpected error occurred during application reassignment'
         }
 
 
