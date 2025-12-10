@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { MagicLinkAuth } from "@/components/MagicLinkAuth";
-import { Sparkles, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 type AuthMethod = "select" | "email";
@@ -94,9 +94,7 @@ export default function LoginPage() {
               </>
             )}
 
-            {authMethod === "email" && (
-              <MagicLinkAuth onBack={() => setAuthMethod("select")} />
-            )}
+            {authMethod === "email" && <MagicLinkAuth />}
           </CardContent>
         </Card>
 

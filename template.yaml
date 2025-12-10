@@ -99,7 +99,7 @@ Globals:
       AllowOrigin: !If
         - IsProduction
         - !Sub "'https://${DomainName}'"
-        - "'http://localhost:5173'"
+        - !Sub "'https://${CloudFrontDistribution.DomainName}'"
       AllowCredentials: true
 
 Resources:
@@ -831,7 +831,7 @@ Resources:
         AllowOrigin: !If
           - IsProduction
           - !Sub "'https://${DomainName}'"
-          - "'http://localhost:5173'"
+          - !Sub "'https://${CloudFrontDistribution.DomainName}'"
         AllowCredentials: true
       # Rate Limiting and Throttling Configuration
       # Dev environment: Higher limits for testing and development

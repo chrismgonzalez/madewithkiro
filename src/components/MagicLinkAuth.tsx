@@ -4,10 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
-interface MagicLinkAuthProps {
-  onBack?: () => void;
-}
-
 /**
  * Magic Link Authentication Component
  *
@@ -17,7 +13,7 @@ interface MagicLinkAuthProps {
  * - Clear instructions and multiple sign-in options
  * - Beautiful success and error states
  */
-export const MagicLinkAuth = ({ onBack }: MagicLinkAuthProps) => {
+export const MagicLinkAuth = () => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);

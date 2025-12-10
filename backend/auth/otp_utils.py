@@ -140,10 +140,6 @@ def send_otp_email(
                 <!-- Header with MadeWithKiro Purple Branding -->
                 <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%); 
                             color: white; text-align: center; padding: 48px 20px;">
-                    <div style="display: inline-flex; align-items: center; justify-content: center; 
-                               width: 64px; height: 64px; background: rgba(255, 255, 255, 0.2); 
-                               border-radius: 20px; margin-bottom: 16px;">
-                    </div>
                     <h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">MadeWithKiro</h1>
                     <p style="margin: 8px 0 0 0; font-size: 16px; opacity: 0.9; font-weight: 500;">Secure Authentication</p>
                 </div>
@@ -158,11 +154,12 @@ def send_otp_email(
                     
                     <!-- OTP Code Display with Purple Accent -->
                     <div style="background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); 
-                               border: 2px solid #8b5cf6; border-radius: 12px; 
-                               padding: 24px; text-align: center; margin: 0 0 24px 0;
+                               border: 3px solid #8b5cf6; border-radius: 16px; 
+                               padding: 32px; text-align: center; margin: 0 0 24px 0;
                                box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);">
-                        <div style="font-size: 24px; font-weight: 700; color: #8b5cf6; 
-                                   letter-spacing: 6px; font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;">
+                        <div style="font-size: 42px; font-weight: 800; color: #8b5cf6; 
+                                   letter-spacing: 12px; font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+                                   text-shadow: 0 2px 4px rgba(139, 92, 246, 0.2);">
                             {formatted_otp}
                         </div>
                     </div>
@@ -183,7 +180,7 @@ def send_otp_email(
                                   border-radius: 12px; font-size: 18px; font-weight: 600;
                                   box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
                                   transition: all 0.2s ease;">
-                            Login Instantly
+                            ✨ Login Instantly
                         </a>
                     </div>
                     
@@ -192,7 +189,7 @@ def send_otp_email(
                                border: 2px solid #e9d5ff; border-radius: 12px; 
                                padding: 24px; margin: 0 0 32px 0;">
                         <p style="color: #7c3aed; font-size: 15px; margin: 0 0 12px 0; font-weight: 600;">
-                            Or copy and paste this link:
+                            📋 Or copy and paste this link:
                         </p>
                         <p style="word-break: break-all; font-size: 13px; color: #8b5cf6; 
                                   background-color: white; padding: 12px; border-radius: 8px; 
