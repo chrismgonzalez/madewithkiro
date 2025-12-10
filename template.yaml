@@ -260,6 +260,10 @@ Resources:
           SES_EMAIL_IDENTITY: !Ref SESEmailIdentity
           SES_TEMPLATE_NAME: !Sub MadeWithKiro-OTP-${Environment}
           SES_CONFIGURATION_SET: !Ref SESConfigurationSet
+          APP_URL: !If
+            - IsProduction
+            - !Sub "https://${DomainName}"
+            - !Sub "https://${CloudFrontDistribution.DomainName}"
       Policies:
         - Statement:
             - Sid: SESEmailSending

@@ -84,7 +84,12 @@ def send_otp_email(
     expires_in_minutes: int = 10
 ) -> Dict[str, any]:
     """
-    Send OTP code via AWS SES using email template.
+    Send OTP code via AWS SES with magic link functionality.
+    
+    Creates an email with:
+    1. Prominent OTP code display for manual entry
+    2. "Login Instantly" button that redirects to verify page
+    3. Copy/paste link as backup option
     
     Requirements: 6.1, 6.2
     
@@ -108,16 +113,134 @@ def send_otp_email(
         raise ValueError(f"Invalid OTP code: must be {OTP_LENGTH} digits")
     
     # Get configuration from environment
-    template_name = os.environ.get('SES_TEMPLATE_NAME', 'MadeWithKiro-OTP-dev')
     source_email = os.environ.get('SES_EMAIL_IDENTITY', 'noreply@madewithkiro.com')
     configuration_set = os.environ.get('SES_CONFIGURATION_SET')
+    app_url = os.environ.get('APP_URL', 'http://localhost:5173')
     
     try:
-        # Prepare template data
-        template_data = {
-            'code': otp_code,
-            'expiresIn': str(expires_in_minutes)
-        }
+        # Create magic link URL with email and OTP parameters
+        import urllib.parse
+        encoded_email = urllib.parse.quote(email)
+        magic_url = f"{app_url}/verify?email={encoded_email}&otp={otp_code}"
+        
+        # Format OTP code with spaces for better readability
+        formatted_otp = ' '.join(otp_code)
+        
+        # Create the HTML email content with MadeWithKiro purple branding
+        html_body = f'''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Your Verification Code</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: white; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);">
+                <!-- Header with MadeWithKiro Purple Branding -->
+                <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%); 
+                            color: white; text-align: center; padding: 48px 20px;">
+                    <div style="display: inline-flex; align-items: center; justify-content: center; 
+                               width: 64px; height: 64px; background: rgba(255, 255, 255, 0.2); 
+                               border-radius: 20px; margin-bottom: 16px;">
+                    </div>
+                    <h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">MadeWithKiro</h1>
+                    <p style="margin: 8px 0 0 0; font-size: 16px; opacity: 0.9; font-weight: 500;">Secure Authentication</p>
+                </div>
+                
+                <!-- Content -->
+                <div style="padding: 48px 40px;">
+                    <h2 style="color: #1f2937; font-size: 28px; font-weight: 700; margin: 0 0 16px 0; letter-spacing: -0.5px;">Your Verification Code</h2>
+                    
+                    <p style="color: #6b7280; font-size: 18px; line-height: 1.6; margin: 0 0 32px 0;">
+                        Welcome! Use the verification code below to complete your authentication and start showcasing your Kiro creations.
+                    </p>
+                    
+                    <!-- OTP Code Display with Purple Accent -->
+                    <div style="background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); 
+                               border: 2px solid #8b5cf6; border-radius: 12px; 
+                               padding: 24px; text-align: center; margin: 0 0 24px 0;
+                               box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);">
+                        <div style="font-size: 24px; font-weight: 700; color: #8b5cf6; 
+                                   letter-spacing: 6px; font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;">
+                            {formatted_otp}
+                        </div>
+                    </div>
+                    
+                    <p style="color: #6b7280; font-size: 15px; text-align: center; margin: 0 0 40px 0; font-weight: 500;">
+                        This code will expire in <strong style="color: #8b5cf6;">{expires_in_minutes} minutes</strong>
+                    </p>
+                    
+                    <!-- Magic Link Button with Purple Gradient -->
+                    <div style="text-align: center; margin: 0 0 32px 0;">
+                        <p style="color: #6b7280; font-size: 18px; margin: 0 0 24px 0; font-weight: 500;">
+                            Or click the button below to login instantly:
+                        </p>
+                        <a href="{magic_url}" 
+                           style="display: inline-block; 
+                                  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%); 
+                                  color: white; text-decoration: none; padding: 18px 36px; 
+                                  border-radius: 12px; font-size: 18px; font-weight: 600;
+                                  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
+                                  transition: all 0.2s ease;">
+                            Login Instantly
+                        </a>
+                    </div>
+                    
+                    <!-- Copy/Paste Link with Purple Accent -->
+                    <div style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); 
+                               border: 2px solid #e9d5ff; border-radius: 12px; 
+                               padding: 24px; margin: 0 0 32px 0;">
+                        <p style="color: #7c3aed; font-size: 15px; margin: 0 0 12px 0; font-weight: 600;">
+                            Or copy and paste this link:
+                        </p>
+                        <p style="word-break: break-all; font-size: 13px; color: #8b5cf6; 
+                                  background-color: white; padding: 12px; border-radius: 8px; 
+                                  border: 1px solid #e9d5ff; margin: 0; font-family: monospace;
+                                  font-weight: 500;">
+                            {magic_url}
+                        </p>
+                    </div>
+                    
+                    <!-- Security Notice -->
+                    <div style="border-top: 2px solid #f3f4f6; padding-top: 24px;">
+                        <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                            <span style="color: #f59e0b; font-size: 20px; margin-right: 10px;">🔒</span>
+                            <span style="color: #f59e0b; font-weight: 700; font-size: 16px;">Security Notice</span>
+                        </div>
+                        <p style="color: #6b7280; font-size: 15px; margin: 0; line-height: 1.5; font-weight: 500;">
+                            If you didn't request this code, please ignore this email. This verification link will expire automatically.
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div style="background-color: #f9fafb; padding: 24px 40px; text-align: center; border-top: 1px solid #e5e7eb;">
+                    <p style="color: #9ca3af; font-size: 14px; margin: 0; font-weight: 500;">
+                        Built with ❤️ using Kiro • <a href="{app_url}" style="color: #8b5cf6; text-decoration: none;">MadeWithKiro</a>
+                    </p>
+                </div>
+            </div>
+        </body>
+        </html>
+        '''
+        
+        # Create plain text version
+        text_body = f'''
+Your MadeWithKiro Verification Code
+
+Thank you for signing in! Use this verification code: {formatted_otp}
+
+Or click this link to login instantly: {magic_url}
+
+This code expires in {expires_in_minutes} minutes.
+
+If you didn't request this code, please ignore this email.
+
+---
+MadeWithKiro - Showcase your Kiro creations
+{app_url}
+        '''
         
         # Build SES request
         send_params = {
@@ -125,8 +248,13 @@ def send_otp_email(
             'Destination': {
                 'ToAddresses': [email]
             },
-            'Template': template_name,
-            'TemplateData': str(template_data).replace("'", '"')  # Convert to JSON string
+            'Message': {
+                'Subject': {'Data': 'Your MadeWithKiro verification code'},
+                'Body': {
+                    'Html': {'Data': html_body},
+                    'Text': {'Data': text_body}
+                }
+            }
         }
         
         # Add configuration set if provided
@@ -134,13 +262,14 @@ def send_otp_email(
             send_params['ConfigurationSetName'] = configuration_set
         
         # Send email via SES
-        logger.info(f"Sending OTP email to {email[:3]}***@{email.split('@')[1]}")
-        response = ses_client.send_templated_email(**send_params)
+        logger.info(f"Sending magic link OTP email to {email[:3]}***@{email.split('@')[1]}")
+        response = ses_client.send_email(**send_params)
         
-        logger.info(f"OTP email sent successfully. MessageId: {response['MessageId']}")
+        logger.info(f"Magic link OTP email sent successfully. MessageId: {response['MessageId']}")
         return {
             'success': True,
-            'message_id': response['MessageId']
+            'message_id': response['MessageId'],
+            'magic_url': magic_url
         }
         
     except ClientError as e:
@@ -148,7 +277,7 @@ def send_otp_email(
         error_message = e.response['Error']['Message']
         
         logger.error(
-            f"Failed to send OTP email to {email[:3]}***@{email.split('@')[1]}. "
+            f"Failed to send magic link OTP email to {email[:3]}***@{email.split('@')[1]}. "
             f"Error: {error_code} - {error_message}"
         )
         
@@ -160,11 +289,11 @@ def send_otp_email(
                     'Message': f"Email delivery failed: {error_message}"
                 }
             },
-            'send_templated_email'
+            'send_email'
         ) from e
     
     except Exception as e:
-        logger.error(f"Unexpected error sending OTP email: {str(e)}")
+        logger.error(f"Unexpected error sending magic link OTP email: {str(e)}")
         raise
 
 

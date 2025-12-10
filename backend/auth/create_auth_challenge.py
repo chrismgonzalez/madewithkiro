@@ -275,7 +275,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         expires_at = calculate_expiration_time(created_at)
         expires_in_minutes = OTP_EXPIRATION_SECONDS // 60
         
-        # Send OTP via email using SES
+        # Send OTP via email using SES with magic link
         try:
             email_result = send_otp_email(
                 email=email,
@@ -283,7 +283,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 expires_in_minutes=expires_in_minutes
             )
             logger.info(
-                f"OTP email sent successfully. MessageId: {email_result.get('message_id')}"
+                f"Magic link OTP email sent successfully. MessageId: {email_result.get('message_id')}"
             )
         except Exception as e:
             logger.error(f"Failed to send OTP email: {str(e)}")
