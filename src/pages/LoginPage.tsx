@@ -32,22 +32,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex justify-center p-3 sm:p-4 pt-4 sm:pt-8 pb-2 sm:pb-4">
+    <div className="flex justify-center p-4 pt-16 pb-8">
       <div className="w-full max-w-md">
-        <div className="text-center mb-3 sm:mb-4">
-          <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary via-primary/80 to-primary/60 rounded-lg sm:rounded-xl mb-2 sm:mb-3 shadow-lg shadow-primary/25">
-            <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary-foreground" />
-          </div>
-          <h1 className="text-lg sm:text-xl font-bold text-foreground mb-1 tracking-tight">
-            MadeWithKiro
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Sign in to your account
-          </p>
-        </div>
-
-        <Card className="shadow-xl border bg-card/95 backdrop-blur-xl rounded-xl sm:rounded-2xl overflow-hidden">
-          <CardContent className="space-y-3 sm:space-y-4 p-4 sm:p-6">
+        <Card className="shadow-xl border bg-card/95 backdrop-blur-xl rounded-2xl overflow-hidden">
+          <CardContent className="space-y-4 p-8">
             {authMethod === "select" && (
               <>
                 {/* Google OAuth Option */}
@@ -55,12 +43,9 @@ export default function LoginPage() {
                   onClick={handleGoogleSignIn}
                   variant="outline"
                   size="lg"
-                  className="w-full h-12 sm:h-14 text-sm sm:text-base font-medium border-2 hover:bg-accent transition-all duration-200 rounded-lg sm:rounded-xl min-h-[44px]"
+                  className="w-full h-14 text-xs font-medium border-2 hover:bg-accent transition-all duration-200 rounded-xl"
                 >
-                  <svg
-                    className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"
-                    viewBox="0 0 24 24"
-                  >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
                       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -81,12 +66,12 @@ export default function LoginPage() {
                   Continue with Google
                 </Button>
 
-                <div className="relative my-4 sm:my-6">
+                <div className="relative my-6">
                   <div className="absolute inset-0 flex items-center">
                     <Separator className="w-full" />
                   </div>
                   <div className="relative flex justify-center text-xs">
-                    <span className="bg-card px-3 sm:px-4 text-muted-foreground">
+                    <span className="bg-card px-4 text-muted-foreground">
                       or
                     </span>
                   </div>
@@ -97,13 +82,13 @@ export default function LoginPage() {
                   onClick={() => setAuthMethod("email")}
                   variant="outline"
                   size="lg"
-                  className="w-full h-12 sm:h-14 text-sm sm:text-base font-medium border-2 border-primary/20 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 rounded-lg sm:rounded-xl min-h-[44px]"
+                  className="w-full h-14 text-xs font-medium border-2 border-primary/20 hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 rounded-xl"
                 >
-                  <Mail className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3 text-primary" />
-                  Use one-time-passcode
+                  <Mail className="w-5 h-5 text-primary" />
+                  Use one-time passcode
                 </Button>
 
-                <p className="text-xs text-center text-muted-foreground mt-3 sm:mt-4">
+                <p className="text-xs text-center text-muted-foreground mt-4">
                   New users will create an account automatically
                 </p>
               </>
@@ -116,8 +101,8 @@ export default function LoginPage() {
         </Card>
 
         {/* Simplified Footer */}
-        <div className="text-center mt-3 sm:mt-4">
-          <p className="text-xs text-muted-foreground px-2">
+        <div className="text-center mt-6">
+          <p className="text-xs text-muted-foreground">
             By signing in, you agree to our{" "}
             <Link
               to="/privacy"
