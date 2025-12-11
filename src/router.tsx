@@ -14,7 +14,6 @@ import AddApplicationPage from "@/pages/AddApplicationPage";
 import EditApplicationPage from "@/pages/EditApplicationPage";
 import { AuthPage } from "@/pages/AuthPage";
 import LoginPage from "@/pages/LoginPage";
-import VerifyMagicLink from "@/pages/VerifyMagicLink";
 import AuthCallbackPage from "@/pages/AuthCallbackPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
@@ -68,13 +67,6 @@ const legacyAuthRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/auth",
   component: AuthPage,
-});
-
-// Magic link verification route (public)
-const verifyRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/verify",
-  component: VerifyMagicLink,
 });
 
 // Auth callback route (public) - Keep as /auth/callback for Cognito
@@ -175,7 +167,6 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   authRoute,
   legacyAuthRoute,
-  verifyRoute,
   authCallbackRoute,
   createProfileRoute,
   linkAccountRoute,

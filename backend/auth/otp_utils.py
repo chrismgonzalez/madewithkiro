@@ -118,10 +118,7 @@ def send_otp_email(
     app_url = os.environ.get('APP_URL', 'http://localhost:5173')
     
     try:
-        # Create magic link URL with email and OTP parameters
-        import urllib.parse
-        encoded_email = urllib.parse.quote(email)
-        magic_url = f"{app_url}/verify?email={encoded_email}&otp={otp_code}"
+        # No magic link - users will manually enter the OTP code
         
         # Format OTP code with spaces for better readability
         formatted_otp = ' '.join(otp_code)
@@ -147,18 +144,13 @@ def send_otp_email(
                 <!-- Content -->
                 <div style="padding: 48px 40px;">
                     <h2 style="color: #1f2937; font-size: 28px; font-weight: 700; margin: 0 0 16px 0; letter-spacing: -0.5px;">Your Verification Code</h2>
-                    
-                    <p style="color: #6b7280; font-size: 18px; line-height: 1.6; margin: 0 0 32px 0;">
-                        Welcome! Use the verification code below to complete your authentication and start showcasing your Kiro creations.
-                    </p>
-                    
                     <!-- OTP Code Display with Purple Accent -->
                     <div style="background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); 
                                border: 3px solid #8b5cf6; border-radius: 16px; 
                                padding: 32px; text-align: center; margin: 0 0 24px 0;
                                box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);">
-                        <div style="font-size: 42px; font-weight: 800; color: #8b5cf6; 
-                                   letter-spacing: 12px; font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+                        <div style="font-size: 16px; font-weight: 800; color: #8b5cf6; 
+                                   letter-spacing: 8px; font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
                                    text-shadow: 0 2px 4px rgba(139, 92, 246, 0.2);">
                             {formatted_otp}
                         </div>
@@ -168,36 +160,9 @@ def send_otp_email(
                         This code will expire in <strong style="color: #8b5cf6;">{expires_in_minutes} minutes</strong>
                     </p>
                     
-                    <!-- Magic Link Button with Purple Gradient -->
-                    <div style="text-align: center; margin: 0 0 32px 0;">
-                        <p style="color: #6b7280; font-size: 18px; margin: 0 0 24px 0; font-weight: 500;">
-                            Or click the button below to login instantly:
-                        </p>
-                        <a href="{magic_url}" 
-                           style="display: inline-block; 
-                                  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 50%, #6d28d9 100%); 
-                                  color: white; text-decoration: none; padding: 18px 36px; 
-                                  border-radius: 12px; font-size: 18px; font-weight: 600;
-                                  box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3);
-                                  transition: all 0.2s ease;">
-                            ✨ Login Instantly
-                        </a>
-                    </div>
-                    
-                    <!-- Copy/Paste Link with Purple Accent -->
-                    <div style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); 
-                               border: 2px solid #e9d5ff; border-radius: 12px; 
-                               padding: 24px; margin: 0 0 32px 0;">
-                        <p style="color: #7c3aed; font-size: 15px; margin: 0 0 12px 0; font-weight: 600;">
-                            📋 Or copy and paste this link:
-                        </p>
-                        <p style="word-break: break-all; font-size: 13px; color: #8b5cf6; 
-                                  background-color: white; padding: 12px; border-radius: 8px; 
-                                  border: 1px solid #e9d5ff; margin: 0; font-family: monospace;
-                                  font-weight: 500;">
-                            {magic_url}
-                        </p>
-                    </div>
+                    <p style="color: #6b7280; font-size: 16px; text-align: center; margin: 0 0 32px 0; font-weight: 500;">
+                        Enter this code in the MadeWithKiro app to complete your sign-in.
+                    </p>
                     
                     <!-- Security Notice -->
                     <div style="border-top: 2px solid #f3f4f6; padding-top: 24px;">
@@ -206,7 +171,7 @@ def send_otp_email(
                             <span style="color: #f59e0b; font-weight: 700; font-size: 16px;">Security Notice</span>
                         </div>
                         <p style="color: #6b7280; font-size: 15px; margin: 0; line-height: 1.5; font-weight: 500;">
-                            If you didn't request this code, please ignore this email. This verification link will expire automatically.
+                            If you didn't request this code, please ignore this email. This verification code will expire automatically.
                         </p>
                     </div>
                 </div>
@@ -228,9 +193,9 @@ Your MadeWithKiro Verification Code
 
 Thank you for signing in! Use this verification code: {formatted_otp}
 
-Or click this link to login instantly: {magic_url}
-
 This code expires in {expires_in_minutes} minutes.
+
+Enter this code in the MadeWithKiro app to complete your sign-in.
 
 If you didn't request this code, please ignore this email.
 
@@ -262,11 +227,10 @@ MadeWithKiro - Showcase your Kiro creations
         logger.info(f"Sending magic link OTP email to {email[:3]}***@{email.split('@')[1]}")
         response = ses_client.send_email(**send_params)
         
-        logger.info(f"Magic link OTP email sent successfully. MessageId: {response['MessageId']}")
+        logger.info(f"OTP email sent successfully. MessageId: {response['MessageId']}")
         return {
             'success': True,
-            'message_id': response['MessageId'],
-            'magic_url': magic_url
+            'message_id': response['MessageId']
         }
         
     except ClientError as e:
@@ -274,7 +238,7 @@ MadeWithKiro - Showcase your Kiro creations
         error_message = e.response['Error']['Message']
         
         logger.error(
-            f"Failed to send magic link OTP email to {email[:3]}***@{email.split('@')[1]}. "
+            f"Failed to send OTP email to {email[:3]}***@{email.split('@')[1]}. "
             f"Error: {error_code} - {error_message}"
         )
         

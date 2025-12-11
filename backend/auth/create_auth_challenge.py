@@ -283,7 +283,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 expires_in_minutes=expires_in_minutes
             )
             logger.info(
-                f"Magic link OTP email sent successfully. MessageId: {email_result.get('message_id')}"
+                f"OTP email sent successfully. MessageId: {email_result.get('message_id')}"
             )
         except Exception as e:
             logger.error(f"Failed to send OTP email: {str(e)}")
