@@ -125,7 +125,7 @@ describe("Profile Service - Acceptance Tests", () => {
       // Assert
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const [url, options] = fetchMock.mock.calls[0];
-      expect(url).toContain(`/profile/${userId}`);
+      expect(url).toBe("https://api.test.com/profile");
       expect(options.method).toBe("PUT");
 
       // The service should strip userId from the body

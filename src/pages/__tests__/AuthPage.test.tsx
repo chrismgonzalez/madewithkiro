@@ -135,7 +135,7 @@ describe("AuthPage - Acceptance Tests", () => {
 
       // Verify OTP page is shown
       await waitFor(() => {
-        expect(screen.getByText(/enter your email/i)).toBeInTheDocument();
+        expect(screen.getByText(/email address/i)).toBeInTheDocument();
       });
     });
   });
