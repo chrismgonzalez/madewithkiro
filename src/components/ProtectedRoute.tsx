@@ -32,11 +32,13 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       // Store intended destination with query params
-      const fullPath = `${location.pathname}${location.search}`;
+      // location.search in TanStack Router is an object, use searchStr for the string
+      const searchStr = location.searchStr || "";
+      const fullPath = `${location.pathname}${searchStr}`;
       sessionStorage.setItem("redirect_after_auth", fullPath);
 
-      // Redirect to auth page
-      navigate({ to: "/auth" });
+      // Redirect to login page
+      navigate({ to: "/login" });
     }
   }, [isAuthenticated, isLoading, navigate, location]);
 

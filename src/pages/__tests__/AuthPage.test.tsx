@@ -61,7 +61,7 @@ describe("AuthPage - Acceptance Tests", () => {
       expect(googleButton).toBeEnabled();
     });
 
-    it("WHEN the page loads THEN the system should display a 'Sign in with GitHub' button with the GitHub icon", async () => {
+    it("WHEN the page loads THEN the system should display a 'Sign in with Email' button with the Email icon", async () => {
       renderAuthPage();
 
       // Wait for loading to complete
@@ -71,15 +71,15 @@ describe("AuthPage - Acceptance Tests", () => {
         ).not.toBeInTheDocument();
       });
 
-      // Check for GitHub button
-      const githubButton = screen.getByRole("button", {
-        name: /sign in with github/i,
+      // Check for Email button
+      const emailButton = screen.getByRole("button", {
+        name: /sign in with email/i,
       });
-      expect(githubButton).toBeInTheDocument();
+      expect(emailButton).toBeInTheDocument();
 
       // Verify button is visible and enabled
-      expect(githubButton).toBeVisible();
-      expect(githubButton).toBeEnabled();
+      expect(emailButton).toBeVisible();
+      expect(emailButton).toBeEnabled();
     });
   });
 
@@ -114,8 +114,8 @@ describe("AuthPage - Acceptance Tests", () => {
     });
   });
 
-  describe("GIVEN a user clicks the 'Sign in with GitHub' button", () => {
-    it("WHEN the button is clicked THEN the system should call signInWithGitHub and show a loading state", async () => {
+  describe("GIVEN a user clicks the 'Sign in with Email' button", () => {
+    it("WHEN the button is clicked THEN the system should show the OTP authentication page", async () => {
       const user = userEvent.setup();
       renderAuthPage();
 
@@ -126,22 +126,17 @@ describe("AuthPage - Acceptance Tests", () => {
         ).not.toBeInTheDocument();
       });
 
-      const githubButton = screen.getByRole("button", {
-        name: /sign in with github/i,
+      const emailButton = screen.getByRole("button", {
+        name: /sign in with email/i,
       });
 
-      // Click the GitHub button
-      await user.click(githubButton);
+      // Click the Email button
+      await user.click(emailButton);
 
-      // Verify signInWithRedirect was called with GitHub provider
+      // Verify OTP page is shown
       await waitFor(() => {
-        expect(amplifyAuth.signInWithRedirect).toHaveBeenCalledWith({
-          provider: "GitHub",
-        });
+        expect(screen.getByText(/email address/i)).toBeInTheDocument();
       });
-
-      // Verify button is disabled during loading
-      expect(githubButton).toBeDisabled();
     });
   });
 

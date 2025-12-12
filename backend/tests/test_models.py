@@ -105,6 +105,69 @@ class TestUpdateProfileRequest:
         assert profile.linkedInUsername == "janesmith"
 
 
+class TestUserProfile:
+    """Tests for UserProfile model"""
+    
+    def test_user_profile_with_google_auth(self):
+        """Test user profile with Google authentication"""
+        profile = UserProfile(
+            userId="user123",
+            email="user@example.com",
+            firstName="John",
+            lastName="Doe",
+            awsBuilderHandle="johndoe",
+            authMethods=["google"],
+            createdAt="2024-01-01T00:00:00Z",
+            updatedAt="2024-01-01T00:00:00Z"
+        )
+        assert profile.userId == "user123"
+        assert profile.email == "user@example.com"
+        assert profile.authMethods == ["google"]
+    
+    def test_user_profile_with_email_auth(self):
+        """Test user profile with email OTP authentication"""
+        profile = UserProfile(
+            userId="user123",
+            email="user@example.com",
+            firstName="John",
+            lastName="Doe",
+            awsBuilderHandle="johndoe",
+            authMethods=["email"],
+            createdAt="2024-01-01T00:00:00Z",
+            updatedAt="2024-01-01T00:00:00Z"
+        )
+        assert profile.authMethods == ["email"]
+    
+    def test_user_profile_with_multiple_auth_methods(self):
+        """Test user profile with multiple authentication methods"""
+        profile = UserProfile(
+            userId="user123",
+            email="user@example.com",
+            firstName="John",
+            lastName="Doe",
+            awsBuilderHandle="johndoe",
+            authMethods=["google", "email"],
+            createdAt="2024-01-01T00:00:00Z",
+            updatedAt="2024-01-01T00:00:00Z"
+        )
+        assert "google" in profile.authMethods
+        assert "email" in profile.authMethods
+        assert len(profile.authMethods) == 2
+    
+    def test_user_profile_default_auth_methods(self):
+        """Test user profile defaults to Google auth if not specified"""
+        profile = UserProfile(
+            userId="user123",
+            email="user@example.com",
+            firstName="John",
+            lastName="Doe",
+            awsBuilderHandle="johndoe",
+            createdAt="2024-01-01T00:00:00Z",
+            updatedAt="2024-01-01T00:00:00Z"
+        )
+        assert profile.authMethods == ["google"]
+
+
 class TestCreateApplicationRequest:
     """Tests for CreateApplicationRequest model"""
     

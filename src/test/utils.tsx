@@ -1,7 +1,7 @@
 import { ReactElement } from "react";
 import { render, RenderOptions } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MockAuthProvider } from "@/contexts/MockAuthContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 interface MockAuthState {
   isAuthenticated?: boolean;
@@ -33,12 +33,7 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <MockAuthProvider
-          initialAuth={mockAuthState?.isAuthenticated}
-          initialUserId={mockAuthState?.currentUserId}
-        >
-          {children}
-        </MockAuthProvider>
+        <AuthProvider>{children}</AuthProvider>
       </QueryClientProvider>
     );
   }

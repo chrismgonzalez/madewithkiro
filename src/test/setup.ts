@@ -56,6 +56,30 @@ if (typeof localStorage === "undefined") {
   });
 }
 
+// Setup sessionStorage mock if not available
+if (typeof sessionStorage === "undefined") {
+  const sessionStorageMock = (() => {
+    let store: Record<string, string> = {};
+    return {
+      getItem: (key: string) => store[key] || null,
+      setItem: (key: string, value: string) => {
+        store[key] = value.toString();
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+      clear: () => {
+        store = {};
+      },
+    };
+  })();
+
+  Object.defineProperty(globalThis, "sessionStorage", {
+    value: sessionStorageMock,
+    writable: true,
+  });
+}
+
 // Mock window.matchMedia
 Object.defineProperty(window, "matchMedia", {
   writable: true,
@@ -71,13 +95,15 @@ Object.defineProperty(window, "matchMedia", {
   })),
 });
 
-// Clear localStorage before each test
+// Clear localStorage and sessionStorage before each test
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
 });
 
 // Cleanup after each test
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  sessionStorage.clear();
 });

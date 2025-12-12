@@ -1,0 +1,342 @@
+# Implementation Plan: Cognito-Level Account Linking
+
+## Task List
+
+- [x] 1. Update Cognito User Pool configuration
+
+  - Add custom attributes for account linking flags (custom:pending_link, custom:link_target_sub)
+  - Update template.yaml with new schema
+  - Deploy infrastructure changes
+  - _Requirements: 1.2, 3.3_
+
+- [x] 2. Implement PostAuthentication trigger enhancements (TDD)
+
+  - [x] 2.1 Write unit tests for PostAuthentication (RED)
+    - Test duplicate detection with various email scenarios
+    - Test custom attribute setting when duplicates found
+    - Test error handling for DynamoDB failures
+    - Tests should fail initially (no implementation yet)
+    - _Requirements: 3.1, 3.2, 3.3_
+  - [x] 2.2 Add duplicate detection logic (GREEN)
+    - Query DynamoDB GSI1 for profiles with same email
+    - Compare Cognito subs to detect duplicates
+    - Make tests pass
+    - _Requirements: 3.1, 3.2_
+  - [x] 2.3 Implement custom attribute setting (GREEN)
+    - Set custom:pending_link flag when duplicates found
+    - Set custom:link_target_sub with other user's sub
+    - Return modified event with custom claims
+    - Make tests pass
+    - _Requirements: 3.3_
+  - [x] 2.4 Refactor PostAuthentication code (REFACTOR)
+    - Extract duplicate detection into separate function
+    - Improve error handling and logging
+    - Ensure tests still pass
+  - [ ]\* 2.5 Write property test for duplicate detection
+    - **Property 1: Duplicate account detection**
+    - **Validates: Requirements 1.1, 3.2**
+  - [ ]\* 2.6 Write property test for linking flag consistency
+    - **Property 2: Linking flag consistency**
+    - **Validates: Requirements 1.2, 3.3**
+
+- [x] 3. Create Link Accounts API endpoint (TDD)
+
+  - [x] 3.1 Write unit tests for Link Accounts API (RED)
+    - Test JWT validation with valid/invalid tokens
+    - Test email verification checks
+    - Test AdminLinkProviderForUser calls
+    - Test profile merging logic
+    - Test error responses
+    - Tests should fail initially
+    - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+  - [x] 3.2 Implement Lambda handler skeleton (GREEN)
+    - Create backend/auth/link_accounts.py
+    - Parse and validate request body
+    - Extract user sub from JWT token
+    - Make basic tests pass
+    - _Requirements: 7.1, 7.2_
+  - [x] 3.3 Implement JWT validation (GREEN)
+    - Verify token signature and expiration
+    - Extract user sub from token claims
+    - Return 401 for invalid tokens
+    - Make auth tests pass
+    - _Requirements: 7.2_
+  - [x] 3.4 Implement email verification check (GREEN)
+    - Verify both users have email_verified=true
+    - Reject linking if verification fails
+    - Log security warning
+    - Make verification tests pass
+    - _Requirements: 11.1, 11.2, 11.3, 11.4_
+  - [x] 3.5 Implement Google-to-OTP linking (GREEN)
+    - Call AdminLinkProviderForUser with correct parameters
+    - Use ProviderAttributeName='Cognito_Subject' for Google
+    - Handle API errors gracefully
+    - Make linking tests pass
+    - _Requirements: 2.2, 7.3_
+  - [x] 3.6 Implement OTP-to-Google linking (GREEN)
+    - Call AdminSetUserPassword to enable password auth
+    - Generate secure random password
+    - Call AdminLinkProviderForUser
+    - Make OTP linking tests pass
+    - _Requirements: 2.2, 7.4_
+  - [x] 3.7 Implement profile merging (GREEN)
+    - Query both profiles from DynamoDB
+    - Merge authMethods arrays
+    - Update destination profile
+    - Delete source profile
+    - Make merge tests pass
+    - _Requirements: 5.4, 7.5_
+  - [x] 3.8 Refactor Link Accounts API (REFACTOR)
+    - Extract linking logic into separate functions
+    - Improve error handling
+    - Add comprehensive logging
+    - Ensure all tests still pass
+  - [x] 3.9 Add API Gateway endpoint configuration
+    - Update template.yaml with new endpoint
+    - Configure Cognito authorizer
+    - Set up CORS
+    - _Requirements: 7.1_
+  - [ ]\* 3.10 Write property test for auth requirement
+    - **Property 7: Authentication requirement for linking**
+    - **Validates: Requirements 7.2**
+  - [ ]\* 3.11 Write property test for email verification
+    - **Property 12: Email verification requirement**
+    - **Validates: Requirements 11.1, 11.2, 11.3, 11.4**
+  - [ ]\* 3.12 Write property test for profile merge
+    - **Property 5: Profile merge completeness**
+    - **Validates: Requirements 5.4**
+
+- [x] 4. Checkpoint - Ensure backend tests pass
+
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [x] 5. Implement frontend AccountLinkPrompt component (TDD)
+
+  - [x] 5.1 Write unit tests for AccountLinkPrompt (RED)
+    - Test component rendering with different props
+    - Test confirmation flow
+    - Test decline flow
+    - Test error display
+    - Test loading states
+    - Tests should fail initially
+    - _Requirements: 10.1, 10.2, 10.3, 10.4_
+  - [x] 5.2 Create AccountLinkPrompt.tsx component skeleton (GREEN)
+    - Create src/components/AccountLinkPrompt.tsx
+    - Define component props interface
+    - Implement basic component structure
+    - Make rendering tests pass
+    - _Requirements: 10.1, 10.2_
+  - [x] 5.3 Implement UI elements (GREEN)
+    - Add explanation text about account linking
+    - Display current and existing auth methods
+    - Add Confirm and Decline buttons
+    - Style with Tailwind CSS (mobile-first)
+    - Make UI tests pass
+    - _Requirements: 10.2, 10.3_
+  - [x] 5.4 Implement confirmation handler (GREEN)
+    - Call /auth/link-accounts API endpoint
+    - Show loading state during API call
+    - Handle success response
+    - Handle error response
+    - Make confirmation tests pass
+    - _Requirements: 10.4_
+  - [x] 5.5 Implement decline handler (GREEN)
+    - Clear linking flags
+    - Redirect to intended destination
+    - Make decline tests pass
+    - _Requirements: 1.5_
+  - [x] 5.6 Refactor AccountLinkPrompt (REFACTOR)
+    - Extract API call logic to custom hook
+    - Improve error messaging
+    - Ensure all tests still pass
+
+- [x] 6. Implement API service for account linking (TDD)
+
+  - [x] 6.1 Write unit tests for linkAccounts service (RED)
+    - Test successful API call
+    - Test error handling
+    - Test token inclusion
+    - Tests should fail initially
+    - _Requirements: 7.1, 2.5_
+  - [x] 6.2 Create linkAccounts service function (GREEN)
+    - Create src/services/auth.ts (or update existing)
+    - Implement POST /auth/link-accounts call
+    - Include JWT token in Authorization header
+    - Handle response and errors
+    - Make tests pass
+    - _Requirements: 7.1_
+  - [x] 6.3 Add error handling (GREEN)
+    - Map API error codes to user-friendly messages
+    - Handle network errors
+    - Handle timeout errors
+    - Make error tests pass
+    - _Requirements: 2.5_
+  - [x] 6.4 Refactor linkAccounts service (REFACTOR)
+    - Extract error mapping to separate function
+    - Improve type safety
+    - Ensure tests still pass
+
+- [x] 7. Implement frontend routing logic (TDD)
+
+  - [x] 7.1 Write unit tests for routing logic (RED)
+    - Test redirect when flag is set
+    - Test normal flow when flag is not set
+    - Test post-linking redirect
+    - Tests should fail initially
+    - _Requirements: 3.4, 10.5_
+  - [x] 7.2 Update AuthContext to detect linking flag (GREEN)
+    - Parse custom:pending_link from user attributes
+    - Parse custom:link_target_sub from user attributes
+    - Store in auth context state
+    - Make detection tests pass
+    - _Requirements: 3.4_
+  - [x] 7.3 Create /link-accounts route (GREEN)
+    - Add route to router configuration
+    - Create LinkAccountsPage component
+    - Render AccountLinkPrompt component
+    - Make routing tests pass
+    - _Requirements: 10.1_
+  - [x] 7.4 Implement redirect logic (GREEN)
+    - Check for pending_link flag after authentication
+    - Redirect to /link-accounts if flag is set
+    - Store intended destination in session
+    - Make redirect tests pass
+    - _Requirements: 3.4, 10.5_
+  - [x] 7.5 Implement post-linking redirect (GREEN)
+    - Redirect to intended destination after successful linking
+    - Default to profile page if no destination stored
+    - Make post-linking tests pass
+    - _Requirements: 10.5_
+  - [x] 7.6 Refactor routing logic (REFACTOR)
+    - Extract redirect logic to custom hook
+    - Improve session storage handling
+    - Ensure tests still pass
+
+- [x] 8. Update existing Lambda triggers (TDD)
+
+  - [x] 8.1 Write unit tests for PreSignUp updates (RED)
+    - Test logging when duplicates detected
+    - Test auto-confirm still works
+    - Tests should fail initially
+    - _Requirements: 1.1_
+  - [x] 8.2 Update PreSignUp trigger (GREEN)
+    - Add logging for duplicate detection
+    - Keep existing auto-confirm logic
+    - Make tests pass
+    - _Requirements: 1.1_
+  - [x] 8.3 Refactor PreSignUp (REFACTOR)
+    - Improve logging format
+    - Ensure tests still pass
+
+- [x] 9. Implement profile consistency checks (TDD)
+
+  - [x] 9.1 Write unit tests for profile validation (RED)
+    - Test one profile per Cognito sub validation
+    - Test warning logging for multiple profiles
+    - Tests should fail initially
+    - _Requirements: 5.1, 5.3_
+  - [x] 9.2 Add profile validation in PostAuthentication (GREEN)
+    - Verify one profile per Cognito sub
+    - Log warning if multiple profiles found
+    - Make tests pass
+    - _Requirements: 5.1, 5.3_
+  - [x] 9.3 Refactor profile validation (REFACTOR)
+    - Extract validation to separate function
+    - Ensure tests still pass
+  - [ ]\* 9.4 Write property test for single profile invariant
+    - **Property 3: Single profile per Cognito user**
+    - **Validates: Requirements 5.1, 5.3**
+  - [ ]\* 9.5 Write property test for auth method consistency
+    - **Property 4: Authentication method consistency**
+    - **Validates: Requirements 2.4**
+
+- [ ] 10. Checkpoint - Ensure all tests pass
+
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 11. Add monitoring and logging
+
+  - [ ] 11.1 Add CloudWatch metrics
+    - Duplicate detection rate metric
+    - Linking success rate metric
+    - Linking confirmation rate metric
+    - Error rate metric
+    - _Requirements: 9.1, 9.2, 9.3, 9.4_
+  - [ ] 11.2 Add CloudWatch alarms
+    - High error rate alarm
+    - AdminLinkProviderForUser failure alarm
+    - DynamoDB throttling alarm
+    - _Requirements: 9.1, 9.2, 9.3, 9.4_
+  - [ ] 11.3 Create CloudWatch dashboard
+    - Add duplicate detection events
+    - Add linking API calls and errors
+    - Add profile merge operations
+    - Add user confirmation/decline rates
+    - _Requirements: 9.1, 9.2, 9.3, 9.4_
+  - [ ] 11.4 Enhance error logging
+    - Log all account linking operations with masked emails
+    - Log AdminLinkProviderForUser failures with context
+    - Log security warnings for verification failures
+    - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
+
+- [ ] 12. Write integration tests
+
+  - [ ]\* 12.1 Write end-to-end linking flow test
+    - Create OTP user
+    - Sign in with Google (same email)
+    - Verify linking prompt appears
+    - Confirm linking
+    - Verify single Cognito user with both identities
+    - Sign in with both methods
+    - Verify same profile accessed
+    - _Requirements: 12.1_
+  - [ ]\* 12.2 Write decline linking flow test
+    - Create OTP user
+    - Sign in with Google (same email)
+    - Decline linking
+    - Verify two separate Cognito users exist
+    - Verify two separate profiles exist
+    - _Requirements: 12.1_
+  - [ ]\* 12.3 Write error recovery flow test
+    - Simulate AdminLinkProviderForUser failure
+    - Verify error message displayed
+    - Verify accounts remain separate
+    - Retry linking
+    - Verify success on retry
+    - _Requirements: 12.4_
+  - [ ]\* 12.4 Write property test for email lookup
+    - **Property 6: Email-based profile lookup**
+    - **Validates: Requirements 5.5**
+  - [ ]\* 12.5 Write property test for authMethods update
+    - **Property 8: AuthMethods update after linking**
+    - **Validates: Requirements 7.5**
+  - [ ]\* 12.6 Write property test for identity email consistency
+    - **Property 9: Identity email consistency**
+    - **Validates: Requirements 8.1**
+  - [ ]\* 12.7 Write property test for identities claim completeness
+    - **Property 10: Identities claim completeness**
+    - **Validates: Requirements 8.3**
+  - [ ]\* 12.8 Write property test for provider identification
+    - **Property 11: Provider identification**
+    - **Validates: Requirements 8.4**
+  - [ ]\* 12.9 Write property test for trusted provider restriction
+    - **Property 13: Trusted provider restriction**
+    - **Validates: Requirements 11.5**
+
+- [ ] 13. Final checkpoint - Ensure all tests pass
+
+  - Ensure all tests pass, ask the user if questions arise.
+
+- [ ] 14. Documentation and deployment preparation
+  - [ ] 14.1 Update README with account linking feature
+    - Document user flow
+    - Document API endpoints
+    - Document configuration requirements
+  - [ ] 14.2 Create deployment runbook
+    - Document deployment steps
+    - Document rollback procedure
+    - Document monitoring checklist
+  - [ ] 14.3 Create user guide
+    - Explain account linking benefits
+    - Show screenshots of linking prompt
+    - Provide troubleshooting tips

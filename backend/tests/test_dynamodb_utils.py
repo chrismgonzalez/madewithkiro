@@ -4,10 +4,12 @@ Tests for DynamoDB utility functions
 import pytest
 from datetime import datetime
 from decimal import Decimal
+from unittest.mock import Mock, patch
 from shared.dynamodb_utils import (
     get_timestamp,
     decimal_to_float,
-    clean_dynamodb_item
+    clean_dynamodb_item,
+    query_profile_by_email
 )
 
 
@@ -115,3 +117,81 @@ class TestCleanDynamoDBItem:
         assert 'PK' not in result
         assert result['rating'] == 4.5
         assert isinstance(result['rating'], float)
+
+
+class TestQueryProfileByEmail:
+    """Tests for querying profiles by email using GSI1"""
+    
+    def test_query_profile_by_email_found(self):
+        """Test querying profile by email when profile exists"""
+        with patch('shared.dynamodb_utils.table') as mock_table:
+            mock_table.query.return_value = {
+                'Items': [{
+                    'PK': 'USER#123',
+                    'SK': 'PROFILE',
+                    'GSI1PK': 'EMAIL#user@example.com',
+                    'GSI1SK': 'PROFILE',
+                    'userId': '123',
+                    'email': 'user@example.com',
+                    'firstName': 'John',
+                    'lastName': 'Doe',
+                    'authMethods': ['google']
+                }]
+            }
+            
+            result = query_profile_by_email('user@example.com')
+            
+            assert result is not None
+            assert result['userId'] == '123'
+            assert result['email'] == 'user@example.com'
+            assert result['authMethods'] == ['google']
+            
+            # Verify query was called with correct parameters
+            mock_table.query.assert_called_once()
+            call_kwargs = mock_table.query.call_args[1]
+            assert call_kwargs['IndexName'] == 'GSI1'
+            assert call_kwargs['ExpressionAttributeValues'][':gsi1pk'] == 'EMAIL#user@example.com'
+            assert call_kwargs['ExpressionAttributeValues'][':gsi1sk'] == 'PROFILE'
+    
+    def test_query_profile_by_email_not_found(self):
+        """Test querying profile by email when profile doesn't exist"""
+        with patch('shared.dynamodb_utils.table') as mock_table:
+            mock_table.query.return_value = {'Items': []}
+            
+            result = query_profile_by_email('nonexistent@example.com')
+            
+            assert result is None
+    
+    def test_query_profile_by_email_multiple_found(self):
+        """Test querying profile by email when multiple profiles found (should log warning)"""
+        with patch('shared.dynamodb_utils.table') as mock_table, \
+             patch('shared.dynamodb_utils.logger') as mock_logger:
+            mock_table.query.return_value = {
+                'Items': [
+                    {
+                        'PK': 'USER#123',
+                        'SK': 'PROFILE',
+                        'userId': '123',
+                        'email': 'user@example.com',
+                        'authMethods': ['google']
+                    },
+                    {
+                        'PK': 'USER#456',
+                        'SK': 'PROFILE',
+                        'userId': '456',
+                        'email': 'user@example.com',
+                        'authMethods': ['email']
+                    }
+                ]
+            }
+            
+            result = query_profile_by_email('user@example.com')
+            
+            # Should return first profile
+            assert result is not None
+            assert result['userId'] == '123'
+            
+            # Should log warning about multiple profiles
+            mock_logger.warning.assert_called_once()
+            warning_call = mock_logger.warning.call_args
+            assert 'Multiple profiles' in warning_call[1]['message']

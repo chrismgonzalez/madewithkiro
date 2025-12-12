@@ -8,11 +8,13 @@
  */
 export interface UserProfile {
   userId: string;
+  email?: string;
   firstName: string;
   lastName: string;
   awsBuilderHandle: string;
   linkedInUsername?: string;
   githubUsername?: string;
+  authMethods?: string[];
   createdAt: string;
   updatedAt: string;
 }

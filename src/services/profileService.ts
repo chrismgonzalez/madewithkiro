@@ -166,9 +166,78 @@ class ProfileService {
     const { userId, ...updateData } = data;
 
     const response = await this.apiClient.put<UserProfile>(
-      `/profile/${userId}`,
+      `/profile`,
       updateData
     );
+
+    if (response.error) {
+      throw new ApiClientError(
+        response.error.message,
+        response.error.code,
+        response.error.status,
+        response.error.details
+      );
+    }
+
+    if (!response.data) {
+      throw new ApiClientError("No profile data returned", "NO_DATA", 500);
+    }
+
+    return response.data;
+  }
+
+  /**
+   * Check if a profile exists for a given email
+   *
+   * Makes a GET request to `/profile/check-email?email={email}`.
+   * Returns the profile if found, null if not found.
+   *
+   * @param email - The email address to check
+   * @returns Promise resolving to the user profile or null
+   * @throws ApiClientError if the request fails
+   */
+  async checkProfileByEmail(email: string): Promise<UserProfile | null> {
+    try {
+      const response = await this.apiClient.get<UserProfile>(
+        `/profile/check-email?email=${encodeURIComponent(email)}`
+      );
+
+      if (response.error) {
+        if (response.error.status === 404) {
+          return null;
+        }
+        throw new ApiClientError(
+          response.error.message,
+          response.error.code,
+          response.error.status,
+          response.error.details
+        );
+      }
+
+      return response.data || null;
+    } catch (error) {
+      if (error instanceof ApiClientError && error.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Link current user account to an existing profile
+   *
+   * Makes a POST request to `/profile/link` to link the current authenticated
+   * user to an existing profile. This allows users to sign in with multiple
+   * authentication methods (e.g., OTP and Google) and access the same profile.
+   *
+   * @param existingUserId - The user ID of the existing profile to link to
+   * @returns Promise resolving to the linked profile
+   * @throws ApiClientError if the request fails
+   */
+  async linkAccounts(existingUserId: string): Promise<UserProfile> {
+    const response = await this.apiClient.post<UserProfile>("/profile/link", {
+      existingUserId,
+    });
 
     if (response.error) {
       throw new ApiClientError(

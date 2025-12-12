@@ -346,3 +346,56 @@ invalidate-cloudfront-prod: ## Invalidate CloudFront cache (prod)
 	else \
 		echo "$(YELLOW)No CloudFront distribution found. Custom domain not configured.$(NC)"; \
 	fi
+
+ses-dns-records: ## Get SES DNS records for domain configuration
+	@echo "$(BLUE)Retrieving SES DNS records...$(NC)"
+	@./scripts/get-ses-dns-records.sh madewithkiro.com us-west-2
+
+ses-verify-domain: ## Verify SES domain configuration status
+	@echo "$(BLUE)Checking SES domain verification status...$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Domain Verification:$(NC)"
+	@aws ses get-identity-verification-attributes --identities madewithkiro.com --region us-west-2 --output table 2>/dev/null || echo "$(RED)Domain not found in SES$(NC)"
+	@echo ""
+	@echo "$(YELLOW)DKIM Status:$(NC)"
+	@aws ses get-identity-dkim-attributes --identities madewithkiro.com --region us-west-2 --output table 2>/dev/null || echo "$(RED)DKIM not configured$(NC)"
+
+ses-verify-email-dev: ## Verify SES email identity for dev (noreply-dev@madewithkiro.com)
+	@echo "$(BLUE)Verifying dev email identity: noreply-dev@madewithkiro.com$(NC)"
+	@aws ses verify-email-identity --email-address noreply-dev@madewithkiro.com --region us-west-2
+	@echo "$(GREEN)✓ Verification email sent$(NC)"
+	@echo "$(YELLOW)Check the inbox for noreply-dev@madewithkiro.com and click the verification link$(NC)"
+
+ses-verify-email-prod: ## Verify SES email identity for prod (noreply@madewithkiro.com)
+	@echo "$(BLUE)Verifying prod email identity: noreply@madewithkiro.com$(NC)"
+	@aws ses verify-email-identity --email-address noreply@madewithkiro.com --region us-west-2
+	@echo "$(GREEN)✓ Verification email sent$(NC)"
+	@echo "$(YELLOW)Check the inbox for noreply@madewithkiro.com and click the verification link$(NC)"
+
+ses-verify-email: ses-verify-email-dev ## Verify SES email identity (defaults to dev)
+
+ses-test-email: ## Send test OTP email
+	@echo "$(BLUE)Sending test OTP email...$(NC)"
+	@if [ -z "$$TEST_EMAIL" ]; then \
+		echo "$(RED)✗ Missing TEST_EMAIL environment variable$(NC)"; \
+		echo ""; \
+		echo "$(YELLOW)Usage:$(NC)"; \
+		echo "  TEST_EMAIL=your-email@example.com make ses-test-email"; \
+		exit 1; \
+	fi
+	@aws ses send-templated-email \
+		--source "MadeWithKiro <noreply@madewithkiro.com>" \
+		--destination "ToAddresses=$$TEST_EMAIL" \
+		--template MadeWithKiro-OTP-dev \
+		--template-data '{"code":"123456","expiresIn":"10"}' \
+		--region us-west-2
+	@echo "$(GREEN)✓ Test email sent to $$TEST_EMAIL$(NC)"
+
+ses-status: ## Show SES account status and metrics
+	@echo "$(BLUE)SES Account Status:$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Sending Quota:$(NC)"
+	@aws ses get-send-quota --region us-west-2 --output table 2>/dev/null || echo "$(RED)Could not retrieve quota$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Account Status:$(NC)"
+	@aws ses get-account --region us-west-2 --output table 2>/dev/null || echo "$(RED)Could not retrieve account status$(NC)"

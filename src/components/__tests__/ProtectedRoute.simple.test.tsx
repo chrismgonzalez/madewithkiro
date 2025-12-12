@@ -23,9 +23,12 @@ describe("ProtectedRoute - Simple Tests", () => {
       isAuthenticated: true,
       isLoading: false,
       signInWithGoogle: vi.fn(),
-      signInWithGitHub: vi.fn(),
+      signInWithOTP: vi.fn(),
+      confirmOTP: vi.fn(),
       signOut: vi.fn(),
       refreshSession: vi.fn(),
+      requestOTP: vi.fn(),
+      verifyOTP: vi.fn(),
     });
 
     // Act
@@ -46,9 +49,12 @@ describe("ProtectedRoute - Simple Tests", () => {
       isAuthenticated: false,
       isLoading: true,
       signInWithGoogle: vi.fn(),
-      signInWithGitHub: vi.fn(),
+      signInWithOTP: vi.fn(),
+      confirmOTP: vi.fn(),
       signOut: vi.fn(),
       refreshSession: vi.fn(),
+      requestOTP: vi.fn(),
+      verifyOTP: vi.fn(),
     });
 
     // Act
@@ -69,9 +75,12 @@ describe("ProtectedRoute - Simple Tests", () => {
       isAuthenticated: false,
       isLoading: false,
       signInWithGoogle: vi.fn(),
-      signInWithGitHub: vi.fn(),
+      signInWithOTP: vi.fn(),
+      confirmOTP: vi.fn(),
       signOut: vi.fn(),
       refreshSession: vi.fn(),
+      requestOTP: vi.fn(),
+      verifyOTP: vi.fn(),
     });
 
     // Act

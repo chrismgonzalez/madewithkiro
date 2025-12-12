@@ -54,6 +54,16 @@ Parameters:
     Type: String
     Description: SSM Parameter name containing Google OAuth Client Secret (environment-specific)
 
+  SESEmailIdentity:
+    Type: String
+    Description: Email address for sending OTP codes (e.g., noreply@madewithkiro.com)
+    Default: noreply@madewithkiro.com
+
+  SESDomainName:
+    Type: String
+    Description: Domain name for SES email sending (e.g., madewithkiro.com)
+    Default: madewithkiro.com
+
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref DomainName, ""]]
   HasCertificate: !Not [!Equals [!Ref CertificateArn, ""]]
@@ -76,7 +86,6 @@ Globals:
     Environment:
       Variables:
         TABLE_NAME: !Ref MadeWithKiroTable
-        COGNITO_USER_POOL_ID: !Ref CognitoUserPool
         ENVIRONMENT: !Ref Environment
         ALLOWED_ORIGINS: !If
           - IsProduction
@@ -90,7 +99,8 @@ Globals:
       AllowOrigin: !If
         - IsProduction
         - !Sub "'https://${DomainName}'"
-        - "'http://localhost:5173'"
+        - !Sub "'https://${CloudFrontDistribution.DomainName}'"
+      AllowCredentials: true
 
 Resources:
   # DynamoDB Table with Single-Table Design
@@ -132,6 +142,440 @@ Resources:
         - Key: Application
           Value: MadeWithKiro
 
+  # SES Email Identity for OTP Codes
+  SESEmailIdentityResource:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref SESEmailIdentity
+      DkimSigningAttributes:
+        NextSigningKeyLength: RSA_2048_BIT
+      FeedbackAttributes:
+        EmailForwardingEnabled: false
+      MailFromAttributes:
+        MailFromDomain: !Sub mail.${SESDomainName}
+        BehaviorOnMxFailure: USE_DEFAULT_VALUE
+
+  # SES Configuration Set for OTP Emails
+  SESConfigurationSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: !Sub MadeWithKiro-OTP-${Environment}
+      SendingOptions:
+        SendingEnabled: true
+      ReputationOptions:
+        ReputationMetricsEnabled: true
+      SuppressionOptions:
+        SuppressedReasons:
+          - BOUNCE
+          - COMPLAINT
+
+  # SES Email Template for OTP Codes
+  SESEmailTemplate:
+    Type: AWS::SES::Template
+    Properties:
+      Template:
+        TemplateName: !Sub MadeWithKiro-OTP-${Environment}
+        SubjectPart: Your MadeWithKiro verification code
+        TextPart: |
+          Your verification code is: {{code}}
+
+          This code will expire in {{expiresIn}} minutes.
+
+          If you didn't request this code, please ignore this email.
+
+          Do not share this code with anyone.
+
+          ---
+          MadeWithKiro - Showcase your Kiro creations
+          https://madewithkiro.com
+        HtmlPart: |
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Your Verification Code</title>
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">MadeWithKiro</h1>
+            </div>
+            <div style="background: #ffffff; padding: 40px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
+              <h2 style="color: #333; margin-top: 0;">Your verification code is:</h2>
+              <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; margin: 30px 0;">
+                <h1 style="font-size: 48px; letter-spacing: 12px; font-family: 'Courier New', monospace; color: #667eea; margin: 0;">{{code}}</h1>
+              </div>
+              <p style="color: #666; font-size: 14px; margin: 20px 0;">This code will expire in <strong>{{expiresIn}} minutes</strong>.</p>
+              <p style="color: #666; font-size: 14px;">If you didn't request this code, please ignore this email.</p>
+              <p style="color: #d32f2f; font-size: 14px; font-weight: bold;">⚠️ Do not share this code with anyone.</p>
+            </div>
+            <div style="text-align: center; margin-top: 30px; padding: 20px; color: #999; font-size: 12px;">
+              <p style="margin: 5px 0;">MadeWithKiro - Showcase your Kiro creations</p>
+              <p style="margin: 5px 0;"><a href="https://madewithkiro.com" style="color: #667eea; text-decoration: none;">https://madewithkiro.com</a></p>
+            </div>
+          </body>
+          </html>
+
+  # OTP Authentication Lambda Functions
+  # These functions handle Cognito custom authentication flow for email OTP
+  # Note: Defined before CognitoUserPool to avoid circular dependencies
+
+  # DefineAuthChallenge Lambda - Determines authentication flow
+  DefineAuthChallengeFunctionForOTP:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-DefineAuthChallenge-${Environment}
+      CodeUri: backend/
+      Handler: auth.define_auth_challenge.lambda_handler
+      Description: Define custom authentication flow and enforce rate limiting
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-DefineAuthChallenge-${Environment}:*
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # CreateAuthChallenge Lambda - Generates and sends OTP codes
+  CreateAuthChallengeFunctionForOTP:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-CreateAuthChallenge-${Environment}
+      CodeUri: backend/
+      Handler: auth.create_auth_challenge.lambda_handler
+      Description: Generate OTP codes and send via SES
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          ENVIRONMENT: !Ref Environment
+          SES_EMAIL_IDENTITY: !Ref SESEmailIdentity
+          SES_TEMPLATE_NAME: !Sub MadeWithKiro-OTP-${Environment}
+          SES_CONFIGURATION_SET: !Ref SESConfigurationSet
+          APP_URL: !If
+            - IsProduction
+            - !Sub "https://${DomainName}"
+            - !Sub "https://${CloudFrontDistribution.DomainName}"
+      Policies:
+        - Statement:
+            - Sid: SESEmailSending
+              Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendTemplatedEmail
+                - ses:SendRawEmail
+              Resource:
+                - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*
+                - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${SESConfigurationSet}
+                - !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:template/MadeWithKiro-OTP-${Environment}
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-CreateAuthChallenge-${Environment}:*
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # VerifyAuthChallenge Lambda - Validates OTP and handles account linking
+  VerifyAuthChallengeFunctionForOTP:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-VerifyAuthChallenge-${Environment}
+      CodeUri: backend/
+      Handler: auth.verify_auth_challenge.lambda_handler
+      Description: Verify OTP codes and link duplicate accounts
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: DynamoDBAccess
+              Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+                - !Sub "${MadeWithKiroTable.Arn}/index/GSI1"
+            - Sid: CognitoUserManagement
+              Effect: Allow
+              Action:
+                - cognito-idp:AdminUpdateUserAttributes
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminSetUserPassword
+                - cognito-idp:AdminLinkProviderForUser
+                - cognito-idp:ListUsers
+              Resource: "*" # Wildcard to avoid circular dependency
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-VerifyAuthChallenge-${Environment}:*
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # PreTokenGeneration Lambda - Adds custom claims for account linking
+  PreTokenGenerationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-PreTokenGeneration-${Environment}
+      CodeUri: backend/
+      Handler: auth.pre_token_generation.lambda_handler
+      Description: Add custom claims to JWT tokens for account linking
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: DynamoDBAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:DeleteItem
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-PreTokenGeneration-${Environment}:*
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # PostAuthentication Lambda - Creates profiles for new OTP users
+  PostAuthenticationFunctionForOTP:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-PostAuthentication-${Environment}
+      CodeUri: backend/
+      Handler: auth.post_authentication.lambda_handler
+      Description: Create user profiles after successful OTP authentication and link duplicate accounts
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: DynamoDBAccess
+              Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+                - !Sub "${MadeWithKiroTable.Arn}/index/GSI1"
+            - Sid: CognitoUserManagement
+              Effect: Allow
+              Action:
+                - cognito-idp:AdminLinkProviderForUser
+                - cognito-idp:AdminDeleteUser
+                - cognito-idp:ListUsers
+                - cognito-idp:AdminGetUser
+              Resource: "*"
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-PostAuthentication-${Environment}:*
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # PreSignUp Lambda - Auto-confirms users for custom auth (OTP)
+  PreSignUpFunctionForOTP:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-PreSignUp-${Environment}
+      CodeUri: backend/
+      Handler: auth.pre_signup.lambda_handler
+      Description: Auto-confirm users for OTP authentication
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-PreSignUp-${Environment}:*
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # Register Lambda - API endpoint for user registration before OTP auth
+  RegisterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-Register-${Environment}
+      CodeUri: backend/
+      Handler: auth.register.lambda_handler
+      Description: Register new users for OTP authentication
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: CognitoUserManagement
+              Effect: Allow
+              Action:
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminCreateUser
+              Resource: !GetAtt CognitoUserPool.Arn
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-Register-${Environment}:*
+      Events:
+        Register:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /auth/register
+            Method: POST
+            Auth:
+              Authorizer: NONE
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # Link Accounts Lambda - API endpoint for user-confirmed account linking
+  LinkAccountsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-LinkAccounts-${Environment}
+      CodeUri: backend/
+      Handler: auth.link_accounts.lambda_handler
+      Description: Execute user-confirmed account linking at Cognito level
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: DynamoDBAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+                - !Sub "${MadeWithKiroTable.Arn}/index/GSI1"
+            - Sid: CognitoAccountLinking
+              Effect: Allow
+              Action:
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminLinkProviderForUser
+                - cognito-idp:AdminSetUserPassword
+              Resource: !GetAtt CognitoUserPool.Arn
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-LinkAccounts-${Environment}:*
+      Events:
+        LinkAccounts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /auth/link-accounts
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
+  # Confirm Link Accounts Lambda - API endpoint for user-confirmed account linking
+  ConfirmLinkAccountsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub MadeWithKiro-ConfirmLinkAccounts-${Environment}
+      CodeUri: backend/
+      Handler: auth.confirm_link_accounts.lambda_handler
+      Description: Execute account linking after user confirmation
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MadeWithKiroTable
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          ENVIRONMENT: !Ref Environment
+      Policies:
+        - Statement:
+            - Sid: DynamoDBAccess
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+                - !Sub "${MadeWithKiroTable.Arn}/index/GSI1"
+            - Sid: CognitoAccountLinking
+              Effect: Allow
+              Action:
+                - cognito-idp:AdminGetUser
+                - cognito-idp:AdminLinkProviderForUser
+                - cognito-idp:AdminDeleteUser
+              Resource: !GetAtt CognitoUserPool.Arn
+            - Sid: CloudWatchLogsAccess
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/MadeWithKiro-ConfirmLinkAccounts-${Environment}:*
+      Events:
+        ConfirmLink:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /auth/confirm-link
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+      Tags:
+        Environment: !Ref Environment
+        Application: MadeWithKiro
+
   # Cognito User Pool
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
@@ -140,7 +584,7 @@ Resources:
       # Social auth only - no password policy needed
       AutoVerifiedAttributes:
         - email
-      # Standard attributes for social auth
+      # Standard attributes for social auth and custom attributes for OTP
       Schema:
         - Name: email
           AttributeDataType: String
@@ -158,6 +602,34 @@ Resources:
           AttributeDataType: String
           Required: false
           Mutable: true
+        # Custom attributes for account linking
+        - Name: auth_methods
+          AttributeDataType: String
+          Mutable: true
+        - Name: linked_account
+          AttributeDataType: String
+          Mutable: true
+        # Custom attributes for Cognito-level account linking
+        - Name: pending_link
+          AttributeDataType: String
+          Mutable: true
+        - Name: link_target_sub
+          AttributeDataType: String
+          Mutable: true
+      # Email configuration for OTP delivery
+      EmailConfiguration:
+        EmailSendingAccount: DEVELOPER
+        SourceArn: !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${SESEmailIdentity}
+        From: !Sub MadeWithKiro <${SESEmailIdentity}>
+        ReplyToEmailAddress: !Ref SESEmailIdentity
+      # Lambda triggers for custom authentication
+      LambdaConfig:
+        PreSignUp: !GetAtt PreSignUpFunctionForOTP.Arn
+        DefineAuthChallenge: !GetAtt DefineAuthChallengeFunctionForOTP.Arn
+        CreateAuthChallenge: !GetAtt CreateAuthChallengeFunctionForOTP.Arn
+        VerifyAuthChallengeResponse: !GetAtt VerifyAuthChallengeFunctionForOTP.Arn
+        PostAuthentication: !GetAtt PostAuthenticationFunctionForOTP.Arn
+        PreTokenGeneration: !GetAtt PreTokenGenerationFunction.Arn
       UserPoolTags:
         Environment: !Ref Environment
         Application: MadeWithKiro
@@ -193,6 +665,7 @@ Resources:
       ExplicitAuthFlows:
         - ALLOW_USER_SRP_AUTH
         - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_CUSTOM_AUTH # Enable custom authentication for OTP
       PreventUserExistenceErrors: ENABLED
       AllowedOAuthFlows:
         - code
@@ -296,6 +769,50 @@ Resources:
                 # Note: cognito-identity actions require wildcard resource
                 # This is AWS-recommended pattern for Cognito Identity Pool roles
 
+  # Lambda Permissions for Cognito to invoke OTP authentication functions
+  # Note: SourceArn is omitted to avoid circular dependency with CognitoUserPool
+  DefineAuthChallengePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DefineAuthChallengeFunctionForOTP
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+
+  CreateAuthChallengePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CreateAuthChallengeFunctionForOTP
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+
+  VerifyAuthChallengePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref VerifyAuthChallengeFunctionForOTP
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+
+  PreSignUpPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PreSignUpFunctionForOTP
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+
+  PostAuthenticationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PostAuthenticationFunctionForOTP
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+
+  PreTokenGenerationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PreTokenGenerationFunction
+      Principal: cognito-idp.amazonaws.com
+      Action: lambda:InvokeFunction
+
   # API Gateway
   MadeWithKiroApi:
     Type: AWS::Serverless::Api
@@ -311,7 +828,11 @@ Resources:
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
-        AllowOrigin: "'*'"
+        AllowOrigin: !If
+          - IsProduction
+          - !Sub "'https://${DomainName}'"
+          - !Sub "'https://${CloudFrontDistribution.DomainName}'"
+        AllowCredentials: true
       # Rate Limiting and Throttling Configuration
       # Dev environment: Higher limits for testing and development
       # Prod environment: Standard limits to prevent abuse
@@ -353,6 +874,14 @@ Resources:
           HttpMethod: "PUT"
           ThrottlingRateLimit: !If [IsProduction, 50, 250] # Standard for profile updates (prod: 50, dev: 250)
           ThrottlingBurstLimit: !If [IsProduction, 100, 500] # (prod: 100, dev: 500)
+        - ResourcePath: "/profile/check-email"
+          HttpMethod: "GET"
+          ThrottlingRateLimit: !If [IsProduction, 100, 500] # Check email lookups (prod: 100, dev: 500)
+          ThrottlingBurstLimit: !If [IsProduction, 200, 1000] # (prod: 200, dev: 1000)
+        - ResourcePath: "/profile/link"
+          HttpMethod: "POST"
+          ThrottlingRateLimit: !If [IsProduction, 10, 50] # Account linking (prod: 10, dev: 50)
+          ThrottlingBurstLimit: !If [IsProduction, 20, 100] # (prod: 20, dev: 100)
         # Delete operations - Lower limits for safety
         - ResourcePath: "/applications/{appId}"
           HttpMethod: "DELETE"
@@ -369,7 +898,11 @@ Resources:
       FunctionName: !Sub MadeWithKiro-Profile-${Environment}
       CodeUri: backend/
       Handler: profile.handler.lambda_handler
-      Description: Handle profile operations (create, read, update)
+      Description: Handle profile operations (create, read, update, link accounts)
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+          USER_POOL_ID: !Ref CognitoUserPool
       Policies:
         # Least-privilege IAM policy for profile operations
         # Allows: GetItem, PutItem, UpdateItem on specific table
@@ -382,10 +915,18 @@ Resources:
                 - dynamodb:GetItem # Read user profile
                 - dynamodb:PutItem # Create new profile
                 - dynamodb:UpdateItem # Update existing profile
-              Resource: !GetAtt MadeWithKiroTable.Arn
+                - dynamodb:Query # Query profiles by email using GSI1
+              Resource:
+                - !GetAtt MadeWithKiroTable.Arn
+                - !Sub "${MadeWithKiroTable.Arn}/index/GSI1" # GSI1 for email lookups
               # Note: Condition keys for user-specific access would require
               # Cognito integration to pass userId in request context
               # For now, application logic enforces user-specific access
+            - Sid: ProfileCognitoAccess
+              Effect: Allow
+              Action:
+                - cognito-idp:AdminUpdateUserAttributes # Update user attributes for account linking
+              Resource: !GetAtt CognitoUserPool.Arn
         # CloudWatch Logs permissions (automatically added by SAM)
         # Allows: CreateLogGroup, CreateLogStream, PutLogEvents
       Events:
@@ -413,6 +954,14 @@ Resources:
             Method: PUT
             Auth:
               Authorizer: CognitoAuthorizer
+        CheckProfileByEmail:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /profile/check-email
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
       Tags:
         Environment: !Ref Environment
         Application: MadeWithKiro
@@ -425,6 +974,9 @@ Resources:
       CodeUri: backend/
       Handler: application.handler.lambda_handler
       Description: Handle application operations (create, list, query)
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref CognitoUserPool
       Policies:
         # Least-privilege IAM policy for application operations
         # Allows: GetItem, PutItem, UpdateItem, DeleteItem, Query, Scan
@@ -813,3 +1365,45 @@ Outputs:
     Value: !Ref CloudFrontResponseHeadersPolicy
     Export:
       Name: !Sub ${AWS::StackName}-ResponseHeadersPolicyId
+
+  SESEmailIdentity:
+    Description: SES Email Identity for OTP codes
+    Value: !Ref SESEmailIdentity
+    Export:
+      Name: !Sub ${AWS::StackName}-SESEmailIdentity
+
+  SESConfigurationSet:
+    Description: SES Configuration Set for OTP emails
+    Value: !Ref SESConfigurationSet
+    Export:
+      Name: !Sub ${AWS::StackName}-SESConfigurationSet
+
+  SESEmailTemplate:
+    Description: SES Email Template for OTP codes
+    Value: !Sub MadeWithKiro-OTP-${Environment}
+    Export:
+      Name: !Sub ${AWS::StackName}-SESEmailTemplate
+
+  DefineAuthChallengeFunctionArn:
+    Description: DefineAuthChallenge Lambda Function ARN
+    Value: !GetAtt DefineAuthChallengeFunctionForOTP.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-DefineAuthChallengeFunctionArn
+
+  CreateAuthChallengeFunctionArn:
+    Description: CreateAuthChallenge Lambda Function ARN
+    Value: !GetAtt CreateAuthChallengeFunctionForOTP.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-CreateAuthChallengeFunctionArn
+
+  VerifyAuthChallengeFunctionArn:
+    Description: VerifyAuthChallenge Lambda Function ARN
+    Value: !GetAtt VerifyAuthChallengeFunctionForOTP.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-VerifyAuthChallengeFunctionArn
+
+  PreSignUpFunctionArn:
+    Description: PreSignUp Lambda Function ARN
+    Value: !GetAtt PreSignUpFunctionForOTP.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-PreSignUpFunctionArn

@@ -96,10 +96,12 @@ class TestSeedScript:
         
         assert len(app_calls) >= 10, f"Should create at least 10 applications, got {len(app_calls)}"
         
-        # Verify all apps are associated with test user
-        for call in app_calls:
-            app_item = call[1]['Item']
-            assert app_item['userId'] == 'test-user-001'
+        # Verify at least 10 apps are associated with test-user-001
+        user1_app_calls = [
+            call for call in app_calls
+            if call[1]['Item'].get('userId') == 'test-user-001'
+        ]
+        assert len(user1_app_calls) >= 10, f"Should create at least 10 applications for test-user-001, got {len(user1_app_calls)}"
     
     def test_includes_applications_with_various_tags(self, mock_boto3_resource, mock_dynamodb_table):
         """

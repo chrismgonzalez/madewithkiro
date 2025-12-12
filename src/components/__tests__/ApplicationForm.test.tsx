@@ -47,7 +47,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
         ).toBeInTheDocument();
       });
       expect(screen.getByText(/description is required/i)).toBeInTheDocument();
-      expect(screen.getByText(/must be a valid url/i)).toBeInTheDocument();
+      expect(screen.getByText(/GitHub URL is required/i)).toBeInTheDocument();
       expect(
         screen.getByText(/at least one tag is required/i)
       ).toBeInTheDocument();
@@ -77,7 +77,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
           screen.getByText(/description is required/i)
         ).toBeInTheDocument();
       });
-      expect(screen.getByText(/must be a valid url/i)).toBeInTheDocument();
+      expect(screen.getByText(/GitHub URL is required/i)).toBeInTheDocument();
       expect(
         screen.getByText(/at least one tag is required/i)
       ).toBeInTheDocument();
@@ -121,7 +121,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
 
       // Assert - Should see URL validation error
       await waitFor(() => {
-        expect(screen.getByText(/must be a valid url/i)).toBeInTheDocument();
+        expect(screen.getByText(/Must be a valid URL/i)).toBeInTheDocument();
       });
 
       expect(onSubmit).not.toHaveBeenCalled();
@@ -160,7 +160,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
 
       // Assert - Should see URL validation error for GitHub URL
       await waitFor(() => {
-        expect(screen.getByText(/must be a valid url/i)).toBeInTheDocument();
+        expect(screen.getByText(/Must be a valid URL/i)).toBeInTheDocument();
       });
 
       expect(onSubmit).not.toHaveBeenCalled();
@@ -285,7 +285,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
 
       // Wait for validation errors
       await waitFor(() => {
-        expect(screen.getByText(/must be a valid url/i)).toBeInTheDocument();
+        expect(screen.getByText(/GitHub URL is required/i)).toBeInTheDocument();
       });
 
       // Assert - Form state should be preserved
@@ -446,7 +446,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
 
         // Assert - Should see validation error
         await waitFor(() => {
-          expect(screen.getByText(/must be a valid url/i)).toBeInTheDocument();
+          expect(screen.getByText(/Must be a valid URL/i)).toBeInTheDocument();
         });
       });
     });
