@@ -143,17 +143,18 @@ Resources:
           Value: MadeWithKiro
 
   # SES Email Identity for OTP Codes
-  SESEmailIdentityResource:
-    Type: AWS::SES::EmailIdentity
-    Properties:
-      EmailIdentity: !Ref SESEmailIdentity
-      DkimSigningAttributes:
-        NextSigningKeyLength: RSA_2048_BIT
-      FeedbackAttributes:
-        EmailForwardingEnabled: false
-      MailFromAttributes:
-        MailFromDomain: !Sub mail.${SESDomainName}
-        BehaviorOnMxFailure: USE_DEFAULT_VALUE
+  # Note: Using existing verified email identity instead of creating new one
+  # SESEmailIdentityResource:
+  #   Type: AWS::SES::EmailIdentity
+  #   Properties:
+  #     EmailIdentity: !Ref SESEmailIdentity
+  #     DkimSigningAttributes:
+  #       NextSigningKeyLength: RSA_2048_BIT
+  #     FeedbackAttributes:
+  #       EmailForwardingEnabled: false
+  #     MailFromAttributes:
+  #       MailFromDomain: !Sub mail.${SESDomainName}
+  #       BehaviorOnMxFailure: USE_DEFAULT_VALUE
 
   # SES Configuration Set for OTP Emails
   SESConfigurationSet:
