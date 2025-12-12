@@ -17,6 +17,10 @@ export default function CreateProfilePage() {
 
   const handleSubmit = async (data: ProfileFormData) => {
     try {
+      if (!user?.userId) {
+        throw new Error("User ID not found. Please sign in again.");
+      }
+
       const profileData = {
         firstName: data.firstName,
         lastName: data.lastName,
@@ -25,13 +29,28 @@ export default function CreateProfilePage() {
         githubUsername: data.githubUsername,
       };
 
-      await profileService.createProfile(profileData);
+      // Check if profile exists to determine whether to create or update
+      // OTP users have profiles created during authentication (use PUT)
+      // Social auth users don't have profiles yet (use POST)
+      let savedProfile;
+      try {
+        await profileService.getProfile(user.userId);
+        // Profile exists, update it
+        savedProfile = await profileService.updateProfile({
+          userId: user.userId,
+          ...profileData,
+        });
+      } catch (error) {
+        // Profile doesn't exist, create it
+        savedProfile = await profileService.createProfile(profileData);
+      }
 
-      navigate({ to: `/profile/${user?.userId}` });
+      // Use the saved profile's userId (handles linked accounts)
+      navigate({ to: `/profile/${savedProfile.userId}` });
     } catch (error) {
-      console.error("Failed to create profile:", error);
+      console.error("Failed to save profile:", error);
       alert(
-        `Failed to create profile: ${
+        `Failed to save profile: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
@@ -46,7 +65,7 @@ export default function CreateProfilePage() {
     <div className="w-full max-w-4xl mx-auto px-4 py-8">
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Welcome! Let's create your profile</CardTitle>
+          <CardTitle>Welcome! Complete your profile</CardTitle>
           <CardDescription>
             Tell us a bit about yourself to get started on MadeWithKiro
           </CardDescription>

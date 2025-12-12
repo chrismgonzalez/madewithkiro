@@ -59,11 +59,13 @@ class UpdateProfileRequest(BaseModel):
 class UserProfile(BaseModel):
     """User profile data model"""
     userId: str
+    email: str
     firstName: str
     lastName: str
     awsBuilderHandle: str
     linkedInUsername: Optional[str] = None
     githubUsername: Optional[str] = None
+    authMethods: List[str] = Field(default_factory=lambda: ["google"], description="Authentication methods used by the user (e.g., 'google', 'email')")
     createdAt: str
     updatedAt: str
 
@@ -73,7 +75,7 @@ class CreateApplicationRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="Application name")
     description: str = Field(..., min_length=1, max_length=500, description="Application description")
     appUrl: Optional[HttpUrl] = Field(None, description="Live application URL (optional)")
-    githubUrl: HttpUrl = Field(..., description="GitHub repository URL (required)")
+    githubUrl: Optional[HttpUrl] = Field(None, description="GitHub repository URL (optional)")
     tags: List[str] = Field(..., min_length=1, max_length=10, description="Application tags")
     userId: Optional[str] = Field(None, description="User ID (for POC without Cognito)")
     

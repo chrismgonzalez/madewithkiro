@@ -34,7 +34,7 @@ export default function LandingPage() {
             asChild
             className="min-h-[52px] sm:min-h-[56px] text-base sm:text-lg px-8 sm:px-12 w-full sm:w-auto"
           >
-            <Link to="/auth">Sign In to Get Started</Link>
+            <Link to="/login">Sign In to Get Started</Link>
           </Button>
           <Button
             size="lg"

@@ -64,10 +64,12 @@ export default function AuthCallbackPage() {
    */
   const handleSuccessfulAuth = async () => {
     let userId: string | undefined;
+    let email: string | undefined;
     try {
       await getCurrentUser();
       const attributes = await fetchUserAttributes();
       userId = attributes.sub;
+      email = attributes.email;
     } catch (error) {
       console.error("Error getting current user:", error);
     }
@@ -85,6 +87,27 @@ export default function AuthCallbackPage() {
       navigate({ to: redirectTo, replace: true });
     } catch (error: any) {
       if (error.status === 404) {
+        // Profile not found for this user ID
+        // Check if a profile exists for this email (different auth method)
+        if (email) {
+          try {
+            const existingProfile = await profileService.checkProfileByEmail(
+              email
+            );
+            if (existingProfile) {
+              // Found existing profile with same email, offer to link accounts
+              navigate({ to: "/link-account", replace: true });
+              return;
+            }
+          } catch (emailCheckError) {
+            console.error(
+              "Error checking for existing profile:",
+              emailCheckError
+            );
+          }
+        }
+
+        // No existing profile found, create new one
         navigate({ to: "/create-profile", replace: true });
       } else {
         console.error("Unexpected error, redirecting to home:", error);
@@ -130,7 +153,7 @@ export default function AuthCallbackPage() {
    * Navigates back to the auth page to allow user to try again.
    */
   const handleRetry = () => {
-    navigate({ to: "/auth", replace: true });
+    navigate({ to: "/login", replace: true });
   };
 
   // Display error state if OAuth error occurred

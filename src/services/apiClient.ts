@@ -368,8 +368,8 @@ export class ApiClient {
       // Retry the original request
       return this.makeRequest<T>(options, 0);
     } catch (error) {
-      // Refresh failed, redirect to auth
-      window.location.href = "/auth";
+      // Refresh failed, redirect to login
+      window.location.href = "/login";
       throw new ApiClientError("Authentication required", "UNAUTHORIZED", 401);
     }
   }

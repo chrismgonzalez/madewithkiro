@@ -72,6 +72,15 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     )
     
     try:
+        # Handle OPTIONS preflight requests
+        if http_method == 'OPTIONS':
+            from shared.cors_utils import get_cors_headers
+            return {
+                'statusCode': 200,
+                'headers': get_cors_headers(event),
+                'body': ''
+            }
+        
         if http_method == 'GET':
             if app_id:
                 # Get single application

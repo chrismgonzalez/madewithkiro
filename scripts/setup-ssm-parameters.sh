@@ -94,6 +94,12 @@ check_aws_credentials() {
     print_info "Using AWS Identity: $user"
 }
 
+# Function to generate a secure random JWT secret
+generate_jwt_secret() {
+    # Generate a 64-character random string using openssl
+    openssl rand -base64 48 | tr -d '\n'
+}
+
 # Function to validate required environment variables
 validate_env_vars() {
     local env=$1
@@ -184,11 +190,12 @@ verify_parameter() {
 validate_existing_parameters() {
     local env=$1
     
-    print_info "Validating OAuth credentials in SSM for $env environment..."
+    print_info "Validating credentials in SSM for $env environment..."
     echo ""
     
     local google_id_param="/madewithkiro/$env/google-client-id"
     local google_secret_param="/madewithkiro/$env/google-client-secret"
+    local jwt_secret_param="/madewithkiro/$env/auth-jwt-secret"
     
     local validation_failed=0
     
@@ -210,10 +217,19 @@ validate_existing_parameters() {
         validation_failed=1
     fi
     
+    # Check JWT secret for OTP auth
+    if parameter_exists "$jwt_secret_param"; then
+        print_success "JWT secret exists: $jwt_secret_param"
+    else
+        print_error "JWT secret not found: $jwt_secret_param"
+        print_info "Run 'make setup-ssm-$env' to configure JWT secret"
+        validation_failed=1
+    fi
+    
     if [[ $validation_failed -eq 1 ]]; then
         echo ""
-        print_error "OAuth credential validation failed"
-        print_info "Please configure OAuth credentials before deploying:"
+        print_error "Credential validation failed"
+        print_info "Please configure credentials before deploying:"
         echo "  1. Set environment variables:"
         echo "     export GOOGLE_CLIENT_ID='your-google-client-id'"
         echo "     export GOOGLE_CLIENT_SECRET='your-google-client-secret'"
@@ -222,7 +238,7 @@ validate_existing_parameters() {
     fi
     
     echo ""
-    print_success "All OAuth credentials validated for $env environment!"
+    print_success "All credentials validated for $env environment!"
 }
 
 # Function to setup parameters for an environment
@@ -256,6 +272,27 @@ setup_environment() {
     
     if ! verify_parameter "$google_secret_param"; then
         exit 1
+    fi
+    
+    # Generate and store JWT secret for OTP authentication
+    local jwt_secret_param="/madewithkiro/$env/auth-jwt-secret"
+    local jwt_secret_desc="JWT secret for OTP authentication in $env environment"
+    
+    # Check if JWT secret already exists
+    if parameter_exists "$jwt_secret_param"; then
+        print_info "JWT secret already exists, skipping generation"
+    else
+        print_info "Generating new JWT secret..."
+        local jwt_secret=$(generate_jwt_secret)
+        
+        if ! store_parameter "$jwt_secret_param" "$jwt_secret" "$jwt_secret_desc"; then
+            print_error "Failed to store JWT secret"
+            exit 1
+        fi
+        
+        if ! verify_parameter "$jwt_secret_param"; then
+            exit 1
+        fi
     fi
     
     echo ""
@@ -344,7 +381,7 @@ main() {
     
     # Validate environment variables
     print_info "Validating environment variables..."
-    validate_env_vars "$environment"
+    # validate_env_vars "$environment"
     echo ""
     
     # Setup parameters

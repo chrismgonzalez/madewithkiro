@@ -298,6 +298,47 @@ def delete_item(pk: str, sk: str) -> None:
         raise
 
 
+def query_profile_by_email(email: str) -> Optional[Dict[str, Any]]:
+    """
+    Query for a user profile by email using GSI1
+    
+    Args:
+        email: User email address
+    
+    Returns:
+        Profile item or None if not found
+    """
+    try:
+        response = table.query(
+            IndexName='GSI1',
+            KeyConditionExpression='GSI1PK = :gsi1pk AND GSI1SK = :gsi1sk',
+            ExpressionAttributeValues={
+                ':gsi1pk': f'EMAIL#{email}',
+                ':gsi1sk': 'PROFILE'
+            }
+        )
+        
+        items = response.get('Items', [])
+        
+        if not items:
+            return None
+        
+        if len(items) > 1:
+            logger.warning(
+                message="Multiple profiles found for same email",
+                context={'email': email, 'count': len(items)}
+            )
+        
+        return items[0]
+    except Exception as e:
+        logger.error(
+            message="Error querying profile by email",
+            error=e,
+            context={'email': email}
+        )
+        raise
+
+
 def clean_dynamodb_item(item: Dict[str, Any]) -> Dict[str, Any]:
     """
     Clean DynamoDB item by removing internal keys and converting Decimals
