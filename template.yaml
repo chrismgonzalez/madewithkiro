@@ -963,6 +963,14 @@ Resources:
             Method: GET
             Auth:
               Authorizer: CognitoAuthorizer
+        LinkAccounts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref MadeWithKiroApi
+            Path: /profile/link
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
       Tags:
         Environment: !Ref Environment
         Application: MadeWithKiro
