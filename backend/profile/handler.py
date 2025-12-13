@@ -523,18 +523,159 @@ def check_profile_by_email(email: str) -> Dict[str, Any]:
         )
 
 
+def migrate_user_applications(source_user_id: str, destination_user_id: str) -> Dict[str, Any]:
+    """
+    Migrate all applications from source user to destination user.
+    
+    This function:
+    1. Queries all applications owned by source user
+    2. Updates userId and GSI1PK to point to destination user
+    3. Returns migration results
+    
+    Args:
+        source_user_id: The user ID to migrate applications from
+        destination_user_id: The user ID to migrate applications to
+        
+    Returns:
+        dict: {'success': bool, 'apps_reassigned': int, 'message': str}
+    """
+    try:
+        from datetime import datetime, timezone
+        import boto3
+        
+        # Get DynamoDB table
+        dynamodb = boto3.resource('dynamodb')
+        table_name = os.environ.get('TABLE_NAME')
+        table = dynamodb.Table(table_name)
+        
+        # Query all applications by source user using GSI1
+        response = table.query(
+            IndexName='GSI1',
+            KeyConditionExpression='GSI1PK = :user_key',
+            ExpressionAttributeValues={
+                ':user_key': f'USER#{source_user_id}'
+            }
+        )
+        
+        applications = response.get('Items', [])
+        
+        # Filter to only APPLICATION entities
+        applications = [
+            app for app in applications 
+            if app.get('entityType') == 'APPLICATION'
+        ]
+        
+        if not applications:
+            logger.info(
+                message="No applications to migrate",
+                context={
+                    'source_user_id': source_user_id,
+                    'destination_user_id': destination_user_id
+                },
+                user_id=source_user_id
+            )
+            return {
+                'success': True,
+                'apps_reassigned': 0,
+                'message': 'No applications to migrate'
+            }
+        
+        # Update each application
+        timestamp = datetime.now(timezone.utc).isoformat()
+        apps_reassigned = 0
+        
+        for app in applications:
+            try:
+                app_name = app.get('name', 'Unknown')
+                app_id = app.get('appId', 'Unknown')
+                
+                # Update userId and GSI1PK to point to destination user
+                table.update_item(
+                    Key={
+                        'PK': app['PK'],
+                        'SK': app['SK']
+                    },
+                    UpdateExpression='SET userId = :new_user_id, GSI1PK = :new_gsi1pk, updatedAt = :updated',
+                    ExpressionAttributeValues={
+                        ':new_user_id': destination_user_id,
+                        ':new_gsi1pk': f'USER#{destination_user_id}',
+                        ':updated': timestamp
+                    }
+                )
+                apps_reassigned += 1
+                
+                logger.info(
+                    message=f"Migrated application: {app_name}",
+                    context={
+                        'app_id': app_id,
+                        'app_name': app_name,
+                        'from_user': source_user_id,
+                        'to_user': destination_user_id
+                    },
+                    user_id=source_user_id
+                )
+                
+            except Exception as app_error:
+                logger.error(
+                    message=f"Failed to migrate application: {app.get('name', 'Unknown')}",
+                    error=app_error,
+                    context={
+                        'app_id': app.get('appId'),
+                        'from_user': source_user_id,
+                        'to_user': destination_user_id
+                    },
+                    user_id=source_user_id
+                )
+                # Continue with other applications
+        
+        logger.info(
+            message=f"Application migration completed: {apps_reassigned} applications migrated",
+            context={
+                'source_user_id': source_user_id,
+                'destination_user_id': destination_user_id,
+                'apps_reassigned': apps_reassigned,
+                'total_apps_found': len(applications)
+            },
+            user_id=source_user_id
+        )
+        
+        return {
+            'success': True,
+            'apps_reassigned': apps_reassigned,
+            'message': f'Successfully migrated {apps_reassigned} applications'
+        }
+        
+    except Exception as e:
+        logger.error(
+            message="Failed to migrate applications",
+            error=e,
+            context={
+                'source_user_id': source_user_id,
+                'destination_user_id': destination_user_id
+            },
+            user_id=source_user_id
+        )
+        return {
+            'success': False,
+            'apps_reassigned': 0,
+            'message': f'Failed to migrate applications: {str(e)}'
+        }
+
+
 def link_accounts(current_user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
     """
     Link current user account to an existing profile.
     
     This function:
     1. Validates the existing profile exists
-    2. Updates Cognito user attributes to link accounts
-    3. Updates the existing profile's authMethods
-    4. Returns the linked profile
+    2. Migrates applications from current user to existing user
+    3. Updates Cognito user attributes to link accounts
+    4. Updates the existing profile's authMethods
+    5. Returns the linked profile
     """
     try:
         import boto3
+        from datetime import datetime, timezone
         
         existing_user_id = data.get('existingUserId')
         if not existing_user_id:
@@ -569,6 +710,9 @@ def link_accounts(current_user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         existing_auth_methods = existing_profile.get('authMethods', [])
         merged_auth_methods = list(set(existing_auth_methods + current_auth_methods))
         
+        # Migrate applications from current user to existing user
+        apps_migration_result = migrate_user_applications(current_user_id, existing_user_id)
+        
         # Update existing profile with merged auth methods
         timestamp = get_timestamp()
         update_item(
@@ -598,11 +742,12 @@ def link_accounts(current_user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
             )
             
             logger.info(
-                message="Successfully linked accounts",
+                message="Successfully linked accounts and migrated applications",
                 context={
                     'current_user_id': current_user_id,
                     'existing_user_id': existing_user_id,
-                    'merged_auth_methods': merged_auth_methods
+                    'merged_auth_methods': merged_auth_methods,
+                    'apps_migrated': apps_migration_result.get('apps_reassigned', 0)
                 },
                 user_id=current_user_id
             )
