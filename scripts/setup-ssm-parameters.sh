@@ -94,11 +94,7 @@ check_aws_credentials() {
     print_info "Using AWS Identity: $user"
 }
 
-# Function to generate a secure random JWT secret
-generate_jwt_secret() {
-    # Generate a 64-character random string using openssl
-    openssl rand -base64 48 | tr -d '\n'
-}
+
 
 # Function to validate required environment variables
 validate_env_vars() {
@@ -195,7 +191,6 @@ validate_existing_parameters() {
     
     local google_id_param="/madewithkiro/$env/google-client-id"
     local google_secret_param="/madewithkiro/$env/google-client-secret"
-    local jwt_secret_param="/madewithkiro/$env/auth-jwt-secret"
     
     local validation_failed=0
     
@@ -217,14 +212,7 @@ validate_existing_parameters() {
         validation_failed=1
     fi
     
-    # Check JWT secret for OTP auth
-    if parameter_exists "$jwt_secret_param"; then
-        print_success "JWT secret exists: $jwt_secret_param"
-    else
-        print_error "JWT secret not found: $jwt_secret_param"
-        print_info "Run 'make setup-ssm-$env' to configure JWT secret"
-        validation_failed=1
-    fi
+    # JWT secret no longer needed after OTP refactor - Cognito handles all tokens
     
     if [[ $validation_failed -eq 1 ]]; then
         echo ""
@@ -274,26 +262,7 @@ setup_environment() {
         exit 1
     fi
     
-    # Generate and store JWT secret for OTP authentication
-    local jwt_secret_param="/madewithkiro/$env/auth-jwt-secret"
-    local jwt_secret_desc="JWT secret for OTP authentication in $env environment"
-    
-    # Check if JWT secret already exists
-    if parameter_exists "$jwt_secret_param"; then
-        print_info "JWT secret already exists, skipping generation"
-    else
-        print_info "Generating new JWT secret..."
-        local jwt_secret=$(generate_jwt_secret)
-        
-        if ! store_parameter "$jwt_secret_param" "$jwt_secret" "$jwt_secret_desc"; then
-            print_error "Failed to store JWT secret"
-            exit 1
-        fi
-        
-        if ! verify_parameter "$jwt_secret_param"; then
-            exit 1
-        fi
-    fi
+
     
     echo ""
     print_success "All parameters stored successfully for $env environment!"
