@@ -1,0 +1,335 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: GitHub Actions OIDC Infrastructure for MadeWithKiro CI/CD Pipeline
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization or username
+    Default: "your-github-org"
+
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+    Default: "madewithkiro"
+
+Resources:
+  # GitHub OIDC Identity Provider
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCIdentityProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        # GitHub Actions OIDC thumbprints (updated as of 2024)
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+      Tags:
+        - Key: Name
+          Value: GitHubActions-OIDC
+        - Key: Application
+          Value: MadeWithKiro-CICD
+
+  # IAM Role for GitHub Actions Deployment
+  GitHubActionsDeploymentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GitHubActions-DeploymentRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowGitHubActionsOIDC
+            Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOIDCProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+              StringLike:
+                "token.actions.githubusercontent.com:sub":
+                  # Allow any branch, tag, or pull request from the repository
+                  - !Sub "repo:${GitHubOrg}/${GitHubRepo}:*"
+      ManagedPolicyArns:
+        # AWS managed policies for SAM deployments
+        - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+        - arn:aws:iam::aws:policy/IAMFullAccess
+      Policies:
+        - PolicyName: GitHubActionsDeploymentPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # S3 Permissions for SAM deployments and frontend hosting
+              - Sid: S3DeploymentAccess
+                Effect: Allow
+                Action:
+                  # SAM deployment bucket operations
+                  - s3:CreateBucket
+                  - s3:DeleteBucket
+                  - s3:GetBucketLocation
+                  - s3:GetBucketPolicy
+                  - s3:PutBucketPolicy
+                  - s3:DeleteBucketPolicy
+                  - s3:GetBucketVersioning
+                  - s3:PutBucketVersioning
+                  - s3:GetBucketNotification
+                  - s3:PutBucketNotification
+                  - s3:GetBucketTagging
+                  - s3:PutBucketTagging
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:GetBucketAcl
+                  - s3:PutBucketAcl
+                  - s3:GetBucketCors
+                  - s3:PutBucketCors
+                  - s3:GetBucketWebsite
+                  - s3:PutBucketWebsite
+                  - s3:DeleteBucketWebsite
+                  # Object operations for deployments and frontend uploads
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:GetObjectVersion
+                  - s3:DeleteObjectVersion
+                  - s3:ListBucket
+                  - s3:ListBucketVersions
+                  - s3:GetObjectAcl
+                  - s3:PutObjectAcl
+                Resource:
+                  # SAM deployment buckets (auto-created by SAM)
+                  - "arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-*"
+                  - "arn:aws:s3:::aws-sam-cli-managed-default-samclisourcebucket-*/*"
+                  # Frontend hosting buckets (both dev and prod)
+                  - !Sub "arn:aws:s3:::madewithkiro-frontend-dev-${AWS::AccountId}"
+                  - !Sub "arn:aws:s3:::madewithkiro-frontend-dev-${AWS::AccountId}/*"
+                  - !Sub "arn:aws:s3:::madewithkiro-frontend-prod-${AWS::AccountId}"
+                  - !Sub "arn:aws:s3:::madewithkiro-frontend-prod-${AWS::AccountId}/*"
+
+              # Lambda Permissions for SAM deployments
+              - Sid: LambdaDeploymentAccess
+                Effect: Allow
+                Action:
+                  - lambda:CreateFunction
+                  - lambda:DeleteFunction
+                  - lambda:GetFunction
+                  - lambda:GetFunctionConfiguration
+                  - lambda:UpdateFunctionConfiguration
+                  - lambda:UpdateFunctionCode
+                  - lambda:ListFunctions
+                  - lambda:ListTags
+                  - lambda:TagResource
+                  - lambda:UntagResource
+                  - lambda:GetPolicy
+                  - lambda:AddPermission
+                  - lambda:RemovePermission
+                  - lambda:InvokeFunction
+                  - lambda:CreateEventSourceMapping
+                  - lambda:DeleteEventSourceMapping
+                  - lambda:GetEventSourceMapping
+                  - lambda:ListEventSourceMappings
+                  - lambda:UpdateEventSourceMapping
+                Resource: "*"
+
+              # API Gateway Permissions for SAM deployments
+              - Sid: APIGatewayDeploymentAccess
+                Effect: Allow
+                Action:
+                  - apigateway:GET
+                  - apigateway:POST
+                  - apigateway:PUT
+                  - apigateway:DELETE
+                  - apigateway:PATCH
+                  - apigateway:UpdateRestApiPolicy
+                Resource: "*"
+
+              # DynamoDB Permissions for application infrastructure
+              - Sid: DynamoDBDeploymentAccess
+                Effect: Allow
+                Action:
+                  - dynamodb:CreateTable
+                  - dynamodb:DeleteTable
+                  - dynamodb:DescribeTable
+                  - dynamodb:UpdateTable
+                  - dynamodb:ListTables
+                  - dynamodb:TagResource
+                  - dynamodb:UntagResource
+                  - dynamodb:ListTagsOfResource
+                  - dynamodb:UpdateTimeToLive
+                  - dynamodb:DescribeTimeToLive
+                  - dynamodb:UpdateContinuousBackups
+                  - dynamodb:DescribeContinuousBackups
+                Resource: "*"
+
+              # Cognito Permissions for authentication infrastructure
+              - Sid: CognitoDeploymentAccess
+                Effect: Allow
+                Action:
+                  - cognito-idp:CreateUserPool
+                  - cognito-idp:DeleteUserPool
+                  - cognito-idp:DescribeUserPool
+                  - cognito-idp:UpdateUserPool
+                  - cognito-idp:ListUserPools
+                  - cognito-idp:CreateUserPoolClient
+                  - cognito-idp:DeleteUserPoolClient
+                  - cognito-idp:DescribeUserPoolClient
+                  - cognito-idp:UpdateUserPoolClient
+                  - cognito-idp:ListUserPoolClients
+                  - cognito-idp:CreateUserPoolDomain
+                  - cognito-idp:DeleteUserPoolDomain
+                  - cognito-idp:DescribeUserPoolDomain
+                  - cognito-idp:CreateIdentityProvider
+                  - cognito-idp:DeleteIdentityProvider
+                  - cognito-idp:DescribeIdentityProvider
+                  - cognito-idp:UpdateIdentityProvider
+                  - cognito-idp:ListIdentityProviders
+                  - cognito-identity:CreateIdentityPool
+                  - cognito-identity:DeleteIdentityPool
+                  - cognito-identity:DescribeIdentityPool
+                  - cognito-identity:UpdateIdentityPool
+                  - cognito-identity:ListIdentityPools
+                  - cognito-identity:SetIdentityPoolRoles
+                  - cognito-identity:GetIdentityPoolRoles
+                Resource: "*"
+
+              # CloudFront Permissions for CDN management
+              - Sid: CloudFrontDeploymentAccess
+                Effect: Allow
+                Action:
+                  - cloudfront:CreateDistribution
+                  - cloudfront:DeleteDistribution
+                  - cloudfront:GetDistribution
+                  - cloudfront:GetDistributionConfig
+                  - cloudfront:UpdateDistribution
+                  - cloudfront:ListDistributions
+                  - cloudfront:CreateOriginAccessControl
+                  - cloudfront:DeleteOriginAccessControl
+                  - cloudfront:GetOriginAccessControl
+                  - cloudfront:UpdateOriginAccessControl
+                  - cloudfront:ListOriginAccessControls
+                  - cloudfront:CreateResponseHeadersPolicy
+                  - cloudfront:DeleteResponseHeadersPolicy
+                  - cloudfront:GetResponseHeadersPolicy
+                  - cloudfront:UpdateResponseHeadersPolicy
+                  - cloudfront:ListResponseHeadersPolicies
+                  - cloudfront:CreateInvalidation
+                  - cloudfront:GetInvalidation
+                  - cloudfront:ListInvalidations
+                  - cloudfront:TagResource
+                  - cloudfront:UntagResource
+                  - cloudfront:ListTagsForResource
+                Resource: "*"
+
+              # Route 53 Permissions for DNS management
+              - Sid: Route53DeploymentAccess
+                Effect: Allow
+                Action:
+                  - route53:CreateHostedZone
+                  - route53:DeleteHostedZone
+                  - route53:GetHostedZone
+                  - route53:ListHostedZones
+                  - route53:ChangeResourceRecordSets
+                  - route53:GetChange
+                  - route53:ListResourceRecordSets
+                  - route53:GetHealthCheck
+                  - route53:CreateHealthCheck
+                  - route53:DeleteHealthCheck
+                  - route53:UpdateHealthCheck
+                  - route53:ListHealthChecks
+                Resource: "*"
+
+              # SES Permissions for email infrastructure
+              - Sid: SESDeploymentAccess
+                Effect: Allow
+                Action:
+                  - ses:CreateEmailIdentity
+                  - ses:DeleteEmailIdentity
+                  - ses:GetEmailIdentity
+                  - ses:ListEmailIdentities
+                  - ses:CreateConfigurationSet
+                  - ses:DeleteConfigurationSet
+                  - ses:GetConfigurationSet
+                  - ses:ListConfigurationSets
+                  - ses:CreateEmailTemplate
+                  - ses:DeleteEmailTemplate
+                  - ses:GetEmailTemplate
+                  - ses:ListEmailTemplates
+                  - ses:UpdateEmailTemplate
+                  - ses:TagResource
+                  - ses:UntagResource
+                  - ses:ListTagsForResource
+                Resource: "*"
+
+              # SSM Parameter Store for configuration
+              - Sid: SSMParameterAccess
+                Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                Resource:
+                  - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/madewithkiro/*"
+
+              # CloudWatch Logs for monitoring
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:DeleteLogGroup
+                  - logs:DescribeLogGroups
+                  - logs:PutRetentionPolicy
+                  - logs:DeleteRetentionPolicy
+                  - logs:TagLogGroup
+                  - logs:UntagLogGroup
+                Resource: "*"
+
+              # CloudFormation Stack Operations (additional to managed policy)
+              - Sid: CloudFormationStackAccess
+                Effect: Allow
+                Action:
+                  - cloudformation:ListStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:DescribeStackResource
+                  - cloudformation:GetTemplate
+                  - cloudformation:ValidateTemplate
+                  - cloudformation:EstimateTemplateCost
+                  - cloudformation:ListStackResources
+                Resource: "*"
+
+              # Additional IAM permissions for role/policy management
+              - Sid: IAMRoleManagement
+                Effect: Allow
+                Action:
+                  - iam:PassRole
+                  - iam:GetRole
+                  - iam:GetRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:ListInstanceProfilesForRole
+                Resource: "*"
+
+      Tags:
+        - Key: Name
+          Value: GitHubActions-DeploymentRole
+        - Key: Application
+          Value: MadeWithKiro-CICD
+
+Outputs:
+  GitHubOIDCProviderArn:
+    Description: ARN of the GitHub OIDC Identity Provider
+    Value: !Ref GitHubOIDCProvider
+    Export:
+      Name: !Sub ${AWS::StackName}-GitHubOIDCProviderArn
+
+  GitHubActionsRoleArn:
+    Description: ARN of the GitHub Actions Deployment Role
+    Value: !GetAtt GitHubActionsDeploymentRole.Arn
+    Export:
+      Name: !Sub ${AWS::StackName}-GitHubActionsRoleArn
+
+  GitHubActionsRoleName:
+    Description: Name of the GitHub Actions Deployment Role
+    Value: !Ref GitHubActionsDeploymentRole
+    Export:
+      Name: !Sub ${AWS::StackName}-GitHubActionsRoleName

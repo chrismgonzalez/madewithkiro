@@ -1,0 +1,258 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to deploy (e.g., v1.0.0)'
+        required: true
+        type: string
+      skip-tests:
+        description: 'Skip tests (for emergency deployments)'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  validate-release:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      tag-name: ${{ steps.get-tag.outputs.tag }}
+      is-prerelease: ${{ steps.check-prerelease.outputs.is-prerelease }}
+    
+    steps:
+      - name: Get release tag
+        id: get-tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate tag format
+        run: |
+          TAG="${{ steps.get-tag.outputs.tag }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "❌ Invalid tag format: $TAG"
+            echo "Expected format: v1.0.0 or v1.0.0-beta.1"
+            exit 1
+          fi
+          echo "✅ Valid tag format: $TAG"
+
+      - name: Check if prerelease
+        id: check-prerelease
+        run: |
+          TAG="${{ steps.get-tag.outputs.tag }}"
+          if [[ "$TAG" =~ -[a-zA-Z] ]]; then
+            echo "is-prerelease=true" >> $GITHUB_OUTPUT
+            echo "⚠️ This is a prerelease: $TAG"
+          else
+            echo "is-prerelease=false" >> $GITHUB_OUTPUT
+            echo "✅ This is a stable release: $TAG"
+          fi
+
+  test:
+    name: Comprehensive Tests
+    needs: [validate-release]
+    if: ${{ !inputs.skip-tests }}
+    uses: ./.github/workflows/_test.yml
+    with:
+      run-frontend-tests: true
+      run-backend-tests: true
+      test-timeout: 20
+
+  build:
+    name: Build for Production
+    needs: [validate-release, test]
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    uses: ./.github/workflows/_build.yml
+    with:
+      environment: prod
+      build-frontend: true
+      build-backend: true
+      cache-enabled: true
+
+  deploy:
+    name: Deploy to Production Environment
+    needs: [validate-release, build]
+    if: always() && needs.build.result == 'success'
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: production
+      sam-config-env: prod
+      require-approval: true
+      frontend-artifact-name: ${{ needs.build.outputs.frontend-artifact-name }}
+      backend-artifact-name: ${{ needs.build.outputs.backend-artifact-name }}
+    secrets:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      DEPLOYMENT_ROLE_ARN: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
+
+  notify:
+    name: Send Notifications
+    needs: [validate-release, test, build, deploy]
+    if: always()
+    uses: ./.github/workflows/_notify.yml
+    with:
+      workflow-status: ${{ 
+        (needs.deploy.result == 'success' && 'success') ||
+        (needs.deploy.result == 'failure' && 'failure') ||
+        (needs.deploy.result == 'cancelled' && 'cancelled') ||
+        (needs.build.result == 'failure' && 'failure') ||
+        (needs.test.result == 'failure' && 'failure') ||
+        'failure'
+      }}
+      environment: production
+      deployment-url: ${{ needs.deploy.outputs.deployment-url }}
+      workflow-name: "Production Deployment"
+      additional-info: ${{ 
+        format('Release {0} deployed{1}{2}', 
+          needs.validate-release.outputs.tag-name,
+          (needs.validate-release.outputs.is-prerelease == 'true' && ' (prerelease)' || ''),
+          (inputs.skip-tests && ' - Tests were skipped' || '')
+        )
+      }}
+    secrets:
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+
+  create-deployment-record:
+    name: Create Deployment Record
+    runs-on: ubuntu-latest
+    needs: [validate-release, deploy]
+    if: needs.deploy.result == 'success'
+    
+    steps:
+      - name: Create GitHub deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: '${{ needs.validate-release.outputs.tag-name }}',
+              environment: 'production',
+              description: 'Production deployment of ${{ needs.validate-release.outputs.tag-name }}',
+              auto_merge: false,
+              required_contexts: []
+            });
+            
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployment.data.id,
+              state: 'success',
+              environment_url: '${{ needs.deploy.outputs.deployment-url }}',
+              description: 'Deployment completed successfully'
+            });
+
+  summary:
+    name: Production Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [validate-release, test, build, deploy, notify, create-deployment-record]
+    if: always()
+    
+    steps:
+      - name: Create deployment summary
+        run: |
+          echo "## 🚀 Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release:** ${{ needs.validate-release.outputs.tag-name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** [\`${GITHUB_SHA:0:7}\`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.validate-release.outputs.is-prerelease }}" = "true" ]; then
+            echo "**Type:** ⚠️ Prerelease" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Type:** ✅ Stable Release" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Job status summary
+          echo "### Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Validation status
+          if [ "${{ needs.validate-release.result }}" = "success" ]; then
+            echo "| ✅ Validation | Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| ❌ Validation | Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Test status
+          if [ "${{ needs.test.result }}" = "success" ]; then
+            echo "| ✅ Tests | Passed |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.test.result }}" = "skipped" ]; then
+            echo "| ⏭️ Tests | Skipped |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| ❌ Tests | Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Build status
+          if [ "${{ needs.build.result }}" = "success" ]; then
+            echo "| ✅ Build | Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| ❌ Build | Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Deploy status
+          if [ "${{ needs.deploy.result }}" = "success" ]; then
+            echo "| ✅ Deploy | Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| ❌ Deploy | Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Notification status
+          if [ "${{ needs.notify.result }}" = "success" ]; then
+            echo "| ✅ Notify | Sent |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| ⚠️ Notify | Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Deployment record status
+          if [ "${{ needs.create-deployment-record.result }}" = "success" ]; then
+            echo "| ✅ Record | Created |" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.create-deployment-record.result }}" = "skipped" ]; then
+            echo "| ⏭️ Record | Skipped |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| ⚠️ Record | Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Deployment URL
+          if [ -n "${{ needs.deploy.outputs.deployment-url }}" ] && [ "${{ needs.deploy.outputs.deployment-url }}" != "None" ]; then
+            echo "### 🌐 Production Deployment" >> $GITHUB_STEP_SUMMARY
+            echo "**URL:** [${{ needs.deploy.outputs.deployment-url }}](${{ needs.deploy.outputs.deployment-url }})" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Overall status
+          if [ "${{ needs.deploy.result }}" = "success" ]; then
+            echo "### 🎉 Production Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+            echo "Release **${{ needs.validate-release.outputs.tag-name }}** has been successfully deployed to production." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "#### Next Steps:" >> $GITHUB_STEP_SUMMARY
+            echo "- Monitor application performance and error rates" >> $GITHUB_STEP_SUMMARY
+            echo "- Verify all features are working as expected" >> $GITHUB_STEP_SUMMARY
+            echo "- Update documentation if needed" >> $GITHUB_STEP_SUMMARY
+            echo "- Communicate release to stakeholders" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Production Deployment Failed" >> $GITHUB_STEP_SUMMARY
+            echo "The deployment of release **${{ needs.validate-release.outputs.tag-name }}** to production failed." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "#### Immediate Actions Required:" >> $GITHUB_STEP_SUMMARY
+            echo "- Review the deployment logs for error details" >> $GITHUB_STEP_SUMMARY
+            echo "- Check if rollback is needed" >> $GITHUB_STEP_SUMMARY
+            echo "- Notify the development team" >> $GITHUB_STEP_SUMMARY
+            echo "- Consider hotfix if critical issues are identified" >> $GITHUB_STEP_SUMMARY
+          fi
