@@ -45,7 +45,7 @@ jobs:
         run: bun run build --mode development --emptyOutDir false
 
       - name: Run frontend tests
-        run: bun run test --run --reporter=verbose
+        run: bun run test --reporter=verbose
 
   backend-test:
     if: inputs.run-backend-tests
@@ -80,6 +80,10 @@ jobs:
         continue-on-error: true
 
       - name: Run backend tests
+        env:
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
         run: |
           cd backend
           uv run pytest -v --tb=short
