@@ -1,0 +1,4 @@
+ignore_checks:
+  - W2001  # Parameter not used
+  - W8001  # Condition not used
+  - W3005  # Obsolete DependsOn configuration
