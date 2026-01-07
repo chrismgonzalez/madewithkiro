@@ -54,10 +54,16 @@ Parameters:
     Description: Email address for sending OTP codes (e.g., noreply@madewithkiro.com)
     Default: noreply@madewithkiro.com
 
+  CognitoCertificateArn:
+    Type: String
+    Description: ARN of ACM Certificate in us-east-1 for Cognito custom domain. Required if CognitoCustomDomain is set.
+    Default: ""
+
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref DomainName, ""]]
   HasCertificate: !Not [!Equals [!Ref CertificateArn, ""]]
   HasCognitoCustomDomain: !Not [!Equals [!Ref CognitoCustomDomain, ""]]
+  HasCognitoCertificate: !Not [!Equals [!Ref CognitoCertificateArn, ""]]
   CreateHostedZone: !And
     - !Condition HasCustomDomain
     - !Equals [!Ref HostedZoneId, ""]
@@ -687,7 +693,10 @@ Resources:
         - !Ref CognitoCustomDomain
         - !Sub madewithkiro-${Environment}-${AWS::AccountId}
       UserPoolId: !Ref CognitoUserPool
-      CustomDomainConfig: !Ref AWS::NoValue
+      CustomDomainConfig: !If
+        - HasCognitoCustomDomain
+        - CertificateArn: !Ref CognitoCertificateArn
+        - !Ref AWS::NoValue
 
   # Route 53 Record for Cognito Custom Domain
   CognitoDomainRecord:
