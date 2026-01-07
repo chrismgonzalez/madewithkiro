@@ -56,7 +56,7 @@ export interface Application {
   name: string;
   description: string;
   appUrl?: string;
-  githubUrl?: string;
+  repositoryUrl?: string;
   tags: string[];
   createdAt: string;
 }
@@ -68,7 +68,7 @@ export interface CreateApplicationRequest {
   name: string;
   description: string;
   appUrl?: string;
-  githubUrl: string;
+  repositoryUrl?: string;
   tags: string[];
 }
 
@@ -79,7 +79,7 @@ export interface UpdateApplicationRequest {
   name: string;
   description: string;
   appUrl?: string;
-  githubUrl?: string;
+  repositoryUrl?: string;
   tags: string[];
 }
 

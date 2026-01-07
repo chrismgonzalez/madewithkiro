@@ -56,7 +56,7 @@ export const ApplicationSchema = z.object({
   name: z.string(),
   description: z.string(),
   appUrl: z.string().url(),
-  githubUrl: z.string().url().optional(),
+  repositoryUrl: z.string().url().optional(),
   tags: z.array(z.string()),
   visibility: z.enum(["public", "private"]).optional(), // Future feature
   createdAt: z.string(),
@@ -70,7 +70,7 @@ export const CreateApplicationRequestSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().min(1).max(500),
   appUrl: z.string().url(),
-  githubUrl: z.string().url().optional(),
+  repositoryUrl: z.string().url().optional(),
   tags: z.array(z.string()).min(1).max(10),
   visibility: z.enum(["public", "private"]).optional(), // Future feature
 });
@@ -240,10 +240,11 @@ export const applicationSchema = z.object({
     .min(1, "Description is required")
     .max(500, "Description must be 500 characters or less"),
   appUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
-  githubUrl: z
+  repositoryUrl: z
     .string()
-    .min(1, "GitHub URL is required")
-    .url("Must be a valid URL"),
+    .url("Must be a valid URL")
+    .optional()
+    .or(z.literal("")),
   tags: z
     .array(z.string())
     .min(1, "At least one tag is required")

@@ -33,6 +33,7 @@ import {
   Edit,
   Trash2,
   Plus,
+  GitBranch,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -366,7 +367,7 @@ export default function ProfileView({ userId }: ProfileViewProps) {
                         </a>
                       </Button>
 
-                      {app.githubUrl && (
+                      {app.repositoryUrl && (
                         <Button
                           asChild
                           variant="outline"
@@ -374,12 +375,12 @@ export default function ProfileView({ userId }: ProfileViewProps) {
                           className="min-h-[44px] min-w-[44px]"
                         >
                           <a
-                            href={app.githubUrl}
+                            href={app.repositoryUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            aria-label="View GitHub repository"
+                            aria-label="View repository"
                           >
-                            <Github className="h-4 w-4" />
+                            <GitBranch className="h-4 w-4" />
                           </a>
                         </Button>
                       )}

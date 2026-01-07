@@ -1,4 +1,4 @@
-import { ExternalLink, Github } from "lucide-react";
+import { ExternalLink, GitBranch } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ interface ApplicationCardProps {
 }
 
 export default function ApplicationCard({ application }: ApplicationCardProps) {
-  const { name, description, appUrl, githubUrl, tags, userName, userId } =
+  const { name, description, appUrl, repositoryUrl, tags, userName, userId } =
     application;
 
   const userInitials = userName
@@ -82,7 +82,7 @@ export default function ApplicationCard({ application }: ApplicationCardProps) {
             </a>
           </Button>
 
-          {githubUrl && (
+          {repositoryUrl && (
             <Button
               asChild
               variant="outline"
@@ -90,12 +90,12 @@ export default function ApplicationCard({ application }: ApplicationCardProps) {
               className="min-h-[44px] min-w-[44px]"
             >
               <a
-                href={githubUrl}
+                href={repositoryUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="View GitHub repository"
+                aria-label="View repository"
               >
-                <Github className="h-4 w-4" />
+                <GitBranch className="h-4 w-4" />
               </a>
             </Button>
           )}

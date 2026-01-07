@@ -177,7 +177,7 @@ def list_all_applications() -> Dict[str, Any]:
         items = scan_by_entity_type('APPLICATION')
         
         # Clean and format applications
-        applications = [clean_dynamodb_item(item) for item in items]
+        applications = [transform_application_response(clean_dynamodb_item(item)) for item in items]
         
         logger.info(
             message=f"Successfully listed {len(applications)} applications",
@@ -206,7 +206,7 @@ def list_user_applications(user_id: str) -> Dict[str, Any]:
         items = query_gsi('GSI1', f'USER#{user_id}', 'APP#')
         
         # Clean and format applications
-        applications = [clean_dynamodb_item(item) for item in items]
+        applications = [transform_application_response(clean_dynamodb_item(item)) for item in items]
         
         return success_response(applications, event=_current_event)
     
@@ -264,7 +264,7 @@ def create_application(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
             'name': app_request.name,
             'description': app_request.description,
             'appUrl': str(app_request.appUrl),
-            'githubUrl': str(app_request.githubUrl) if app_request.githubUrl else None,
+            'githubUrl': str(app_request.repositoryUrl) if app_request.repositoryUrl else None,
             'tags': app_request.tags,
             'createdAt': timestamp,
             'updatedAt': timestamp
@@ -284,6 +284,7 @@ def create_application(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         
         # Return cleaned application
         app_data = clean_dynamodb_item(app_item)
+        app_data = transform_application_response(app_data)
         return success_response(app_data, status_code=201, event=_current_event)
     
     except ValidationError as e:
@@ -313,6 +314,13 @@ def create_application(user_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
         )
 
 
+def transform_application_response(app_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Transform application data for frontend compatibility"""
+    if 'githubUrl' in app_data:
+        app_data['repositoryUrl'] = app_data.pop('githubUrl')
+    return app_data
+
+
 def get_application(app_id: str) -> Dict[str, Any]:
     """Get a single application by ID"""
     try:
@@ -327,6 +335,7 @@ def get_application(app_id: str) -> Dict[str, Any]:
         
         # Clean and return application
         app_data = clean_dynamodb_item(app_item)
+        app_data = transform_application_response(app_data)
         return success_response(app_data, event=_current_event)
     
     except Exception as e:
@@ -367,7 +376,7 @@ def update_application(app_id: str, user_id: str, data: Dict[str, Any]) -> Dict[
             'name': app_request.name,
             'description': app_request.description,
             'appUrl': str(app_request.appUrl),
-            'githubUrl': str(app_request.githubUrl) if app_request.githubUrl else None,
+            'githubUrl': str(app_request.repositoryUrl) if app_request.repositoryUrl else None,
             'tags': app_request.tags,
             'updatedAt': timestamp
         })
@@ -377,6 +386,7 @@ def update_application(app_id: str, user_id: str, data: Dict[str, Any]) -> Dict[
         
         # Return cleaned application
         app_data = clean_dynamodb_item(app_item)
+        app_data = transform_application_response(app_data)
         return success_response(app_data, event=_current_event)
     
     except ValidationError as e:
