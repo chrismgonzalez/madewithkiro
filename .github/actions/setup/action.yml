@@ -16,7 +16,7 @@ inputs:
   sam-version:
     description: "AWS SAM CLI version to install"
     required: false
-    default: "latest"
+    default: "1.104.0"
 
 runs:
   using: "composite"
