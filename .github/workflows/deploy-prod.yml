@@ -53,7 +53,7 @@ jobs:
           VITE_POSTHOG_USE_PROXY: ${{ vars.VITE_POSTHOG_USE_PROXY }}
           FRONTEND_S3_BUCKET: ${{ vars.FRONTEND_S3_BUCKET }}
           CLOUDFRONT_DISTRO_ID: ${{ vars.CLOUDFRONT_DISTRO_ID }}
-        run: env | grep '^VITE_\|^PROD_' > .env
+        run: env | grep '^VITE_\|^PROD_' > .env.production
 
       - name: Deploy to production
         run: make deploy-prod
