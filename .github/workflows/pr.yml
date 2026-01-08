@@ -79,12 +79,13 @@ jobs:
           VITE_POSTHOG_API_KEY: ${{ secrets.VITE_POSTHOG_API_KEY }}
           VITE_POSTHOG_HOST: ${{ vars.VITE_POSTHOG_HOST }}
           VITE_POSTHOG_USE_PROXY: ${{ vars.VITE_POSTHOG_USE_PROXY }}
-          FRONTEND_S3_BUCKET: ${{ vars.FRONTEND_S3_BUCKET }}
-          CLOUDFRONT_DISTRO_ID: ${{ vars.CLOUDFRONT_DISTRO_ID }}
         run: env | grep '^VITE_\|^DEV_' > .env.development
 
       - name: Deploy to development
         id: deploy
+        env:
+          FRONTEND_S3_BUCKET: ${{ vars.FRONTEND_S3_BUCKET }}
+          CLOUDFRONT_DISTRO_ID: ${{ vars.CLOUDFRONT_DISTRO_ID }}
         run: |
           make deploy-dev
           # Get CloudFront URL from stack outputs

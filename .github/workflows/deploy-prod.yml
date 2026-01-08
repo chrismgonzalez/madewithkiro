@@ -56,4 +56,7 @@ jobs:
         run: env | grep '^VITE_\|^PROD_' > .env.production
 
       - name: Deploy to production
+        env:
+          FRONTEND_S3_BUCKET: ${{ vars.FRONTEND_S3_BUCKET }}
+          CLOUDFRONT_DISTRO_ID: ${{ vars.CLOUDFRONT_DISTRO_ID }}
         run: make deploy-prod
