@@ -15,7 +15,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: prod
+    environment: production
     if: github.event.inputs.confirm == 'deploy'
     
     steps:

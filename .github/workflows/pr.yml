@@ -48,6 +48,12 @@ jobs:
       - name: Setup dependencies
         uses: ./.github/actions/setup
 
+      - name: Debug environment variables
+        run: |
+          echo "AWS_REGION: ${{ vars.AWS_REGION }}"
+          echo "DEPLOYMENT_ROLE_ARN: ${{ vars.DEPLOYMENT_ROLE_ARN }}"
+          echo "Environment: dev"
+
       - name: Configure AWS credentials
         uses: ./.github/actions/aws-auth
         with:
@@ -69,9 +75,8 @@ jobs:
           VITE_IDENTITY_POOL_ID: ${{ vars.VITE_IDENTITY_POOL_ID }}
           VITE_OAUTH_REDIRECT_SIGN_IN: ${{ vars.VITE_OAUTH_REDIRECT_SIGN_IN }}
           VITE_OAUTH_REDIRECT_SIGN_OUT: ${{ vars.VITE_OAUTH_REDIRECT_SIGN_OUT }}
-          VITE_TEST_USER_ID: ${{ vars.VITE_TEST_USER_ID }}
-          VITE_ENVIRONMENT: ${{ vars.VITE_ENVIRONMENT }}
-          VITE_POSTHOG_API_KEY: ${{ vars.VITE_POSTHOG_API_KEY }}
+          VITE_ENVIRONMENT: development
+          VITE_POSTHOG_API_KEY: ${{ secrets.VITE_POSTHOG_API_KEY }}
           VITE_POSTHOG_HOST: ${{ vars.VITE_POSTHOG_HOST }}
           VITE_POSTHOG_USE_PROXY: ${{ vars.VITE_POSTHOG_USE_PROXY }}
           FRONTEND_S3_BUCKET: ${{ vars.FRONTEND_S3_BUCKET }}

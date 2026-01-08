@@ -16,6 +16,12 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Debug inputs
+      shell: bash
+      run: |
+        echo "AWS Region input: ${{ inputs.aws-region }}"
+        echo "Role ARN input: ${{ inputs.role-to-assume }}"
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v5
       with:
