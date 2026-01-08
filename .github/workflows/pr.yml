@@ -89,10 +89,15 @@ jobs:
         run: |
           make deploy-dev
           # Get CloudFront URL from stack outputs
-          CLOUDFRONT_URL=$(aws cloudformation describe-stacks \
+          CLOUDFRONT_DOMAIN=$(aws cloudformation describe-stacks \
             --stack-name madewithkiro-dev \
-            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionURL`].OutputValue' \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' \
             --output text 2>/dev/null || echo "")
+          if [ -n "$CLOUDFRONT_DOMAIN" ]; then
+            CLOUDFRONT_URL="https://$CLOUDFRONT_DOMAIN"
+          else
+            CLOUDFRONT_URL=""
+          fi
           echo "cloudfront_url=$CLOUDFRONT_URL" >> $GITHUB_OUTPUT
 
   pr-status:
