@@ -18,7 +18,7 @@ runs:
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-arn: ${{ inputs.role-arn }}
+        role-to-assume: ${{ inputs.role-arn }}
         role-session-name: ${{ inputs.role-session-name }}
         aws-region: ${{ inputs.aws-region }}
         role-duration-seconds: 3600
