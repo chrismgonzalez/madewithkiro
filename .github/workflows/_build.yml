@@ -35,6 +35,7 @@ jobs:
     if: inputs.build-frontend
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: ${{ inputs.environment }}
     outputs:
       artifact-name: ${{ steps.artifact.outputs.name }}
 
@@ -52,19 +53,31 @@ jobs:
       - name: Install frontend dependencies
         run: bun install
 
-      - name: Set environment file for build
+      - name: Create environment file from GitHub environment variables
+        env:
+          # All VITE_ variables from GitHub environment will be available here
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_USER_POOL_ID: ${{ vars.VITE_USER_POOL_ID }}
+          VITE_USER_POOL_CLIENT_ID: ${{ vars.VITE_USER_POOL_CLIENT_ID }}
+          VITE_AWS_REGION: ${{ vars.VITE_AWS_REGION }}
+          VITE_COGNITO_DOMAIN: ${{ vars.VITE_COGNITO_DOMAIN }}
+          VITE_IDENTITY_POOL_ID: ${{ vars.VITE_IDENTITY_POOL_ID }}
+          VITE_OAUTH_REDIRECT_SIGN_IN: ${{ vars.VITE_OAUTH_REDIRECT_SIGN_IN }}
+          VITE_OAUTH_REDIRECT_SIGN_OUT: ${{ vars.VITE_OAUTH_REDIRECT_SIGN_OUT }}
+          VITE_TEST_USER_ID: ${{ vars.VITE_TEST_USER_ID }}
+          VITE_ENVIRONMENT: ${{ vars.VITE_ENVIRONMENT }}
+          VITE_POSTHOG_API_KEY: ${{ secrets.VITE_POSTHOG_API_KEY }}
+          VITE_POSTHOG_HOST: ${{ vars.VITE_POSTHOG_HOST }}
+          VITE_POSTHOG_USE_PROXY: ${{ vars.VITE_POSTHOG_USE_PROXY }}
         run: |
-          if [ "${{ inputs.environment }}" = "dev" ]; then
-            cp .env.development .env.production.local
-          elif [ "${{ inputs.environment }}" = "prod" ]; then
-            cp .env.production .env.production.local
-          fi
+          # Export all VITE_ environment variables to .env
+          env | grep '^VITE_' > .env
 
       - name: Build frontend
         run: bun run build
 
       - name: Clean up environment file
-        run: rm -f .env.production.local
+        run: rm -f .env
 
       - name: Set artifact name
         id: artifact

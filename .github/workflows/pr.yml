@@ -22,7 +22,7 @@ jobs:
     name: Validation Build
     uses: ./.github/workflows/_build.yml
     with:
-      environment: dev
+      environment: development
       build-frontend: true
       build-backend: true
       cache-enabled: true
