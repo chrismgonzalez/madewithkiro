@@ -83,11 +83,6 @@ seed-db-local: ## Seed local DynamoDB (for local development)
 	@cd backend && uv run python scripts/seed_db.py --table-name MadeWithKiro-local
 	@echo "$(GREEN)✓ Local database seeded$(NC)"
 
-sam-build: ## Build SAM application
-	@echo "$(BLUE)Building SAM application...$(NC)"
-	sam build
-	@echo "$(GREEN)✓ SAM build completed$(NC)"
-
 sam-validate: ## Validate SAM template
 	@echo "$(BLUE)Validating SAM template...$(NC)"
 	sam validate --lint
@@ -115,64 +110,28 @@ deploy-certificate: ## Deploy ACM certificate in us-east-1 (required for prod cu
 	@echo "$(YELLOW)Add this ARN to samconfig.toml prod parameters:$(NC)"
 	@echo "  CertificateArn=<ARN_FROM_ABOVE>"
 
-deploy-dev: sam-build validate-oauth-dev ## Deploy to development environment
-	@echo "$(BLUE)Deploying to development environment...$(NC)"
-	sam deploy --config-env dev --no-confirm-changeset
-	@echo ""
-	@echo "$(GREEN)✓ Deployment to dev completed$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Fetching stack outputs...$(NC)"
-	@aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs' --output table 2>/dev/null || echo "$(RED)Could not fetch outputs. Run: aws cloudformation describe-stacks --stack-name madewithkiro-dev$(NC)"
-
-deploy-prod: sam-build validate-oauth-prod ## Deploy to production environment
-	@echo "$(BLUE)Deploying to production environment...$(NC)"
-	@echo "$(RED)⚠️  WARNING: Deploying to PRODUCTION$(NC)"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		sam deploy --config-env prod; \
-		echo "$(GREEN)✓ Deployment to prod completed$(NC)"; \
-		echo ""; \
-		echo "$(YELLOW)Fetching stack outputs...$(NC)"; \
-		aws cloudformation describe-stacks --stack-name madewithkiro-prod --query 'Stacks[0].Outputs' --output table 2>/dev/null || echo "$(RED)Could not fetch outputs$(NC)"; \
-	else \
-		echo "$(YELLOW)Deployment cancelled$(NC)"; \
+deploy-dev: ## Deploy to development environment
+	@cp .env.development .env
+	bun run build
+	sam build
+	sam deploy --config-env dev --no-confirm-changeset --no-fail-on-empty-changeset
+	@if [ -n "$$FRONTEND_S3_BUCKET" ]; then \
+		aws s3 sync dist/ s3://$$FRONTEND_S3_BUCKET/ --delete; \
+		if [ -n "$$CLOUDFRONT_DISTRO_ID" ]; then \
+			aws cloudfront create-invalidation --distribution-id $$CLOUDFRONT_DISTRO_ID --paths "/*" >/dev/null; \
+		fi; \
 	fi
 
-build-dev: ## Build frontend for dev environment
-	@echo "$(BLUE)Building frontend for dev environment...$(NC)"
-	@cp .env.development .env.production.local
-	@bun run build
-	@rm -f .env.production.local
-	@echo "$(GREEN)✓ Frontend built for dev$(NC)"
-
-upload-frontend-dev: build-dev ## Upload frontend to S3 (dev)
-	@echo "$(BLUE)Uploading frontend to S3 (dev)...$(NC)"
-	@BUCKET_NAME=$$(AWS_PROFILE=mwkprod aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text 2>/dev/null); \
-	if [ -n "$$BUCKET_NAME" ]; then \
-		AWS_PROFILE=mwkprod aws s3 sync dist/ s3://$$BUCKET_NAME/ --delete; \
-		echo "$(GREEN)✓ Frontend uploaded to S3$(NC)"; \
-	else \
-		echo "$(RED)✗ Could not find S3 bucket. Deploy infrastructure first.$(NC)"; \
-		exit 1; \
-	fi
-
-upload-frontend-prod: build ## Upload frontend to S3 (prod)
-	@echo "$(BLUE)Uploading frontend to S3 (prod)...$(NC)"
-	@echo "$(RED)⚠️  WARNING: Uploading to PRODUCTION$(NC)"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		BUCKET_NAME=$$(aws cloudformation describe-stacks --stack-name madewithkiro-prod --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text 2>/dev/null); \
-		if [ -n "$$BUCKET_NAME" ]; then \
-			aws s3 sync dist/ s3://$$BUCKET_NAME/ --delete; \
-			echo "$(GREEN)✓ Frontend uploaded to S3$(NC)"; \
-		else \
-			echo "$(RED)✗ Could not find S3 bucket$(NC)"; \
-			exit 1; \
-		fi \
-	else \
-		echo "$(YELLOW)Upload cancelled$(NC)"; \
+deploy-prod: ## Deploy to production environment  
+	@cp .env.production .env
+	bun run build
+	sam build
+	sam deploy --config-env prod --no-confirm-changeset --no-fail-on-empty-changeset
+	@if [ -n "$$FRONTEND_S3_BUCKET" ]; then \
+		aws s3 sync dist/ s3://$$FRONTEND_S3_BUCKET/ --delete; \
+		if [ -n "$$CLOUDFRONT_DISTRO_ID" ]; then \
+			aws cloudfront create-invalidation --distribution-id $$CLOUDFRONT_DISTRO_ID --paths "/*" >/dev/null; \
+		fi; \
 	fi
 
 logs: ## Tail Lambda logs (dev environment)
@@ -210,39 +169,6 @@ clean: ## Clean build artifacts and caches
 		find backend -type f -name "*.pyc" -delete 2>/dev/null || true; \
 	fi
 	@echo "$(GREEN)✓ Cleanup completed$(NC)"
-
-destroy-dev: ## Destroy dev stack (WARNING: deletes all resources)
-	@echo "$(RED)⚠️  WARNING: This will DELETE all dev resources$(NC)"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		echo "$(BLUE)Emptying S3 bucket...$(NC)"; \
-		BUCKET_NAME=$$(aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text 2>/dev/null); \
-		if [ -n "$$BUCKET_NAME" ]; then \
-			aws s3 rm s3://$$BUCKET_NAME/ --recursive 2>/dev/null || true; \
-		fi; \
-		echo "$(BLUE)Deleting CloudFormation stack...$(NC)"; \
-		sam delete --stack-name madewithkiro-dev --no-prompts; \
-		echo "$(GREEN)✓ Dev stack destroyed$(NC)"; \
-	else \
-		echo "$(YELLOW)Destruction cancelled$(NC)"; \
-	fi
-
-destroy-prod: ## Destroy prod stack (WARNING: deletes all resources)
-	@echo "$(RED)⚠️  WARNING: This will DELETE all PRODUCTION resources$(NC)"
-	@read -p "Type 'DELETE PRODUCTION' to confirm: " confirm; \
-	if [ "$$confirm" = "DELETE PRODUCTION" ]; then \
-		echo "$(BLUE)Emptying S3 bucket...$(NC)"; \
-		BUCKET_NAME=$$(aws cloudformation describe-stacks --stack-name madewithkiro-prod --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucketName`].OutputValue' --output text 2>/dev/null); \
-		if [ -n "$$BUCKET_NAME" ]; then \
-			aws s3 rm s3://$$BUCKET_NAME/ --recursive 2>/dev/null || true; \
-		fi; \
-		echo "$(BLUE)Deleting CloudFormation stack...$(NC)"; \
-		sam delete --stack-name madewithkiro-prod --no-prompts; \
-		echo "$(GREEN)✓ Prod stack destroyed$(NC)"; \
-	else \
-		echo "$(YELLOW)Destruction cancelled$(NC)"; \
-	fi
 
 local-api: ## Start SAM local API Gateway
 	@echo "$(BLUE)Starting SAM local API...$(NC)"
@@ -315,87 +241,3 @@ setup-ssm-prod: ## Store OAuth credentials in SSM Parameter Store (prod)
 	else \
 		echo "$(YELLOW)Setup cancelled$(NC)"; \
 	fi
-
-
-validate-oauth-dev: ## Validate OAuth credentials are configured in SSM (dev)
-	@echo "$(BLUE)Validating OAuth credentials for dev environment...$(NC)"
-	@./scripts/setup-ssm-parameters.sh dev --validate-only
-	@echo "$(GREEN)✓ OAuth credentials validated$(NC)"
-
-validate-oauth-prod: ## Validate OAuth credentials are configured in SSM (prod)
-	@echo "$(BLUE)Validating OAuth credentials for prod environment...$(NC)"
-	@./scripts/setup-ssm-parameters.sh prod --validate-only
-	@echo "$(GREEN)✓ OAuth credentials validated$(NC)"
-
-invalidate-cloudfront-dev: ## Invalidate CloudFront cache (dev)
-	@echo "$(BLUE)Invalidating CloudFront cache for dev...$(NC)"
-	@DISTRIBUTION_ID=$$(AWS_PROFILE=mwkprod aws cloudformation describe-stacks --stack-name madewithkiro-dev --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text 2>/dev/null); \
-	if [ -n "$$DISTRIBUTION_ID" ] && [ "$$DISTRIBUTION_ID" != "None" ]; then \
-		AWS_PROFILE=mwkprod aws cloudfront create-invalidation --distribution-id $$DISTRIBUTION_ID --paths "/*"; \
-		echo "$(GREEN)✓ CloudFront cache invalidated$(NC)"; \
-	else \
-		echo "$(YELLOW)No CloudFront distribution found. Custom domain not configured.$(NC)"; \
-	fi
-
-invalidate-cloudfront-prod: ## Invalidate CloudFront cache (prod)
-	@echo "$(BLUE)Invalidating CloudFront cache for prod...$(NC)"
-	@DISTRIBUTION_ID=$$(aws cloudformation describe-stacks --stack-name madewithkiro-prod --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text 2>/dev/null); \
-	if [ -n "$$DISTRIBUTION_ID" ] && [ "$$DISTRIBUTION_ID" != "None" ]; then \
-		aws cloudfront create-invalidation --distribution-id $$DISTRIBUTION_ID --paths "/*"; \
-		echo "$(GREEN)✓ CloudFront cache invalidated$(NC)"; \
-	else \
-		echo "$(YELLOW)No CloudFront distribution found. Custom domain not configured.$(NC)"; \
-	fi
-
-ses-dns-records: ## Get SES DNS records for domain configuration
-	@echo "$(BLUE)Retrieving SES DNS records...$(NC)"
-	@./scripts/get-ses-dns-records.sh madewithkiro.com us-west-2
-
-ses-verify-domain: ## Verify SES domain configuration status
-	@echo "$(BLUE)Checking SES domain verification status...$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Domain Verification:$(NC)"
-	@aws ses get-identity-verification-attributes --identities madewithkiro.com --region us-west-2 --output table 2>/dev/null || echo "$(RED)Domain not found in SES$(NC)"
-	@echo ""
-	@echo "$(YELLOW)DKIM Status:$(NC)"
-	@aws ses get-identity-dkim-attributes --identities madewithkiro.com --region us-west-2 --output table 2>/dev/null || echo "$(RED)DKIM not configured$(NC)"
-
-ses-verify-email-dev: ## Verify SES email identity for dev (noreply-dev@madewithkiro.com)
-	@echo "$(BLUE)Verifying dev email identity: noreply-dev@madewithkiro.com$(NC)"
-	@aws ses verify-email-identity --email-address noreply-dev@madewithkiro.com --region us-west-2
-	@echo "$(GREEN)✓ Verification email sent$(NC)"
-	@echo "$(YELLOW)Check the inbox for noreply-dev@madewithkiro.com and click the verification link$(NC)"
-
-ses-verify-email-prod: ## Verify SES email identity for prod (noreply@madewithkiro.com)
-	@echo "$(BLUE)Verifying prod email identity: noreply@madewithkiro.com$(NC)"
-	@aws ses verify-email-identity --email-address noreply@madewithkiro.com --region us-west-2
-	@echo "$(GREEN)✓ Verification email sent$(NC)"
-	@echo "$(YELLOW)Check the inbox for noreply@madewithkiro.com and click the verification link$(NC)"
-
-ses-verify-email: ses-verify-email-dev ## Verify SES email identity (defaults to dev)
-
-ses-test-email: ## Send test OTP email
-	@echo "$(BLUE)Sending test OTP email...$(NC)"
-	@if [ -z "$$TEST_EMAIL" ]; then \
-		echo "$(RED)✗ Missing TEST_EMAIL environment variable$(NC)"; \
-		echo ""; \
-		echo "$(YELLOW)Usage:$(NC)"; \
-		echo "  TEST_EMAIL=your-email@example.com make ses-test-email"; \
-		exit 1; \
-	fi
-	@aws ses send-templated-email \
-		--source "MadeWithKiro <noreply@madewithkiro.com>" \
-		--destination "ToAddresses=$$TEST_EMAIL" \
-		--template MadeWithKiro-OTP-dev \
-		--template-data '{"code":"123456","expiresIn":"10"}' \
-		--region us-west-2
-	@echo "$(GREEN)✓ Test email sent to $$TEST_EMAIL$(NC)"
-
-ses-status: ## Show SES account status and metrics
-	@echo "$(BLUE)SES Account Status:$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Sending Quota:$(NC)"
-	@aws ses get-send-quota --region us-west-2 --output table 2>/dev/null || echo "$(RED)Could not retrieve quota$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Account Status:$(NC)"
-	@aws ses get-account --region us-west-2 --output table 2>/dev/null || echo "$(RED)Could not retrieve account status$(NC)"
