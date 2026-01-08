@@ -35,7 +35,7 @@ jobs:
   deploy-dev:
     name: Deploy to Dev
     runs-on: ubuntu-latest
-    environment: dev
+    environment: development
     needs: [test, build]
     if: needs.test.result == 'success' && needs.build.result == 'success'
     outputs:
@@ -52,7 +52,6 @@ jobs:
         run: |
           echo "AWS_REGION: ${{ vars.AWS_REGION }}"
           echo "DEPLOYMENT_ROLE_ARN: ${{ vars.DEPLOYMENT_ROLE_ARN }}"
-          echo "Environment: dev"
 
       - name: Configure AWS credentials
         uses: ./.github/actions/aws-auth
