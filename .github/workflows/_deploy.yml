@@ -1,0 +1,207 @@
+name: Reusable Deployment Workflow
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Target environment (dev/prod)"
+        required: true
+        type: string
+      sam-config-env:
+        description: "SAM configuration environment"
+        required: true
+        type: string
+      require-approval:
+        description: "Require manual approval before deployment"
+        required: false
+        type: boolean
+        default: false
+      frontend-artifact-name:
+        description: "Name of the frontend build artifact"
+        required: false
+        type: string
+      backend-artifact-name:
+        description: "Name of the backend build artifact"
+        required: false
+        type: string
+    secrets:
+      AWS_REGION:
+        required: true
+      DEPLOYMENT_ROLE_ARN:
+        required: true
+    outputs:
+      deployment-url:
+        description: "URL of the deployed application"
+        value: ${{ jobs.deploy-frontend.outputs.deployment-url }}
+
+jobs:
+  approval:
+    if: inputs.require-approval
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Manual approval required
+        run: echo "Manual approval granted for ${{ inputs.environment }} deployment"
+
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    needs: [approval]
+    if: always() && (needs.approval.result == 'success' || needs.approval.result == 'skipped')
+    timeout-minutes: 30
+    outputs:
+      stack-outputs: ${{ steps.get-outputs.outputs.stack-outputs }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup
+
+      - name: Configure AWS credentials
+        uses: ./.github/actions/aws-auth
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-arn: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
+
+      - name: Download backend build artifact
+        if: inputs.backend-artifact-name
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.backend-artifact-name }}
+          path: .aws-sam/
+
+      - name: Deploy SAM stack using Makefile
+        run: |
+          if [ "${{ inputs.environment }}" = "dev" ]; then
+            make deploy-dev
+          elif [ "${{ inputs.environment }}" = "prod" ]; then
+            # For prod, we need to handle the confirmation automatically
+            echo "y" | make deploy-prod
+          else
+            echo "Unknown environment: ${{ inputs.environment }}"
+            exit 1
+          fi
+
+      - name: Get stack outputs
+        id: get-outputs
+        run: |
+          STACK_NAME="madewithkiro-${{ inputs.environment }}"
+          OUTPUTS=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs' --output json)
+          echo "stack-outputs=$OUTPUTS" >> $GITHUB_OUTPUT
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure]
+    if: always() && needs.deploy-infrastructure.result == 'success'
+    timeout-minutes: 15
+    outputs:
+      deployment-url: ${{ steps.get-url.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup
+
+      - name: Configure AWS credentials
+        uses: ./.github/actions/aws-auth
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-arn: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
+
+      - name: Download frontend build artifact
+        if: inputs.frontend-artifact-name
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.frontend-artifact-name }}
+          path: dist/
+
+      - name: Upload frontend using Makefile
+        run: |
+          if [ "${{ inputs.environment }}" = "dev" ]; then
+            make upload-frontend-dev
+          elif [ "${{ inputs.environment }}" = "prod" ]; then
+            # For prod, we need to handle the confirmation automatically
+            echo "y" | make upload-frontend-prod
+          else
+            echo "Unknown environment: ${{ inputs.environment }}"
+            exit 1
+          fi
+
+      - name: Invalidate CloudFront cache using Makefile
+        run: |
+          if [ "${{ inputs.environment }}" = "dev" ]; then
+            make invalidate-cloudfront-dev
+          elif [ "${{ inputs.environment }}" = "prod" ]; then
+            make invalidate-cloudfront-prod
+          else
+            echo "Unknown environment: ${{ inputs.environment }}"
+            exit 1
+          fi
+
+      - name: Get deployment URL
+        id: get-url
+        run: |
+          STACK_NAME="madewithkiro-${{ inputs.environment }}"
+          URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==`WebsiteURL`].OutputValue' --output text 2>/dev/null || echo "")
+          if [ -z "$URL" ] || [ "$URL" = "None" ]; then
+            # Fallback to S3 website URL if custom domain not configured
+            URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==`S3WebsiteURL`].OutputValue' --output text 2>/dev/null || echo "")
+          fi
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
+  health-check:
+    runs-on: ubuntu-latest
+    needs: [deploy-frontend]
+    if: always() && needs.deploy-frontend.result == 'success'
+    timeout-minutes: 10
+
+    steps:
+      - name: Wait for deployment to be ready
+        run: sleep 30
+
+      - name: Health check - Test website availability
+        run: |
+          URL="${{ needs.deploy-frontend.outputs.deployment-url }}"
+          if [ -n "$URL" ] && [ "$URL" != "None" ]; then
+            echo "Testing website availability: $URL"
+            for i in {1..5}; do
+              if curl -f -s -o /dev/null "$URL"; then
+                echo "✓ Website is accessible"
+                break
+              else
+                echo "Attempt $i failed, retrying in 10 seconds..."
+                sleep 10
+              fi
+              if [ $i -eq 5 ]; then
+                echo "✗ Website health check failed after 5 attempts"
+                exit 1
+              fi
+            done
+          else
+            echo "No deployment URL found, skipping health check"
+          fi
+
+      - name: Health check - Test API availability
+        run: |
+          STACK_NAME="madewithkiro-${{ inputs.environment }}"
+          API_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' --output text 2>/dev/null || echo "")
+          if [ -n "$API_URL" ] && [ "$API_URL" != "None" ]; then
+            echo "Testing API availability: $API_URL"
+            for i in {1..3}; do
+              if curl -f -s -o /dev/null "$API_URL/health" || curl -f -s -o /dev/null "$API_URL"; then
+                echo "✓ API is accessible"
+                break
+              else
+                echo "API attempt $i failed, retrying in 10 seconds..."
+                sleep 10
+              fi
+              if [ $i -eq 3 ]; then
+                echo "⚠ API health check failed, but continuing deployment"
+              fi
+            done
+          else
+            echo "No API URL found, skipping API health check"
+          fi

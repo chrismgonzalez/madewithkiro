@@ -41,11 +41,6 @@ Parameters:
     Description: Custom domain for Cognito (e.g., auth.madewithkiro.com). Leave empty to use default Cognito domain.
     Default: ""
 
-  CognitoCertificateArn:
-    Type: String
-    Description: ARN of ACM Certificate in us-east-1 for Cognito custom domain. Required if CognitoCustomDomain is set.
-    Default: ""
-
   GoogleClientIdParameter:
     Type: String
     Description: SSM Parameter name containing Google OAuth Client ID (environment-specific)
@@ -59,10 +54,10 @@ Parameters:
     Description: Email address for sending OTP codes (e.g., noreply@madewithkiro.com)
     Default: noreply@madewithkiro.com
 
-  SESDomainName:
+  CognitoCertificateArn:
     Type: String
-    Description: Domain name for SES email sending (e.g., madewithkiro.com)
-    Default: madewithkiro.com
+    Description: ARN of ACM Certificate in us-east-1 for Cognito custom domain. Required if CognitoCustomDomain is set.
+    Default: ""
 
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref DomainName, ""]]
@@ -80,7 +75,7 @@ Conditions:
 
 Globals:
   Function:
-    Runtime: python3.13
+    Runtime: python3.12
     Timeout: 30
     MemorySize: 256
     Environment:
