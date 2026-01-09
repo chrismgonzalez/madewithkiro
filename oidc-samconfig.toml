@@ -1,0 +1,27 @@
+version = 0.1
+
+[default]
+[default.global.parameters]
+stack_name = "madewithkiro-oidc"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.validate.parameters]
+lint = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+resolve_s3 = true
+region = "us-west-2"
+parameter_overrides = [
+  # Update these values to match your GitHub repository
+  "GitHubOrg=chrismgonzalez",
+  "GitHubRepo=madewithkiro",
+]
+tags = ["Application=MadeWithKiro-CICD"]
+
+[default.package.parameters]
+resolve_s3 = true

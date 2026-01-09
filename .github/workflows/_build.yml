@@ -1,0 +1,128 @@
+name: Reusable Build Workflow
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Target environment (dev/prod)"
+        required: true
+        type: string
+      build-frontend:
+        description: "Enable frontend build"
+        required: false
+        type: boolean
+        default: true
+      build-backend:
+        description: "Enable backend build"
+        required: false
+        type: boolean
+        default: true
+      cache-enabled:
+        description: "Enable build caching"
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      frontend-artifact-name:
+        description: "Name of the frontend build artifact"
+        value: ${{ jobs.build-frontend.outputs.artifact-name }}
+      backend-artifact-name:
+        description: "Name of the backend build artifact"
+        value: ${{ jobs.build-backend.outputs.artifact-name }}
+
+jobs:
+  build-frontend:
+    if: inputs.build-frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.environment }}
+    outputs:
+      artifact-name: ${{ steps.artifact.outputs.name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup
+
+      - name: Cache dependencies
+        if: inputs.cache-enabled
+        uses: ./.github/actions/cache-deps
+
+      - name: Install frontend dependencies
+        run: bun install
+
+      - name: Create environment file from GitHub environment variables
+        env:
+          # All VITE_ variables from GitHub environment will be available here
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_USER_POOL_ID: ${{ vars.VITE_USER_POOL_ID }}
+          VITE_USER_POOL_CLIENT_ID: ${{ vars.VITE_USER_POOL_CLIENT_ID }}
+          VITE_AWS_REGION: ${{ vars.VITE_AWS_REGION }}
+          VITE_COGNITO_DOMAIN: ${{ vars.VITE_COGNITO_DOMAIN }}
+          VITE_IDENTITY_POOL_ID: ${{ vars.VITE_IDENTITY_POOL_ID }}
+          VITE_OAUTH_REDIRECT_SIGN_IN: ${{ vars.VITE_OAUTH_REDIRECT_SIGN_IN }}
+          VITE_OAUTH_REDIRECT_SIGN_OUT: ${{ vars.VITE_OAUTH_REDIRECT_SIGN_OUT }}
+          VITE_TEST_USER_ID: ${{ vars.VITE_TEST_USER_ID }}
+          VITE_ENVIRONMENT: ${{ vars.VITE_ENVIRONMENT }}
+          VITE_POSTHOG_API_KEY: ${{ secrets.VITE_POSTHOG_API_KEY }}
+          VITE_POSTHOG_HOST: ${{ vars.VITE_POSTHOG_HOST }}
+          VITE_POSTHOG_USE_PROXY: ${{ vars.VITE_POSTHOG_USE_PROXY }}
+        run: |
+          # Export all VITE_ environment variables to .env
+          env | grep '^VITE_' > .env
+
+      - name: Build frontend
+        run: bun run build
+
+      - name: Clean up environment file
+        run: rm -f .env
+
+      - name: Set artifact name
+        id: artifact
+        run: echo "name=frontend-build-${{ inputs.environment }}-${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Upload frontend build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: dist/
+          retention-days: 7
+
+  build-backend:
+    if: inputs.build-backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      artifact-name: ${{ steps.artifact.outputs.name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup dependencies
+        uses: ./.github/actions/setup
+
+      - name: Cache dependencies
+        if: inputs.cache-enabled
+        uses: ./.github/actions/cache-deps
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          uv pip install -e .
+
+      - name: Build SAM application
+        run: sam build
+
+      - name: Set artifact name
+        id: artifact
+        run: echo "name=backend-build-${{ inputs.environment }}-${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Upload SAM build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: .aws-sam/
+          retention-days: 7

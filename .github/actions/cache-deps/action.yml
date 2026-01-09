@@ -1,0 +1,149 @@
+name: "Cache Dependencies"
+description: "Implement dependency caching with lock file hashing and cache invalidation logic"
+inputs:
+  cache-bun:
+    description: "Enable Bun dependency caching"
+    required: false
+    default: "true"
+  cache-python:
+    description: "Enable Python dependency caching"
+    required: false
+    default: "true"
+  cache-sam:
+    description: "Enable SAM build artifact caching"
+    required: false
+    default: "true"
+  cache-prefix:
+    description: "Cache key prefix for environment isolation"
+    required: false
+    default: "deps"
+
+outputs:
+  bun-cache-hit:
+    description: "Whether Bun cache was hit"
+    value: ${{ steps.cache-bun.outputs.cache-hit }}
+  python-cache-hit:
+    description: "Whether Python cache was hit"
+    value: ${{ steps.cache-python.outputs.cache-hit }}
+  sam-cache-hit:
+    description: "Whether SAM cache was hit"
+    value: ${{ steps.cache-sam.outputs.cache-hit }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Generate cache keys
+      id: cache-keys
+      shell: bash
+      run: |
+        # Generate Bun cache key with lock file hashing
+        if [ -f "bun.lockb" ]; then
+          BUN_HASH=$(sha256sum bun.lockb package.json | sha256sum | cut -d' ' -f1)
+        else
+          BUN_HASH=$(sha256sum package.json | sha256sum | cut -d' ' -f1)
+        fi
+        echo "bun-key=${{ inputs.cache-prefix }}-bun-${{ runner.os }}-${BUN_HASH}" >> $GITHUB_OUTPUT
+        echo "bun-restore-keys=${{ inputs.cache-prefix }}-bun-${{ runner.os }}-" >> $GITHUB_OUTPUT
+
+        # Generate Python cache key with requirements.txt hashing
+        if [ -f "backend/requirements.txt" ]; then
+          PYTHON_FILES="backend/requirements.txt"
+          if [ -f "backend/pyproject.toml" ]; then
+            PYTHON_FILES="$PYTHON_FILES backend/pyproject.toml"
+          fi
+          if [ -f "backend/uv.lock" ]; then
+            PYTHON_FILES="$PYTHON_FILES backend/uv.lock"
+          fi
+          PYTHON_HASH=$(sha256sum $PYTHON_FILES | sha256sum | cut -d' ' -f1)
+        else
+          PYTHON_HASH="no-requirements"
+        fi
+        echo "python-key=${{ inputs.cache-prefix }}-python-${{ runner.os }}-${PYTHON_HASH}" >> $GITHUB_OUTPUT
+        echo "python-restore-keys=${{ inputs.cache-prefix }}-python-${{ runner.os }}-" >> $GITHUB_OUTPUT
+
+        # Generate SAM cache key with template and dependencies hashing
+        SAM_FILES="template.yaml"
+        if [ -f "backend/requirements.txt" ]; then
+          SAM_FILES="$SAM_FILES backend/requirements.txt"
+        fi
+        SAM_HASH=$(sha256sum $SAM_FILES | sha256sum | cut -d' ' -f1)
+        echo "sam-key=${{ inputs.cache-prefix }}-sam-${{ runner.os }}-${SAM_HASH}" >> $GITHUB_OUTPUT
+        echo "sam-restore-keys=${{ inputs.cache-prefix }}-sam-${{ runner.os }}-" >> $GITHUB_OUTPUT
+
+    - name: Cache Bun dependencies
+      if: inputs.cache-bun == 'true'
+      id: cache-bun
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.bun/install/cache
+          node_modules
+        key: ${{ steps.cache-keys.outputs.bun-key }}
+        restore-keys: ${{ steps.cache-keys.outputs.bun-restore-keys }}
+
+    - name: Cache Python dependencies
+      if: inputs.cache-python == 'true'
+      id: cache-python
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/uv
+          backend/.venv
+        key: ${{ steps.cache-keys.outputs.python-key }}
+        restore-keys: ${{ steps.cache-keys.outputs.python-restore-keys }}
+
+    - name: Cache SAM build artifacts
+      if: inputs.cache-sam == 'true'
+      id: cache-sam
+      uses: actions/cache@v3
+      with:
+        path: |
+          .aws-sam/build
+          .aws-sam/cache
+        key: ${{ steps.cache-keys.outputs.sam-key }}
+        restore-keys: ${{ steps.cache-keys.outputs.sam-restore-keys }}
+
+    - name: Report cache status
+      shell: bash
+      run: |
+        echo "Cache Status Report:"
+        echo "==================="
+        if [ "${{ inputs.cache-bun }}" == "true" ]; then
+          echo "Bun cache hit: ${{ steps.cache-bun.outputs.cache-hit || 'false' }}"
+        fi
+        if [ "${{ inputs.cache-python }}" == "true" ]; then
+          echo "Python cache hit: ${{ steps.cache-python.outputs.cache-hit || 'false' }}"
+        fi
+        if [ "${{ inputs.cache-sam }}" == "true" ]; then
+          echo "SAM cache hit: ${{ steps.cache-sam.outputs.cache-hit || 'false' }}"
+        fi
+
+    - name: Validate cache restoration
+      shell: bash
+      run: |
+        # Validate Bun cache restoration
+        if [ "${{ inputs.cache-bun }}" == "true" ] && [ "${{ steps.cache-bun.outputs.cache-hit }}" == "true" ]; then
+          if [ -d "node_modules" ]; then
+            echo "✓ Bun dependencies restored from cache"
+          else
+            echo "⚠ Bun cache hit but node_modules not found"
+          fi
+        fi
+
+        # Validate Python cache restoration
+        if [ "${{ inputs.cache-python }}" == "true" ] && [ "${{ steps.cache-python.outputs.cache-hit }}" == "true" ]; then
+          if [ -d "backend/.venv" ]; then
+            echo "✓ Python dependencies restored from cache"
+          else
+            echo "⚠ Python cache hit but .venv not found"
+          fi
+        fi
+
+        # Validate SAM cache restoration
+        if [ "${{ inputs.cache-sam }}" == "true" ] && [ "${{ steps.cache-sam.outputs.cache-hit }}" == "true" ]; then
+          if [ -d ".aws-sam/build" ]; then
+            echo "✓ SAM build artifacts restored from cache"
+          else
+            echo "⚠ SAM cache hit but build artifacts not found"
+          fi
+        fi

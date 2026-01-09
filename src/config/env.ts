@@ -71,11 +71,9 @@ const createConfig = (): EnvironmentConfig => {
   const config: EnvironmentConfig = {
     apiBaseUrl:
       getEnvVar("VITE_API_BASE_URL", true) || getEnvVar("VITE_API_URL", true),
-    cognitoUserPoolId: getEnvVar("VITE_COGNITO_USER_POOL_ID", true),
-    cognitoClientId: getEnvVar("VITE_COGNITO_CLIENT_ID", true),
-    cognitoRegion:
-      getEnvVar("VITE_COGNITO_REGION", true) ||
-      getEnvVar("VITE_AWS_REGION", true),
+    cognitoUserPoolId: getEnvVar("VITE_USER_POOL_ID", true),
+    cognitoClientId: getEnvVar("VITE_USER_POOL_CLIENT_ID", true),
+    cognitoRegion: getEnvVar("VITE_AWS_REGION", true),
     cognitoDomain: getEnvVar("VITE_COGNITO_DOMAIN", false),
     environment:
       import.meta.env.MODE === "production" ? "production" : "development",

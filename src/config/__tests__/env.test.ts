@@ -33,9 +33,9 @@ describe("Environment Configuration - Acceptance Tests", () => {
       // Arrange: Set up development environment variables
       const developmentApiUrl = "https://dev-api.madewithkiro.com";
       import.meta.env.VITE_API_BASE_URL = developmentApiUrl;
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-west-2_test123";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "dev-client-id";
-      import.meta.env.VITE_COGNITO_REGION = "us-west-2";
+      import.meta.env.VITE_USER_POOL_ID = "us-west-2_devpool";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "dev-client-123";
+      import.meta.env.VITE_AWS_REGION = "us-west-2";
       import.meta.env.MODE = "development";
       import.meta.env.DEV = true;
       import.meta.env.PROD = false;
@@ -53,9 +53,9 @@ describe("Environment Configuration - Acceptance Tests", () => {
     it("should load all development environment variables correctly", async () => {
       // Arrange
       import.meta.env.VITE_API_BASE_URL = "https://dev-api.madewithkiro.com";
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-west-2_devpool";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "dev-client-123";
-      import.meta.env.VITE_COGNITO_REGION = "us-west-2";
+      import.meta.env.VITE_USER_POOL_ID = "us-west-2_devpool";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "dev-client-123";
+      import.meta.env.VITE_AWS_REGION = "us-west-2";
       import.meta.env.VITE_COGNITO_DOMAIN =
         "https://dev.auth.us-west-2.amazoncognito.com";
       import.meta.env.MODE = "development";
@@ -86,9 +86,9 @@ describe("Environment Configuration - Acceptance Tests", () => {
       // Arrange: Set up production environment variables
       const productionApiUrl = "https://api.madewithkiro.com";
       import.meta.env.VITE_API_BASE_URL = productionApiUrl;
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-east-1_prod123";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "prod-client-id";
-      import.meta.env.VITE_COGNITO_REGION = "us-east-1";
+      import.meta.env.VITE_USER_POOL_ID = "us-east-1_prodpool";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "prod-client-456";
+      import.meta.env.VITE_AWS_REGION = "us-east-1";
       import.meta.env.MODE = "production";
       import.meta.env.DEV = false;
       import.meta.env.PROD = true;
@@ -106,9 +106,9 @@ describe("Environment Configuration - Acceptance Tests", () => {
     it("should load all production environment variables correctly", async () => {
       // Arrange
       import.meta.env.VITE_API_BASE_URL = "https://api.madewithkiro.com";
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-east-1_prodpool";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "prod-client-456";
-      import.meta.env.VITE_COGNITO_REGION = "us-east-1";
+      import.meta.env.VITE_USER_POOL_ID = "us-east-1_prodpool";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "prod-client-456";
+      import.meta.env.VITE_AWS_REGION = "us-east-1";
       import.meta.env.VITE_COGNITO_DOMAIN =
         "https://madewithkiro.auth.us-east-1.amazoncognito.com";
       import.meta.env.MODE = "production";
@@ -138,9 +138,9 @@ describe("Environment Configuration - Acceptance Tests", () => {
     it("should throw clear error when API base URL is missing", async () => {
       // Arrange: Set up environment without API base URL
       import.meta.env.VITE_API_BASE_URL = "";
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-east-1_test123";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "test-client-id";
-      import.meta.env.VITE_COGNITO_REGION = "us-east-1";
+      import.meta.env.VITE_USER_POOL_ID = "us-east-1_test123";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "test-client-id";
+      import.meta.env.VITE_AWS_REGION = "us-east-1";
       import.meta.env.MODE = "development";
       import.meta.env.DEV = true;
       import.meta.env.PROD = false;
@@ -156,9 +156,9 @@ describe("Environment Configuration - Acceptance Tests", () => {
     it("should throw clear error when Cognito User Pool ID is missing", async () => {
       // Arrange
       import.meta.env.VITE_API_BASE_URL = "https://api.test.com";
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "test-client-id";
-      import.meta.env.VITE_COGNITO_REGION = "us-east-1";
+      import.meta.env.VITE_USER_POOL_ID = "";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "test-client-id";
+      import.meta.env.VITE_AWS_REGION = "us-east-1";
       import.meta.env.MODE = "development";
       import.meta.env.DEV = true;
       import.meta.env.PROD = false;
@@ -167,16 +167,16 @@ describe("Environment Configuration - Acceptance Tests", () => {
       await expect(async () => {
         await import("../env");
       }).rejects.toThrow(
-        /Missing required environment variable.*VITE_COGNITO_USER_POOL_ID/i
+        /Missing required environment variable.*VITE_USER_POOL_ID/i
       );
     });
 
     it("should throw clear error when Cognito Client ID is missing", async () => {
       // Arrange
       import.meta.env.VITE_API_BASE_URL = "https://api.test.com";
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-east-1_test123";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "";
-      import.meta.env.VITE_COGNITO_REGION = "us-east-1";
+      import.meta.env.VITE_USER_POOL_ID = "us-east-1_test123";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "";
+      import.meta.env.VITE_AWS_REGION = "us-east-1";
       import.meta.env.MODE = "development";
       import.meta.env.DEV = true;
       import.meta.env.PROD = false;
@@ -185,16 +185,16 @@ describe("Environment Configuration - Acceptance Tests", () => {
       await expect(async () => {
         await import("../env");
       }).rejects.toThrow(
-        /Missing required environment variable.*VITE_COGNITO_CLIENT_ID/i
+        /Missing required environment variable.*VITE_USER_POOL_CLIENT_ID/i
       );
     });
 
     it("should throw clear error when Cognito Region is missing", async () => {
       // Arrange
       import.meta.env.VITE_API_BASE_URL = "https://api.test.com";
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-east-1_test123";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "test-client-id";
-      import.meta.env.VITE_COGNITO_REGION = "";
+      import.meta.env.VITE_USER_POOL_ID = "us-east-1_test123";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "test-client-id";
+      import.meta.env.VITE_AWS_REGION = "";
       import.meta.env.MODE = "development";
       import.meta.env.DEV = true;
       import.meta.env.PROD = false;
@@ -203,16 +203,16 @@ describe("Environment Configuration - Acceptance Tests", () => {
       await expect(async () => {
         await import("../env");
       }).rejects.toThrow(
-        /Missing required environment variable.*VITE_COGNITO_REGION/i
+        /Missing required environment variable.*VITE_AWS_REGION/i
       );
     });
 
     it("should throw clear error when API base URL is invalid", async () => {
       // Arrange: Set up environment with invalid URL
       import.meta.env.VITE_API_BASE_URL = "not-a-valid-url";
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-east-1_test123";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "test-client-id";
-      import.meta.env.VITE_COGNITO_REGION = "us-east-1";
+      import.meta.env.VITE_USER_POOL_ID = "us-east-1_test123";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "test-client-id";
+      import.meta.env.VITE_AWS_REGION = "us-east-1";
       import.meta.env.MODE = "development";
       import.meta.env.DEV = true;
       import.meta.env.PROD = false;
@@ -226,9 +226,9 @@ describe("Environment Configuration - Acceptance Tests", () => {
     it("should throw clear error when Cognito region format is invalid", async () => {
       // Arrange: Set up environment with invalid region format
       import.meta.env.VITE_API_BASE_URL = "https://api.test.com";
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-east-1_test123";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "test-client-id";
-      import.meta.env.VITE_COGNITO_REGION = "invalid-region";
+      import.meta.env.VITE_USER_POOL_ID = "us-east-1_test123";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "test-client-id";
+      import.meta.env.VITE_AWS_REGION = "invalid-region";
       import.meta.env.MODE = "development";
       import.meta.env.DEV = true;
       import.meta.env.PROD = false;
@@ -242,9 +242,9 @@ describe("Environment Configuration - Acceptance Tests", () => {
     it("should allow optional Cognito domain to be empty", async () => {
       // Arrange: Set up environment without optional domain
       import.meta.env.VITE_API_BASE_URL = "https://api.test.com";
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-east-1_test123";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "test-client-id";
-      import.meta.env.VITE_COGNITO_REGION = "us-east-1";
+      import.meta.env.VITE_USER_POOL_ID = "us-east-1_test123";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "test-client-id";
+      import.meta.env.VITE_AWS_REGION = "us-east-1";
       import.meta.env.VITE_COGNITO_DOMAIN = "";
       import.meta.env.MODE = "development";
       import.meta.env.DEV = true;
@@ -262,9 +262,9 @@ describe("Environment Configuration - Acceptance Tests", () => {
     it("should correctly identify development environment", async () => {
       // Arrange
       import.meta.env.VITE_API_BASE_URL = "https://dev-api.test.com";
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-east-1_test123";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "test-client-id";
-      import.meta.env.VITE_COGNITO_REGION = "us-east-1";
+      import.meta.env.VITE_USER_POOL_ID = "us-east-1_test123";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "test-client-id";
+      import.meta.env.VITE_AWS_REGION = "us-east-1";
       import.meta.env.MODE = "development";
       import.meta.env.DEV = true;
       import.meta.env.PROD = false;
@@ -281,9 +281,9 @@ describe("Environment Configuration - Acceptance Tests", () => {
     it("should correctly identify production environment", async () => {
       // Arrange
       import.meta.env.VITE_API_BASE_URL = "https://api.test.com";
-      import.meta.env.VITE_COGNITO_USER_POOL_ID = "us-east-1_test123";
-      import.meta.env.VITE_COGNITO_CLIENT_ID = "test-client-id";
-      import.meta.env.VITE_COGNITO_REGION = "us-east-1";
+      import.meta.env.VITE_USER_POOL_ID = "us-east-1_test123";
+      import.meta.env.VITE_USER_POOL_CLIENT_ID = "test-client-id";
+      import.meta.env.VITE_AWS_REGION = "us-east-1";
       import.meta.env.MODE = "production";
       import.meta.env.DEV = false;
       import.meta.env.PROD = true;

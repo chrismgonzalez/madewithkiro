@@ -24,9 +24,9 @@ vi.mock("aws-amplify", () => ({
 
 // Mock environment variables for testing
 vi.stubEnv("VITE_API_BASE_URL", "https://api.test.com");
-vi.stubEnv("VITE_COGNITO_USER_POOL_ID", "us-east-1_testpool");
-vi.stubEnv("VITE_COGNITO_CLIENT_ID", "test-client-id");
-vi.stubEnv("VITE_COGNITO_REGION", "us-east-1");
+vi.stubEnv("VITE_USER_POOL_ID", "us-east-1_testpool");
+vi.stubEnv("VITE_USER_POOL_CLIENT_ID", "test-client-id");
+vi.stubEnv("VITE_AWS_REGION", "us-east-1");
 vi.stubEnv(
   "VITE_COGNITO_DOMAIN",
   "https://test.auth.us-east-1.amazoncognito.com"

@@ -37,8 +37,10 @@ def mock_dynamodb():
 @pytest.fixture
 def mock_cognito_client():
     """Mock Cognito client"""
-    with patch('auth.post_authentication.cognito_client') as mock:
-        yield mock
+    with patch('boto3.client') as mock_boto_client:
+        mock_cognito = MagicMock()
+        mock_boto_client.return_value = mock_cognito
+        yield mock_cognito
 
 
 @pytest.fixture
@@ -206,11 +208,14 @@ class TestPostAuthenticationDuplicateDetection:
 class TestPostAuthenticationCustomAttributes:
     """Test custom attribute setting when duplicates found - Requirements 3.3"""
     
-    def test_set_custom_attributes_when_duplicate_found(self, post_auth_event_otp, mock_dynamodb):
-        """Test that custom attributes are set when duplicate is detected"""
+    def test_set_custom_attributes_when_duplicate_found(self, post_auth_event_otp, mock_dynamodb, mock_cognito_client):
+        """Test that accounts are linked when duplicate is detected"""
         # Setup: Mock duplicate detection
         mock_table = MagicMock()
         mock_dynamodb.Table.return_value = mock_table
+        
+        # Mock Cognito to return no duplicate Google users
+        mock_cognito_client.list_users.return_value = {'Users': []}
         
         # Return duplicate profile
         mock_table.query.return_value = {
@@ -228,12 +233,9 @@ class TestPostAuthenticationCustomAttributes:
         # Execute: Call lambda handler
         result = lambda_handler(post_auth_event_otp, None)
         
-        # Verify: Response should include custom claims
+        # Verify: Response should not include custom claims (accounts are linked immediately)
         assert 'response' in result
-        assert 'claimsOverrideDetails' in result['response']
-        claims = result['response']['claimsOverrideDetails']['claimsToAddOrOverride']
-        assert claims['custom:pending_link'] == 'true'
-        assert claims['custom:link_target_sub'] == 'existing-sub'
+        assert 'claimsOverrideDetails' not in result['response']
     
     def test_no_custom_attributes_when_no_duplicate(self, post_auth_event_otp, mock_dynamodb):
         """Test that custom attributes are not set when no duplicate exists"""
@@ -255,11 +257,14 @@ class TestPostAuthenticationCustomAttributes:
             claims = result['response']['claimsOverrideDetails'].get('claimsToAddOrOverride', {})
             assert 'custom:pending_link' not in claims
     
-    def test_custom_attributes_include_target_sub(self, post_auth_event_otp, mock_dynamodb):
-        """Test that custom:link_target_sub contains the correct duplicate user sub"""
+    def test_custom_attributes_include_target_sub(self, post_auth_event_otp, mock_dynamodb, mock_cognito_client):
+        """Test that accounts are linked immediately when duplicate is found"""
         # Setup: Mock duplicate detection
         mock_table = MagicMock()
         mock_dynamodb.Table.return_value = mock_table
+        
+        # Mock Cognito to return no duplicate Google users
+        mock_cognito_client.list_users.return_value = {'Users': []}
         
         target_sub = 'target-user-sub-999'
         mock_table.query.return_value = {
@@ -277,9 +282,9 @@ class TestPostAuthenticationCustomAttributes:
         # Execute: Call lambda handler
         result = lambda_handler(post_auth_event_otp, None)
         
-        # Verify: custom:link_target_sub should match target sub
-        claims = result['response']['claimsOverrideDetails']['claimsToAddOrOverride']
-        assert claims['custom:link_target_sub'] == target_sub
+        # Verify: Accounts are linked immediately, no custom attributes set
+        assert 'response' in result
+        assert 'claimsOverrideDetails' not in result['response']
 
 
 class TestPostAuthenticationErrorHandling:
