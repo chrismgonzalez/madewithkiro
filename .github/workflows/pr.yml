@@ -52,13 +52,13 @@ jobs:
       - name: Debug environment variables
         run: |
           echo "AWS_REGION: ${{ vars.AWS_REGION }}"
-          echo "DEPLOYMENT_ROLE_ARN: ${{ vars.DEPLOYMENT_ROLE_ARN }}"
+          echo "DEPLOYMENT_ROLE_ARN: ${{ secrets.DEPLOYMENT_ROLE_ARN }}"
 
       - name: Configure AWS credentials
         uses: ./.github/actions/aws-auth
         with:
           aws-region: ${{ vars.AWS_REGION }}
-          role-to-assume: ${{ vars.DEPLOYMENT_ROLE_ARN }}
+          role-to-assume: ${{ secrets.DEPLOYMENT_ROLE_ARN }}
 
       - name: Install dependencies
         run: |
