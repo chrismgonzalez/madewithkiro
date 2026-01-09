@@ -38,25 +38,22 @@ jobs:
 
       - name: Create environment file
         env:
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
-          VITE_USER_POOL_ID: ${{ vars.VITE_USER_POOL_ID }}
-          VITE_USER_POOL_CLIENT_ID: ${{ vars.VITE_USER_POOL_CLIENT_ID }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_USER_POOL_ID: ${{ secrets.VITE_USER_POOL_ID }}
+          VITE_USER_POOL_CLIENT_ID: ${{ secrets.VITE_USER_POOL_CLIENT_ID }}
           VITE_AWS_REGION: ${{ vars.AWS_REGION }}
-          VITE_COGNITO_DOMAIN: ${{ vars.VITE_COGNITO_DOMAIN }}
-          VITE_IDENTITY_POOL_ID: ${{ vars.VITE_IDENTITY_POOL_ID }}
+          VITE_COGNITO_DOMAIN: ${{ secrets.VITE_COGNITO_DOMAIN }}
+          VITE_IDENTITY_POOL_ID: ${{ secrets.VITE_IDENTITY_POOL_ID }}
           VITE_OAUTH_REDIRECT_SIGN_IN: ${{ vars.VITE_OAUTH_REDIRECT_SIGN_IN }}
           VITE_OAUTH_REDIRECT_SIGN_OUT: ${{ vars.VITE_OAUTH_REDIRECT_SIGN_OUT }}
-          VITE_TEST_USER_ID: ${{ vars.VITE_TEST_USER_ID }}
-          VITE_ENVIRONMENT: ${{ vars.VITE_ENVIRONMENT }}
-          VITE_POSTHOG_API_KEY: ${{ vars.VITE_POSTHOG_API_KEY }}
+          VITE_ENVIRONMENT: ${{ inputs.environment }}
+          VITE_POSTHOG_API_KEY: ${{ secrets.VITE_POSTHOG_API_KEY }}
           VITE_POSTHOG_HOST: ${{ vars.VITE_POSTHOG_HOST }}
           VITE_POSTHOG_USE_PROXY: ${{ vars.VITE_POSTHOG_USE_PROXY }}
-          FRONTEND_S3_BUCKET: ${{ vars.FRONTEND_S3_BUCKET }}
-          CLOUDFRONT_DISTRO_ID: ${{ vars.CLOUDFRONT_DISTRO_ID }}
         run: env | grep '^VITE_\|^PROD_' > .env.production
 
       - name: Deploy to production
         env:
-          FRONTEND_S3_BUCKET: ${{ vars.FRONTEND_S3_BUCKET }}
-          CLOUDFRONT_DISTRO_ID: ${{ vars.CLOUDFRONT_DISTRO_ID }}
+          FRONTEND_S3_BUCKET: ${{ secrets.FRONTEND_S3_BUCKET }}
+          CLOUDFRONT_DISTRO_ID: ${{ secrets.CLOUDFRONT_DISTRO_ID }}
         run: make deploy-prod
