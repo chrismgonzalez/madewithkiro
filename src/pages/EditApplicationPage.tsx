@@ -101,7 +101,7 @@ export default function EditApplicationPage() {
     name: application.name,
     description: application.description,
     appUrl: application.appUrl,
-    githubUrl: application.githubUrl,
+    repositoryUrl: application.repositoryUrl,
     tags: application.tags,
   };
 

@@ -177,13 +177,13 @@ class TestCreateApplicationRequest:
             name="My App",
             description="A great app",
             appUrl="https://example.com",
-            githubUrl="https://github.com/user/repo",
+            repositoryUrl="https://github.com/user/repo",
             tags=["tag1", "tag2"]
         )
         assert app.name == "My App"
         assert app.description == "A great app"
         assert str(app.appUrl) == "https://example.com/"
-        assert str(app.githubUrl) == "https://github.com/user/repo"
+        assert str(app.repositoryUrl) == "https://github.com/user/repo"
         assert app.tags == ["tag1", "tag2"]
     
     def test_valid_application_without_github(self):
@@ -195,7 +195,7 @@ class TestCreateApplicationRequest:
             tags=["tag1"]
         )
         assert app.name == "My App"
-        assert app.githubUrl is None
+        assert app.repositoryUrl is None
     
     def test_missing_required_field(self):
         """Test that missing required fields raise validation error"""
