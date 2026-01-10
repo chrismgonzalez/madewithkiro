@@ -94,7 +94,7 @@ Globals:
       AllowOrigin: !If
         - IsProduction
         - !Sub "'https://${DomainName}'"
-        - "'http://localhost:5173'"
+        - "'*'"
       AllowCredentials: true
 
 Resources:
@@ -827,7 +827,7 @@ Resources:
         AllowOrigin: !If
           - IsProduction
           - !Sub "'https://${DomainName}'"
-          - "'http://localhost:5173'"
+          - "'*'"
         AllowCredentials: true
       # Rate Limiting and Throttling Configuration
       # Dev environment: Higher limits for testing and development
