@@ -43,7 +43,7 @@ export default function ApplicationForm({
     name: initialData?.name || "",
     description: initialData?.description || "",
     appUrl: initialData?.appUrl || "",
-    githubUrl: initialData?.githubUrl || "",
+    repositoryUrl: initialData?.repositoryUrl || "",
     tags: initialData?.tags || [],
     visibility: "public", // Always public since auth is required
   });
@@ -61,7 +61,7 @@ export default function ApplicationForm({
     name: initialData?.name || "",
     description: initialData?.description || "",
     appUrl: initialData?.appUrl || "",
-    githubUrl: initialData?.githubUrl || "",
+    repositoryUrl: initialData?.repositoryUrl || "",
     tags: initialData?.tags || [],
     visibility: "public", // Always public since auth is required
   });
@@ -80,7 +80,7 @@ export default function ApplicationForm({
       formData.name !== originalData.name ||
       formData.description !== originalData.description ||
       formData.appUrl !== originalData.appUrl ||
-      formData.githubUrl !== originalData.githubUrl ||
+      formData.repositoryUrl !== originalData.repositoryUrl ||
       JSON.stringify(formData.tags.sort()) !==
         JSON.stringify(originalData.tags.sort()) ||
       formData.visibility !== originalData.visibility
@@ -168,7 +168,7 @@ export default function ApplicationForm({
       name: true,
       description: true,
       appUrl: true,
-      githubUrl: true,
+      repositoryUrl: true,
       tags: true,
     });
 
@@ -311,31 +311,31 @@ export default function ApplicationForm({
               Application Links
             </h3>
 
-            {/* GitHub URL */}
+            {/* Repository URL */}
             <div className="space-y-2">
-              <Label htmlFor="githubUrl">
-                GitHub Repository URL <span className="text-red-500">*</span>
+              <Label htmlFor="repositoryUrl">
+                Repository URL (Optional)
               </Label>
               <InputGroup>
                 <InputGroupInput
-                  id="githubUrl"
+                  id="repositoryUrl"
                   type="url"
-                  placeholder="https://github.com/username/repo"
-                  value={formData.githubUrl}
+                  placeholder="https://github.com/username/repo or https://gitlab.com/username/repo"
+                  value={formData.repositoryUrl}
                   onChange={(e) =>
-                    handleInputChange("githubUrl", e.target.value)
+                    handleInputChange("repositoryUrl", e.target.value)
                   }
-                  onBlur={() => handleBlur("githubUrl")}
-                  className={hasFieldError("githubUrl") ? "border-red-500" : ""}
-                  aria-invalid={hasFieldError("githubUrl")}
+                  onBlur={() => handleBlur("repositoryUrl")}
+                  className={hasFieldError("repositoryUrl") ? "border-red-500" : ""}
+                  aria-invalid={hasFieldError("repositoryUrl")}
                   aria-describedby={
-                    hasFieldError("githubUrl") ? "githubUrl-error" : undefined
+                    hasFieldError("repositoryUrl") ? "repositoryUrl-error" : undefined
                   }
                 />
               </InputGroup>
-              {hasFieldError("githubUrl") && (
-                <p id="githubUrl-error" className="text-sm text-red-500">
-                  {getFieldError("githubUrl")}
+              {hasFieldError("repositoryUrl") && (
+                <p id="repositoryUrl-error" className="text-sm text-red-500">
+                  {getFieldError("repositoryUrl")}
                 </p>
               )}
             </div>

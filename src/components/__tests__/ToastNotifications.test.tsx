@@ -140,7 +140,7 @@ describe("Toast Notifications - Acceptance Tests", () => {
       await user.type(screen.getByLabelText(/application name/i), "My App");
       await user.type(screen.getByLabelText(/description/i), "A great app");
       await user.type(
-        screen.getByLabelText(/github repository url/i),
+        screen.getByLabelText(/repository url/i),
         "https://github.com/user/repo"
       );
       await user.type(screen.getByLabelText(/tags/i), "react, typescript");
@@ -218,7 +218,7 @@ describe("Toast Notifications - Acceptance Tests", () => {
       await user.type(screen.getByLabelText(/application name/i), "My App");
       await user.type(screen.getByLabelText(/description/i), "A great app");
       await user.type(
-        screen.getByLabelText(/github repository url/i),
+        screen.getByLabelText(/repository url/i),
         "https://github.com/user/repo"
       );
       await user.type(screen.getByLabelText(/tags/i), "react");

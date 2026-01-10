@@ -75,7 +75,7 @@ class CreateApplicationRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="Application name")
     description: str = Field(..., min_length=1, max_length=500, description="Application description")
     appUrl: Optional[HttpUrl] = Field(None, description="Live application URL (optional)")
-    githubUrl: Optional[HttpUrl] = Field(None, description="GitHub repository URL (optional)")
+    repositoryUrl: Optional[HttpUrl] = Field(None, description="Repository URL (GitHub, GitLab, etc.) (optional)")
     tags: List[str] = Field(..., min_length=1, max_length=10, description="Application tags")
     userId: Optional[str] = Field(None, description="User ID (for POC without Cognito)")
     
@@ -116,6 +116,6 @@ class Application(BaseModel):
     name: str
     description: str
     appUrl: Optional[str] = None
-    githubUrl: Optional[str] = None
+    repositoryUrl: Optional[str] = None
     tags: List[str]
     createdAt: str

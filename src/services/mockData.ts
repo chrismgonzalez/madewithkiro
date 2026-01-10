@@ -64,7 +64,7 @@ const mockApplications: Application[] = [
     description:
       "An intelligent code review tool built with Kiro that analyzes pull requests and provides actionable feedback using AI.",
     appUrl: "https://code-review-ai.example.com",
-    githubUrl: "https://github.com/sarahchen-dev/ai-code-review",
+    repositoryUrl: "https://github.com/sarahchen-dev/ai-code-review",
     tags: ["AI", "Code Review", "Developer Tools", "Automation"],
     createdAt: "2024-03-01T10:00:00Z",
   },
@@ -87,7 +87,7 @@ const mockApplications: Application[] = [
     description:
       "A fully serverless blog platform with markdown support, built entirely with AWS services and Kiro.",
     appUrl: "https://serverless-blog.example.com",
-    githubUrl: "https://github.com/mrodriguez/serverless-blog",
+    repositoryUrl: "https://github.com/mrodriguez/serverless-blog",
     tags: ["Serverless", "Blog", "AWS", "Markdown"],
     createdAt: "2024-03-10T11:30:00Z",
   },
@@ -121,7 +121,7 @@ const mockApplications: Application[] = [
     description:
       "A beautiful and intuitive task management application with team collaboration features.",
     appUrl: "https://task-manager.example.com",
-    githubUrl: "https://github.com/apatel-codes/task-manager",
+    repositoryUrl: "https://github.com/apatel-codes/task-manager",
     tags: ["Productivity", "Task Management", "Collaboration", "SaaS"],
     createdAt: "2024-03-18T13:15:00Z",
   },
@@ -155,7 +155,7 @@ const mockApplications: Application[] = [
     description:
       "A community-driven platform for sharing and discovering recipes with social features.",
     appUrl: "https://recipe-share.example.com",
-    githubUrl: "https://github.com/jwilson/recipe-platform",
+    repositoryUrl: "https://github.com/jwilson/recipe-platform",
     tags: ["Social", "Food", "Community", "Recipes"],
     createdAt: "2024-03-25T12:00:00Z",
   },
@@ -189,7 +189,7 @@ const mockApplications: Application[] = [
     description:
       "Internal platform for coordinating beta testing with early adopters.",
     appUrl: "https://beta-testing.example.com",
-    githubUrl: "https://github.com/jwilson/beta-platform",
+    repositoryUrl: "https://github.com/jwilson/beta-platform",
     tags: ["Testing", "Beta", "Internal Tools"],
     createdAt: "2024-04-03T14:15:00Z",
   },

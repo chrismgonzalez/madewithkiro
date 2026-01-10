@@ -6,7 +6,7 @@ import ApplicationForm from "../ApplicationForm";
 
 describe("ApplicationForm - Acceptance Tests", () => {
   describe("GIVEN I view the application form", () => {
-    it("WHEN the form renders THEN I should see input fields for name, description, appUrl, githubUrl, and tags", () => {
+    it("WHEN the form renders THEN I should see input fields for name, description, appUrl, repositoryUrl, and tags", () => {
       // Arrange & Act
       render(<ApplicationForm onSubmit={vi.fn()} onCancel={vi.fn()} />);
 
@@ -21,7 +21,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
         screen.getByLabelText(/live app url/i, { selector: "input" })
       ).toBeInTheDocument();
       expect(
-        screen.getByLabelText(/github.*url/i, { selector: "input" })
+        screen.getByLabelText(/repository.*url/i, { selector: "input" })
       ).toBeInTheDocument();
       expect(
         screen.getByLabelText(/tags/i, { selector: "input" })
@@ -47,7 +47,6 @@ describe("ApplicationForm - Acceptance Tests", () => {
         ).toBeInTheDocument();
       });
       expect(screen.getByText(/description is required/i)).toBeInTheDocument();
-      expect(screen.getByText(/GitHub URL is required/i)).toBeInTheDocument();
       expect(
         screen.getByText(/at least one tag is required/i)
       ).toBeInTheDocument();
@@ -77,7 +76,6 @@ describe("ApplicationForm - Acceptance Tests", () => {
           screen.getByText(/description is required/i)
         ).toBeInTheDocument();
       });
-      expect(screen.getByText(/GitHub URL is required/i)).toBeInTheDocument();
       expect(
         screen.getByText(/at least one tag is required/i)
       ).toBeInTheDocument();
@@ -127,13 +125,13 @@ describe("ApplicationForm - Acceptance Tests", () => {
       expect(onSubmit).not.toHaveBeenCalled();
     });
 
-    it("WHEN I submit with invalid GitHub URL THEN I should see a URL validation error", async () => {
+    it("WHEN I submit with invalid Repository URL THEN I should see a URL validation error", async () => {
       // Arrange
       const user = userEvent.setup();
       const onSubmit = vi.fn();
       render(<ApplicationForm onSubmit={onSubmit} onCancel={vi.fn()} />);
 
-      // Act - Fill fields with invalid GitHub URL
+      // Act - Fill fields with invalid Repository URL
       await user.type(
         screen.getByLabelText(/application name/i, { selector: "input" }),
         "My App"
@@ -147,8 +145,8 @@ describe("ApplicationForm - Acceptance Tests", () => {
         "https://example.com"
       );
       await user.type(
-        screen.getByLabelText(/github.*url/i, { selector: "input" }),
-        "invalid-github-url"
+        screen.getByLabelText(/repository.*url/i, { selector: "input" }),
+        "invalid-repository-url"
       );
       await user.type(
         screen.getByLabelText(/tags/i, { selector: "input" }),
@@ -158,7 +156,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
       const submitButton = screen.getByRole("button", { name: /submit|save/i });
       await user.click(submitButton);
 
-      // Assert - Should see URL validation error for GitHub URL
+      // Assert - Should see URL validation error for Repository URL
       await waitFor(() => {
         expect(screen.getByText(/Must be a valid URL/i)).toBeInTheDocument();
       });
@@ -174,7 +172,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
       const onSubmit = vi.fn();
       render(<ApplicationForm onSubmit={onSubmit} onCancel={vi.fn()} />);
 
-      // Act - Fill all required fields
+      // Act - Fill all required fields (GitHub URL is now optional)
       await user.type(
         screen.getByLabelText(/application name/i, { selector: "input" }),
         "My Awesome App"
@@ -182,14 +180,6 @@ describe("ApplicationForm - Acceptance Tests", () => {
       await user.type(
         screen.getByLabelText(/description/i, { selector: "textarea" }),
         "This is a great application built with Kiro"
-      );
-      await user.type(
-        screen.getByLabelText(/github.*url/i, { selector: "input" }),
-        "https://github.com/user/myapp"
-      );
-      await user.type(
-        screen.getByLabelText(/live app url/i, { selector: "input" }),
-        "https://myapp.example.com"
       );
       await user.type(
         screen.getByLabelText(/tags/i, { selector: "input" }),
@@ -208,8 +198,8 @@ describe("ApplicationForm - Acceptance Tests", () => {
       expect(onSubmit).toHaveBeenCalledWith({
         name: "My Awesome App",
         description: "This is a great application built with Kiro",
-        appUrl: "https://myapp.example.com",
-        githubUrl: "https://github.com/user/myapp",
+        appUrl: "",
+        repositoryUrl: "",
         tags: ["react", "typescript", "aws"],
         visibility: "public",
       });
@@ -235,7 +225,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
         "https://fullapp.example.com"
       );
       await user.type(
-        screen.getByLabelText(/github.*url/i, { selector: "input" }),
+        screen.getByLabelText(/repository.*url/i, { selector: "input" }),
         "https://github.com/user/repo"
       );
       await user.type(
@@ -255,7 +245,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
         name: "Full Featured App",
         description: "An app with all fields filled",
         appUrl: "https://fullapp.example.com",
-        githubUrl: "https://github.com/user/repo",
+        repositoryUrl: "https://github.com/user/repo",
         tags: ["react", "node", "aws"],
         visibility: "public",
       });
@@ -285,7 +275,9 @@ describe("ApplicationForm - Acceptance Tests", () => {
 
       // Wait for validation errors
       await waitFor(() => {
-        expect(screen.getByText(/GitHub URL is required/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/at least one tag is required/i)
+        ).toBeInTheDocument();
       });
 
       // Assert - Form state should be preserved
@@ -301,14 +293,6 @@ describe("ApplicationForm - Acceptance Tests", () => {
 
       // Now complete the form
       await user.type(
-        screen.getByLabelText(/github.*url/i, { selector: "input" }),
-        "https://github.com/user/myapp"
-      );
-      await user.type(
-        screen.getByLabelText(/live app url/i, { selector: "input" }),
-        "https://myapp.com"
-      );
-      await user.type(
         screen.getByLabelText(/tags/i, { selector: "input" }),
         "react"
       );
@@ -323,8 +307,8 @@ describe("ApplicationForm - Acceptance Tests", () => {
       expect(onSubmit).toHaveBeenCalledWith({
         name: "My App",
         description: "Great app",
-        appUrl: "https://myapp.com",
-        githubUrl: "https://github.com/user/myapp",
+        appUrl: "",
+        repositoryUrl: "",
         tags: ["react"],
         visibility: "public",
       });
@@ -337,7 +321,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
       name: "Existing App",
       description: "This is an existing application",
       appUrl: "https://existing.com",
-      githubUrl: "https://github.com/user/existing",
+      repositoryUrl: "https://github.com/user/existing",
       tags: ["react", "typescript"],
       visibility: "public" as const,
     };
@@ -364,7 +348,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
         const appUrlInput = screen.getByLabelText(/live app url/i, {
           selector: "input",
         }) as HTMLInputElement;
-        const githubUrlInput = screen.getByLabelText(/github.*url/i, {
+        const repositoryUrlInput = screen.getByLabelText(/repository.*url/i, {
           selector: "input",
         }) as HTMLInputElement;
         const tagsInput = screen.getByLabelText(/tags/i, {
@@ -374,7 +358,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
         expect(nameInput.value).toBe("Existing App");
         expect(descriptionInput.value).toBe("This is an existing application");
         expect(appUrlInput.value).toBe("https://existing.com");
-        expect(githubUrlInput.value).toBe("https://github.com/user/existing");
+        expect(repositoryUrlInput.value).toBe("https://github.com/user/existing");
         expect(tagsInput.value).toBe("react,typescript");
       });
 
@@ -489,7 +473,7 @@ describe("ApplicationForm - Acceptance Tests", () => {
           name: "Updated App Name",
           description: "This is an existing application",
           appUrl: "https://existing.com",
-          githubUrl: "https://github.com/user/existing",
+          repositoryUrl: "https://github.com/user/existing",
           tags: ["react", "typescript"],
           visibility: "public",
         });
