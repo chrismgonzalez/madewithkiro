@@ -114,7 +114,7 @@ jobs:
           uv pip install -e .
 
       - name: Build SAM application
-        run: sam build --template infrastructure/template.yaml
+        run: sam build --template-file infrastructure/template.yaml
 
       - name: Set artifact name
         id: artifact

@@ -37,52 +37,7 @@ runs:
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-    - name: Cache Bun dependencies
-      if: inputs.cache-enabled == 'true'
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.bun/install/cache
-          node_modules
-        key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lockb', '**/package.json') }}
-        restore-keys: |
-          bun-${{ runner.os }}-
-
-    - name: Cache Python dependencies
-      if: inputs.cache-enabled == 'true'
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cache/uv
-          backend/.venv
-        key: python-${{ runner.os }}-${{ hashFiles('**/requirements.txt', '**/pyproject.toml', '**/uv.lock') }}
-        restore-keys: |
-          python-${{ runner.os }}-
-
-    - name: Install frontend dependencies
-      shell: bash
-      run: bun install --frozen-lockfile
-
-    - name: Install backend dependencies
-      shell: bash
-      working-directory: backend
-      run: |
-        uv venv
-        source .venv/bin/activate
-        uv pip sync requirements.txt
-
     - name: Setup AWS SAM CLI
       uses: aws-actions/setup-sam@v2
       with:
         version: ${{ inputs.sam-version }}
-
-    - name: Cache SAM build artifacts
-      if: inputs.cache-enabled == 'true'
-      uses: actions/cache@v3
-      with:
-        path: |
-          .aws-sam/build
-          .aws-sam/cache
-        key: sam-${{ runner.os }}-${{ hashFiles('**/template.yaml', '**/requirements.txt') }}
-        restore-keys: |
-          sam-${{ runner.os }}-

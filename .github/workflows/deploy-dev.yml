@@ -11,7 +11,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: development
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,8 +46,30 @@ jobs:
           VITE_POSTHOG_USE_PROXY: ${{ vars.VITE_POSTHOG_USE_PROXY }}
         run: env | grep '^VITE_\|^DEV_' > .env.development
 
-      - name: Deploy to development
-        env:
-          FRONTEND_S3_BUCKET: ${{ secrets.FRONTEND_S3_BUCKET }}
-          CLOUDFRONT_DISTRO_ID: ${{ secrets.CLOUDFRONT_DISTRO_ID }}
-        run: make deploy-dev
+      - name: Build frontend
+        run: bun run build
+
+      - name: Build SAM application
+        run: sam build --template-file infrastructure/template.yaml
+
+      - name: Deploy SAM stack
+        run: sam deploy --config-file infrastructure/samconfig.toml --config-env dev --no-confirm-changeset --no-fail-on-empty-changeset
+
+      - name: Get S3 bucket and CloudFront distribution
+        id: get-resources
+        run: |
+          STACK_NAME="madewithkiro-dev"
+          S3_BUCKET=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucket`].OutputValue' --output text 2>/dev/null || echo "")
+          CF_DISTRO=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text 2>/dev/null || echo "")
+          echo "s3-bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
+          echo "cf-distro=$CF_DISTRO" >> $GITHUB_OUTPUT
+
+      - name: Upload frontend to S3
+        if: steps.get-resources.outputs.s3-bucket != ''
+        run: |
+          aws s3 sync dist/ s3://${{ steps.get-resources.outputs.s3-bucket }}/ --delete
+
+      - name: Invalidate CloudFront cache
+        if: steps.get-resources.outputs.cf-distro != ''
+        run: |
+          aws cloudfront create-invalidation --distribution-id ${{ steps.get-resources.outputs.cf-distro }} --paths "/*"
