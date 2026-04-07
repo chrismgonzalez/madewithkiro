@@ -111,6 +111,7 @@ jobs:
       - name: Install backend dependencies
         run: |
           cd backend
+          uv venv
           uv pip install -e .
 
       - name: Build SAM application

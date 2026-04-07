@@ -63,7 +63,7 @@ jobs:
       - name: Install dependencies
         run: |
           bun install
-          cd backend && uv pip install -e .
+          cd backend && uv venv && uv pip install -e .
 
       - name: Create environment file
         env:
