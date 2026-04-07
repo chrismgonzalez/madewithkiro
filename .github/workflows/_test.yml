@@ -100,10 +100,10 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Validate SAM template
-        run: sam validate --lint
+        run: sam validate --template-file infrastructure/template.yaml --lint
 
       - name: Validate OIDC template
-        run: sam validate --template-file oidc-template.yaml --lint
+        run: sam validate --template-file infrastructure/oidc/template.yaml --lint
 
       - name: Validate certificate template
-        run: sam validate --template-file certificate-template.yaml --lint
+        run: sam validate --template-file infrastructure/certificate/template.yaml --lint

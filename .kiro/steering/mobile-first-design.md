@@ -1,5 +1,6 @@
 ---
-inclusion: always
+inclusion: fileMatch
+fileMatchPattern: '*.tsx,*.css'
 ---
 
 # Mobile-First Design Enforcement

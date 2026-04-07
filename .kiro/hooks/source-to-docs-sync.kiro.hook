@@ -1,13 +1,13 @@
 {
   "enabled": true,
   "name": "Source to Docs Sync",
-  "description": "Monitors changes to Python source files (*.py), TypeScript/JavaScript files (*.ts, *.tsx, *.js, *.jsx), configuration files (template.yaml, samconfig.toml, package.json, pyproject.toml), and other relevant source patterns. When these files change, asks the agent to review and update documentation in README.md or the /docs folder to reflect the changes.",
+  "description": "Monitors source file changes and proposes updates to documentation in /docs, the steering code-index.md, and README.md to keep them in sync with the codebase.",
   "version": "1",
   "when": {
     "type": "userTriggered"
   },
   "then": {
     "type": "askAgent",
-    "prompt": "A source file has been modified. Review the changes and determine if documentation needs to be updated. Check if the changes affect:\n\n1. API endpoints or interfaces\n2. Configuration options or environment variables\n3. Architecture or data models\n4. Setup or deployment procedures\n5. Component props or usage patterns\n6. New features or functionality\n\nIf documentation updates are needed, update the relevant files in /docs or README.md to reflect the changes. Focus on:\n- Keeping examples accurate\n- Updating setup instructions if needed\n- Documenting new features or breaking changes\n- Ensuring architecture diagrams match implementation\n\nIf no documentation changes are needed, briefly explain why."
+    "prompt": "Source files have been modified. Use the 'docs' skill to check for documentation drift and propose updates. The docs skill will:\n\n1. Discover existing documentation\n2. Analyze what changed semantically\n3. Map changes to affected documentation\n4. Produce a sync report with proposed updates\n5. Wait for approval before applying changes\n\nFocus on these documentation areas:\n- code-index.md (always check for new/changed/deleted files)\n- TECHNICAL_REFERENCE.md (APIs, models, utilities)\n- ARCHITECTURE.md (system design, data flow)\n- SCHEMA.md (DynamoDB access patterns)\n- development-guide.md (coding patterns, conventions)\n- DEVELOPER.md (setup steps, commands)\n- DEPLOYMENT.md (infrastructure, deployment)\n- README.md (high-level features)\n\nIf no documentation changes are needed, briefly explain why."
   }
 }
