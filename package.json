@@ -4,15 +4,15 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --project tsconfig.build.json && vite build",
-    "preview": "vite preview",
-    "test": "vitest --run",
-    "test:watch": "vitest",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest --run --coverage",
-    "test:property": "vitest --run --grep 'Property [0-9]+:'",
-    "test:unit": "vitest --run --grep -v 'Property [0-9]+:'"
+    "dev": "vite --config config/vite.config.ts",
+    "build": "tsc --project config/tsconfig.build.json && vite build --config config/vite.config.ts",
+    "preview": "vite preview --config config/vite.config.ts",
+    "test": "vitest --run --config config/vitest.config.ts",
+    "test:watch": "vitest --config config/vitest.config.ts",
+    "test:ui": "vitest --ui --config config/vitest.config.ts",
+    "test:coverage": "vitest --run --coverage --config config/vitest.config.ts",
+    "test:property": "vitest --run --grep 'Property [0-9]+:' --config config/vitest.config.ts",
+    "test:unit": "vitest --run --grep -v 'Property [0-9]+:' --config config/vitest.config.ts"
   },
   "dependencies": {
     "@aws-amplify/auth": "^6.17.0",

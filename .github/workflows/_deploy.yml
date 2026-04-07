@@ -71,13 +71,12 @@ jobs:
           name: ${{ inputs.backend-artifact-name }}
           path: .aws-sam/
 
-      - name: Deploy SAM stack using Makefile
+      - name: Deploy SAM stack
         run: |
           if [ "${{ inputs.environment }}" = "dev" ]; then
-            make deploy-dev
+            sam deploy --config-file infrastructure/samconfig.toml --config-env dev --no-confirm-changeset --no-fail-on-empty-changeset
           elif [ "${{ inputs.environment }}" = "prod" ]; then
-            # For prod, we need to handle the confirmation automatically
-            echo "y" | make deploy-prod
+            sam deploy --config-file infrastructure/samconfig.toml --config-env prod --no-confirm-changeset --no-fail-on-empty-changeset
           else
             echo "Unknown environment: ${{ inputs.environment }}"
             exit 1
@@ -118,28 +117,24 @@ jobs:
           name: ${{ inputs.frontend-artifact-name }}
           path: dist/
 
-      - name: Upload frontend using Makefile
+      - name: Get S3 bucket and CloudFront distribution
+        id: get-resources
         run: |
-          if [ "${{ inputs.environment }}" = "dev" ]; then
-            make upload-frontend-dev
-          elif [ "${{ inputs.environment }}" = "prod" ]; then
-            # For prod, we need to handle the confirmation automatically
-            echo "y" | make upload-frontend-prod
-          else
-            echo "Unknown environment: ${{ inputs.environment }}"
-            exit 1
-          fi
+          STACK_NAME="madewithkiro-${{ inputs.environment }}"
+          S3_BUCKET=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==`FrontendBucket`].OutputValue' --output text 2>/dev/null || echo "")
+          CF_DISTRO=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' --output text 2>/dev/null || echo "")
+          echo "s3-bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
+          echo "cf-distro=$CF_DISTRO" >> $GITHUB_OUTPUT
 
-      - name: Invalidate CloudFront cache using Makefile
+      - name: Upload frontend to S3
+        if: steps.get-resources.outputs.s3-bucket != ''
         run: |
-          if [ "${{ inputs.environment }}" = "dev" ]; then
-            make invalidate-cloudfront-dev
-          elif [ "${{ inputs.environment }}" = "prod" ]; then
-            make invalidate-cloudfront-prod
-          else
-            echo "Unknown environment: ${{ inputs.environment }}"
-            exit 1
-          fi
+          aws s3 sync dist/ s3://${{ steps.get-resources.outputs.s3-bucket }}/ --delete
+
+      - name: Invalidate CloudFront cache
+        if: steps.get-resources.outputs.cf-distro != ''
+        run: |
+          aws cloudfront create-invalidation --distribution-id ${{ steps.get-resources.outputs.cf-distro }} --paths "/*"
 
       - name: Get deployment URL
         id: get-url

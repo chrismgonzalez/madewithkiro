@@ -77,7 +77,6 @@ env/
 aws-credentials
 aws-config
 credentials
-config
 
 # Secrets and sensitive data
 secrets/
@@ -131,5 +130,3 @@ local-secrets/
 samconfig.toml.bak
 outputs.json
 stack-outputs.json
-
-docs/

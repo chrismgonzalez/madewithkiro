@@ -85,15 +85,15 @@ seed-db-local: ## Seed local DynamoDB (for local development)
 
 sam-validate: ## Validate SAM template
 	@echo "$(BLUE)Validating SAM template...$(NC)"
-	sam validate --lint
+	sam validate --template infrastructure/template.yaml --lint
 	@echo "$(GREEN)✓ SAM template is valid$(NC)"
 
 deploy-certificate: ## Deploy ACM certificate in us-east-1 (required for prod custom domain)
 	@echo "$(BLUE)Deploying ACM certificate to us-east-1...$(NC)"
 	@echo "$(YELLOW)This must be done before deploying prod with custom domain$(NC)"
 	sam deploy \
-		--template-file certificate-template.yaml \
-		--config-file certificate-samconfig.toml \
+		--template-file infrastructure/certificate/template.yaml \
+		--config-file infrastructure/certificate/samconfig.toml \
 		--stack-name madewithkiro-certificate \
 		--region us-east-1 \
 		--no-confirm-changeset
@@ -107,14 +107,14 @@ deploy-certificate: ## Deploy ACM certificate in us-east-1 (required for prod cu
 		--query 'Stacks[0].Outputs[?OutputKey==`CertificateArn`].OutputValue' \
 		--output text
 	@echo ""
-	@echo "$(YELLOW)Add this ARN to samconfig.toml prod parameters:$(NC)"
+	@echo "$(YELLOW)Add this ARN to infrastructure/samconfig.toml prod parameters:$(NC)"
 	@echo "  CertificateArn=<ARN_FROM_ABOVE>"
 
 deploy-dev: ## Deploy to development environment
 	@cp .env.development .env
 	bun run build
-	sam build
-	sam deploy --config-env dev --no-confirm-changeset --no-fail-on-empty-changeset
+	sam build --template infrastructure/template.yaml
+	sam deploy --config-file infrastructure/samconfig.toml --config-env dev --no-confirm-changeset --no-fail-on-empty-changeset
 	@if [ -n "$$FRONTEND_S3_BUCKET" ]; then \
 		aws s3 sync dist/ s3://$$FRONTEND_S3_BUCKET/ --delete; \
 		if [ -n "$$CLOUDFRONT_DISTRO_ID" ]; then \
@@ -125,8 +125,8 @@ deploy-dev: ## Deploy to development environment
 deploy-prod: ## Deploy to production environment  
 	@cp .env.production .env
 	bun run build
-	sam build
-	sam deploy --config-env prod --no-confirm-changeset --no-fail-on-empty-changeset
+	sam build --template infrastructure/template.yaml
+	sam deploy --config-file infrastructure/samconfig.toml --config-env prod --no-confirm-changeset --no-fail-on-empty-changeset
 	@if [ -n "$$FRONTEND_S3_BUCKET" ]; then \
 		aws s3 sync dist/ s3://$$FRONTEND_S3_BUCKET/ --delete; \
 		if [ -n "$$CLOUDFRONT_DISTRO_ID" ]; then \

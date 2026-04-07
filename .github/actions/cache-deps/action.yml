@@ -62,7 +62,7 @@ runs:
         echo "python-restore-keys=${{ inputs.cache-prefix }}-python-${{ runner.os }}-" >> $GITHUB_OUTPUT
 
         # Generate SAM cache key with template and dependencies hashing
-        SAM_FILES="template.yaml"
+        SAM_FILES="infrastructure/template.yaml"
         if [ -f "backend/requirements.txt" ]; then
           SAM_FILES="$SAM_FILES backend/requirements.txt"
         fi
@@ -102,6 +102,15 @@ runs:
           .aws-sam/cache
         key: ${{ steps.cache-keys.outputs.sam-key }}
         restore-keys: ${{ steps.cache-keys.outputs.sam-restore-keys }}
+
+    - name: Cache SAM dependencies
+      if: inputs.cache-sam == 'true'
+      uses: actions/cache@v3
+      with:
+        path: |
+          .aws-sam/deps
+        key: ${{ steps.cache-keys.outputs.sam-key }}-deps
+        restore-keys: ${{ steps.cache-keys.outputs.sam-restore-keys }}-deps
 
     - name: Report cache status
       shell: bash

@@ -24,13 +24,39 @@ Visit [madewithkiro.com](https://madewithkiro.com) to:
 3. Add your first application
 4. Share your profile with others
 
-
 ## Features
 
 - **User Profiles** - Showcase who you are and link to your professional profiles
 - **Application Gallery** - Browse all projects created by the community
 - **Tag-based Discovery** - Find projects by technology, category, or use case
 - **Direct Links** - Quick access to live apps and source code
+
+## Project Structure
+
+```
+.
+├── src/                    # React frontend (TypeScript)
+├── backend/                # Python Lambda functions
+├── infrastructure/         # AWS SAM templates
+│   ├── template.yaml       # Main infrastructure
+│   ├── certificate/        # ACM certificate setup
+│   └── oidc/              # OIDC provider setup
+├── config/                 # Build & tool configurations
+│   ├── vite.config.ts     # Vite build config
+│   ├── vitest.config.ts   # Test config
+│   ├── tsconfig.json      # TypeScript config
+│   └── tailwind.config.js # Tailwind CSS config
+├── docs/                   # Documentation
+├── scripts/                # Setup & deployment scripts
+├── .kiro/                  # Kiro AI configuration
+│   ├── skills/            # On-demand guidance
+│   ├── steering/          # Always-on context
+│   └── hooks/             # Automated workflows
+├── Makefile               # Common commands
+└── package.json           # Frontend dependencies
+```
+
+For developers, see [docs/DEVELOPER.md](docs/DEVELOPER.md) for setup instructions.
 
 ## Community
 
