@@ -65,8 +65,7 @@ jobs:
       - name: Install backend dependencies
         run: |
           cd backend
-          uv venv
-          uv pip install -e ".[dev]"
+          uv sync --extra dev
 
       - name: Run Python linting (ruff)
         run: |
