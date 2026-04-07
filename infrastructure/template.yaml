@@ -220,7 +220,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-DefineAuthChallenge-${Environment}
-      CodeUri: backend/
+      CodeUri: ../backend/
       Handler: auth.define_auth_challenge.lambda_handler
       Description: Define custom authentication flow and enforce rate limiting
       Environment:
@@ -245,7 +245,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-CreateAuthChallenge-${Environment}
-      CodeUri: backend/
+      CodeUri: ../backend/
       Handler: auth.create_auth_challenge.lambda_handler
       Description: Generate OTP codes and send via SES
       Environment:
@@ -287,7 +287,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-VerifyAuthChallenge-${Environment}
-      CodeUri: backend/
+      CodeUri: ../backend/
       Handler: auth.verify_auth_challenge.lambda_handler
       Description: Verify OTP codes and link duplicate accounts
       Environment:
@@ -332,7 +332,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-PreTokenGeneration-${Environment}
-      CodeUri: backend/
+      CodeUri: ../backend/
       Handler: auth.pre_token_generation.lambda_handler
       Description: Add custom claims to JWT tokens for account linking
       Environment:
@@ -364,7 +364,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-PostAuthentication-${Environment}
-      CodeUri: backend/
+      CodeUri: ../backend/
       Handler: auth.post_authentication.lambda_handler
       Description: Create user profiles after successful OTP authentication and link duplicate accounts
       Environment:
@@ -408,7 +408,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-PreSignUp-${Environment}
-      CodeUri: backend/
+      CodeUri: ../backend/
       Handler: auth.pre_signup.lambda_handler
       Description: Auto-confirm users for OTP authentication
       Environment:
@@ -432,7 +432,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-Register-${Environment}
-      CodeUri: backend/
+      CodeUri: ../backend/
       Handler: auth.register.lambda_handler
       Description: Register new users for OTP authentication
       Environment:
@@ -472,7 +472,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-LinkAccounts-${Environment}
-      CodeUri: backend/
+      CodeUri: ../backend/
       Handler: auth.link_accounts.lambda_handler
       Description: Execute user-confirmed account linking at Cognito level
       Environment:
@@ -524,7 +524,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-ConfirmLinkAccounts-${Environment}
-      CodeUri: backend/
+      CodeUri: ../backend/
       Handler: auth.confirm_link_accounts.lambda_handler
       Description: Execute account linking after user confirmation
       Environment:
@@ -891,7 +891,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-Profile-${Environment}
-      CodeUri: backend/
+      CodeUri: ../backend/
       Handler: profile.handler.lambda_handler
       Description: Handle profile operations (create, read, update, link accounts)
       Environment:
@@ -974,7 +974,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub MadeWithKiro-Application-${Environment}
-      CodeUri: backend/
+      CodeUri: ../backend/
       Handler: application.handler.lambda_handler
       Description: Handle application operations (create, list, query)
       Environment:
