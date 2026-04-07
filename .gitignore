@@ -77,7 +77,6 @@ env/
 aws-credentials
 aws-config
 credentials
-config
 
 # Secrets and sensitive data
 secrets/
